@@ -48,7 +48,7 @@ class SEOgen_Plugin {
 			'labels'             => $labels,
 			'public'             => true,
 			'show_ui'            => true,
-			'show_in_menu'       => 'seogen-settings',
+			'show_in_menu'       => false,
 			'has_archive'        => false,
 			'rewrite'            => array( 'slug' => 'programmatic-page' ),
 			'supports'           => array( 'title', 'editor', 'revisions' ),
