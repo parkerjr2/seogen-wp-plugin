@@ -2538,6 +2538,19 @@ class SEOgen_Admin {
 						continue;
 					}
 					
+					// Skip items already successfully imported in local job state
+					if ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] && 'completed' === $item_status ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: already imported (local status=success)' . PHP_EOL, FILE_APPEND );
+						$acked_ids[] = $item_id;
+						continue;
+					}
+					
+					// Handle retry case: item was failed locally but is now completed in API
+					if ( isset( $job['rows'][ $idx ] ) && 'failed' === $job['rows'][ $idx ]['status'] && 'completed' === $item_status ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Retry success: item was failed locally but now completed in API, will import' . PHP_EOL, FILE_APPEND );
+						// Continue processing to import this item
+					}
+					
 					if ( 'failed' === $item_status ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Item failed: ' . $error . PHP_EOL, FILE_APPEND );
 						if ( isset( $job['rows'][ $idx ] ) ) {
