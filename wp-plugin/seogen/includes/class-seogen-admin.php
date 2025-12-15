@@ -229,21 +229,11 @@ class SEOgen_Admin {
 		$output[] = '<!-- wp:group {"className":"hyper-local-content' . $preset_class . '"} -->';
 		$output[] = '<div class="wp-block-group hyper-local-content' . esc_attr( $preset_class ) . '">';
 		$faq_heading_added = false;
-		$hero_heading_text = null;
-		$hero_paragraph_text = null;
 		$hero_emitted = false;
 		$body_group_open = false;
-		$last_phone = '';
-		$separator_after_hero_added = false;
 		$scannable_headings_added = false;
 		$section_heading_state = 0;
-		$paragraphs_seen_after_hero = 0;
 		$issues_list_added = false;
-		$context_city = '';
-		$context_state = '';
-		$context_business = '';
-		$context_service = '';
-		$context_phone = '';
 		$process_added = false;
 
 		$details_available = class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( 'core/details' );
@@ -316,6 +306,12 @@ class SEOgen_Admin {
 			$output[] = '<li>' . esc_html__( 'Final walkthrough', 'seogen' ) . '</li>';
 			$output[] = '</ol>';
 			$output[] = '<!-- /wp:list -->';
+		};
+
+		$add_h2 = function ( $text ) use ( &$output ) {
+			$output[] = '<!-- wp:heading {"level":2} -->';
+			$output[] = '<h2>' . esc_html( (string) $text ) . '</h2>';
+			$output[] = '<!-- /wp:heading -->';
 		};
 
 		$close_body_group_if_open = function () use ( &$output, &$body_group_open ) {
@@ -456,7 +452,7 @@ class SEOgen_Admin {
 
 			if ( 'faq' === $type ) {
 				$emit_hero_if_ready( true );
-				if ( ! $process_added && $section_heading_state >= 3 && $paragraphs_seen_after_hero >= 4 ) {
+				if ( ! $process_added && $paragraphs_seen_after_hero >= 4 ) {
 					$add_process_section();
 					$process_added = true;
 				}
@@ -494,7 +490,7 @@ class SEOgen_Admin {
 
 			if ( 'nap' === $type ) {
 				$emit_hero_if_ready( true );
-				if ( ! $process_added && $section_heading_state >= 3 && $paragraphs_seen_after_hero >= 4 ) {
+				if ( ! $process_added && $paragraphs_seen_after_hero >= 4 ) {
 					$add_process_section();
 					$process_added = true;
 				}
@@ -563,7 +559,7 @@ class SEOgen_Admin {
 
 			if ( 'cta' === $type ) {
 				$emit_hero_if_ready( true );
-				if ( ! $process_added && $section_heading_state >= 3 && $paragraphs_seen_after_hero >= 4 ) {
+				if ( ! $process_added && $paragraphs_seen_after_hero >= 4 ) {
 					$add_process_section();
 					$process_added = true;
 				}
