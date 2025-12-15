@@ -2294,8 +2294,9 @@ class SEOgen_Admin {
 		$user_id = get_current_user_id();
 		$validate_key = $this->get_bulk_validate_transient_key( $user_id );
 		$validated = get_transient( $validate_key );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Validation check: is_array=' . ( is_array( $validated ) ? 'yes' : 'no' ) . ' has_rows=' . ( isset( $validated['rows'] ) ? 'yes' : 'no' ) . ' has_form=' . ( isset( $validated['form'] ) ? 'yes' : 'no' ) . ' rows_count=' . ( isset( $validated['rows'] ) ? count( $validated['rows'] ) : 0 ) . PHP_EOL, FILE_APPEND );
 		if ( ! is_array( $validated ) || ! isset( $validated['rows'] ) || ! is_array( $validated['rows'] ) || ! isset( $validated['form'] ) || ! is_array( $validated['form'] ) ) {
-			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: validation data missing or expired - is_array=' . ( is_array( $validated ) ? 'yes' : 'no' ) . ' has_rows=' . ( isset( $validated['rows'] ) ? 'yes' : 'no' ) . ' has_form=' . ( isset( $validated['form'] ) ? 'yes' : 'no' ) );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FAILED: validation data missing or expired' . PHP_EOL, FILE_APPEND );
 			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
 			$redirect_url = add_query_arg(
 				array(
@@ -2309,7 +2310,7 @@ class SEOgen_Admin {
 		}
 		
 		if ( empty( $validated['rows'] ) ) {
-			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: validation rows empty, count=' . count( $validated['rows'] ) );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FAILED: validation rows empty' . PHP_EOL, FILE_APPEND );
 			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
 			$redirect_url = add_query_arg(
 				array(
@@ -2322,18 +2323,19 @@ class SEOgen_Admin {
 			exit;
 		}
 
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Validation passed, processing ' . count( $validated['rows'] ) . ' rows' . PHP_EOL, FILE_APPEND );
 		$settings = $this->get_settings();
 		$api_url  = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
-		error_log( '[HyperLocal Bulk] handle_bulk_start api_url=' . $api_url . ' license_key=' . ( $license_key ? 'SET[' . strlen( $license_key ) . ']' : 'EMPTY' ) );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API settings: url=' . $api_url . ' license_key=' . ( $license_key ? 'SET' : 'EMPTY' ) . PHP_EOL, FILE_APPEND );
 		if ( '' === $api_url || '' === $license_key ) {
-			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: missing api_url or license_key' );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FAILED: missing api_url or license_key' . PHP_EOL, FILE_APPEND );
 			wp_safe_redirect( admin_url( 'admin.php?page=hyper-local-bulk' ) );
 			exit;
 		}
 
 		$job_id = sanitize_key( 'hl_job_' . wp_generate_password( 12, false, false ) );
-		error_log( '[HyperLocal Bulk] handle_bulk_start generated job_id=' . $job_id . ' processing ' . count( $validated['rows'] ) . ' rows' );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Generated job_id=' . $job_id . PHP_EOL, FILE_APPEND );
 		$job_rows = array();
 		foreach ( $validated['rows'] as $row ) {
 			$job_rows[] = array(
@@ -2373,7 +2375,7 @@ class SEOgen_Admin {
 
 		$api_items = array();
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
-		error_log( '[HyperLocal Bulk] handle_bulk_start job_name=' . $job_name . ' building api_items from ' . count( $job_rows ) . ' job_rows' );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Building API items from ' . count( $job_rows ) . ' job_rows' . PHP_EOL, FILE_APPEND );
 		foreach ( $job_rows as $row ) {
 			$api_items[] = array(
 				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
@@ -2385,11 +2387,11 @@ class SEOgen_Admin {
 			);
 		}
 
-		error_log( '[HyperLocal Bulk] handle_bulk_start calling api_create_bulk_job url=' . trailingslashit( (string) $api_url ) . 'bulk-jobs items_count=' . count( $api_items ) . ' first_item=' . ( ! empty( $api_items[0] ) ? wp_json_encode( $api_items[0] ) : 'none' ) );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Calling API with ' . count( $api_items ) . ' items' . PHP_EOL, FILE_APPEND );
 		$created = $this->api_create_bulk_job( $api_url, $license_key, $job_name, $api_items );
-		error_log( '[HyperLocal Bulk] handle_bulk_start api_create_bulk_job returned: ' . wp_json_encode( $created ) );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API response: ' . wp_json_encode( $created ) . PHP_EOL, FILE_APPEND );
 		if ( empty( $created['ok'] ) || ! is_array( $created['data'] ) || empty( $created['data']['job_id'] ) ) {
-			error_log( '[HyperLocal Bulk] handle_bulk_start API bulk job create FAILED - ok=' . ( isset( $created['ok'] ) ? ( $created['ok'] ? 'true' : 'false' ) : 'unset' ) . ' error=' . ( isset( $created['error'] ) ? (string) $created['error'] : 'none' ) . ' full_response=' . wp_json_encode( $created ) );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API FAILED: ' . ( isset( $created['error'] ) ? $created['error'] : 'unknown' ) . PHP_EOL, FILE_APPEND );
 			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
 			$redirect_url = add_query_arg(
 				array(
@@ -2401,7 +2403,7 @@ class SEOgen_Admin {
 			wp_safe_redirect( $redirect_url );
 			exit;
 		}
-		error_log( '[HyperLocal Bulk] BEGIN API bulk job created api_job_id=' . (string) $created['data']['job_id'] );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API SUCCESS: job_id=' . $created['data']['job_id'] . PHP_EOL, FILE_APPEND );
 		$job['api_job_id'] = sanitize_text_field( (string) $created['data']['job_id'] );
 
 		foreach ( $job['rows'] as $i => $row ) {
