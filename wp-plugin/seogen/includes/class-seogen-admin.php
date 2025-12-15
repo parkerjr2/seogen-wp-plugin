@@ -2545,7 +2545,14 @@ class SEOgen_Admin {
 							$job['rows'][ $idx ]['message'] = '' !== $error ? $error : __( 'Generation failed.', 'seogen' );
 							$job['rows'][ $idx ]['post_id'] = 0;
 						}
-						$acked_ids[] = $item_id;
+						// Only ack permanently failed items (attempts >= 2) so retries can be re-fetched
+						$item_attempts = isset( $item['attempts'] ) ? (int) $item['attempts'] : 0;
+						if ( $item_attempts >= 2 ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Permanently failed (attempts=' . $item_attempts . '), acking item' . PHP_EOL, FILE_APPEND );
+							$acked_ids[] = $item_id;
+						} else {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Failed but may retry (attempts=' . $item_attempts . '), NOT acking item' . PHP_EOL, FILE_APPEND );
+						}
 						continue;
 					}
 					
