@@ -2517,12 +2517,12 @@ class SEOgen_Admin {
 			}
 
 			$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . PHP_EOL, FILE_APPEND );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' job_rows_count=' . count( $job['rows'] ) . PHP_EOL, FILE_APPEND );
 			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, 10 );
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
 			$acked_ids = array();
 			if ( ! empty( $results['ok'] ) && is_array( $results['data'] ) && isset( $results['data']['items'] ) && is_array( $results['data']['items'] ) ) {
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Processing ' . count( $results['data']['items'] ) . ' result items' . PHP_EOL, FILE_APPEND );
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Processing ' . count( $results['data']['items'] ) . ' result items. Job has ' . count( $job['rows'] ) . ' rows.' . PHP_EOL, FILE_APPEND );
 				$update_existing = ( isset( $job['update_existing'] ) && '1' === (string) $job['update_existing'] );
 				foreach ( $results['data']['items'] as $item ) {
 					$item_id = isset( $item['item_id'] ) ? (string) $item['item_id'] : '';
@@ -2650,6 +2650,8 @@ class SEOgen_Admin {
 						$job['rows'][ $idx ]['message'] = __( 'Imported.', 'seogen' );
 						$job['rows'][ $idx ]['post_id'] = $post_id;
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Updated row status: idx=' . $idx . ' status=success post_id=' . $post_id . PHP_EOL, FILE_APPEND );
+					} else {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Cannot update row status - job[rows][' . $idx . '] does not exist. Total rows: ' . count( $job['rows'] ) . PHP_EOL, FILE_APPEND );
 					}
 					$acked_ids[] = $item_id;
 				}
