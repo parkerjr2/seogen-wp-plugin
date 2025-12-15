@@ -1430,6 +1430,7 @@ class SEOgen_Admin {
 		<?php if ( is_array( $current_job ) ) : ?>
 		<script>
 		(function(){
+			var ajaxurl = '<?php echo esc_js( admin_url( 'admin-ajax.php' ) ); ?>';
 			console.log('[SEOgen] Bulk job page script loaded');
 			var container = document.getElementById('hyper-local-bulk-job');
 			if(!container){console.log('[SEOgen] ERROR: container not found');return;}
@@ -2085,6 +2086,9 @@ class SEOgen_Admin {
 
 		$job_id = isset( $_GET['job_id'] ) ? sanitize_key( (string) wp_unslash( $_GET['job_id'] ) ) : '';
 		$current_job = ( '' !== $job_id ) ? $this->load_bulk_job( $job_id ) : null;
+		if ( '' !== $job_id ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] render_bulk_generate_page: job_id=' . $job_id . ' current_job=' . ( is_array( $current_job ) ? 'found' : 'NOT FOUND' ) . PHP_EOL, FILE_APPEND );
+		}
 		$jobs_index = $this->get_bulk_jobs_index();
 
 		$defaults = array(
