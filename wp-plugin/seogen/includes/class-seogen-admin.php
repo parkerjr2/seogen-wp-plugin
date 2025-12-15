@@ -2621,6 +2621,7 @@ class SEOgen_Admin {
 						$job['rows'][ $idx ]['status'] = 'success';
 						$job['rows'][ $idx ]['message'] = __( 'Imported.', 'seogen' );
 						$job['rows'][ $idx ]['post_id'] = $post_id;
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Updated row status: idx=' . $idx . ' status=success post_id=' . $post_id . PHP_EOL, FILE_APPEND );
 					}
 					$acked_ids[] = $item_id;
 				}
@@ -2631,6 +2632,7 @@ class SEOgen_Admin {
 			if ( ! empty( $acked_ids ) ) {
 				$this->api_ack_bulk_job_items( $api_url, $license_key, $job['api_job_id'], $acked_ids );
 			}
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Saving job with ' . count( $acked_ids ) . ' acked items' . PHP_EOL, FILE_APPEND );
 			$this->save_bulk_job( $job_id, $job );
 		} else {
 			if ( isset( $job['status'] ) && in_array( (string) $job['status'], array( 'pending', 'running' ), true ) ) {
@@ -2654,6 +2656,7 @@ class SEOgen_Admin {
 				);
 			}
 		}
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Returning AJAX response with ' . count( $rows ) . ' rows' . PHP_EOL, FILE_APPEND );
 		wp_send_json_success(
 			array(
 				'id'         => (string) $job_id,
