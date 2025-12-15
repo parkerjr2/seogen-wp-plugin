@@ -1430,8 +1430,7 @@ class SEOgen_Admin {
 		<?php if ( is_array( $current_job ) ) : ?>
 		<script>
 		(function(){
-			var ajaxurl = '<?php echo esc_js( admin_url( 'admin-ajax.php' ) ); ?>';
-			console.log('[SEOgen] Bulk job page script loaded');
+			console.log('[SEOgen] Bulk job page script loaded, ajaxurl:', ajaxurl);
 			var container = document.getElementById('hyper-local-bulk-job');
 			if(!container){console.log('[SEOgen] ERROR: container not found');return;}
 			var jobId = container.getAttribute('data-job-id');
