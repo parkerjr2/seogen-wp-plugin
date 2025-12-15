@@ -1667,27 +1667,27 @@ class SEOgen_Admin {
 		return sanitize_title( $raw );
 	}
 
-	private function api_json_request( $method, $url, $payload = null, $timeout = 30 ) {
+	private function api_json_request( $method, $url, $payload, $timeout ) {
+		error_log( '[HyperLocal API] api_json_request START method=' . $method . ' url=' . $url . ' timeout=' . $timeout . ' payload_size=' . ( $payload ? strlen( wp_json_encode( $payload ) ) : 0 ) );
 		$args = array(
+			'method'  => strtoupper( (string) $method ),
 			'timeout' => (int) $timeout,
-			'headers' => array(
-				'Content-Type' => 'application/json',
-				'Accept'       => 'application/json',
-			),
+			'headers' => array( 'Content-Type' => 'application/json' ),
 		);
 		if ( null !== $payload ) {
 			$args['body'] = wp_json_encode( $payload );
 		}
-		if ( 'GET' === strtoupper( (string) $method ) ) {
-			$response = wp_remote_get( $url, $args );
-		} else {
-			$args['method'] = strtoupper( (string) $method );
-			$response = wp_remote_request( $url, $args );
-		}
+		$response = wp_remote_request( (string) $url, $args );
+		error_log( '[HyperLocal API] api_json_request wp_remote_request completed, is_wp_error=' . ( is_wp_error( $response ) ? 'YES' : 'NO' ) );
 		if ( is_wp_error( $response ) ) {
+			$error_msg = $response->get_error_message();
+			error_log( '[HyperLocal API] api_json_request WP_Error: ' . $error_msg );
 			return array(
 				'ok'    => false,
-				'error' => $response->get_error_message(),
+				'error' => $error_msg,
+				'code'  => 0,
+				'body'  => '',
+				'data'  => null,
 			);
 		}
 		$code = (int) wp_remote_retrieve_response_code( $response );
@@ -1704,6 +1704,7 @@ class SEOgen_Admin {
 			if ( is_array( $data ) && isset( $data['detail'] ) ) {
 				$error = $error . ': ' . sanitize_text_field( (string) $data['detail'] );
 			}
+			error_log( '[HyperLocal API] api_json_request FAILED code=' . $code . ' error=' . $error );
 			return array(
 				'ok'    => false,
 				'error' => $error,
@@ -1712,6 +1713,7 @@ class SEOgen_Admin {
 				'data'  => $data,
 			);
 		}
+		error_log( '[HyperLocal API] api_json_request SUCCESS code=' . $code );
 		return array(
 			'ok'   => true,
 			'code' => $code,
@@ -2279,17 +2281,19 @@ class SEOgen_Admin {
 	}
 
 	public function handle_bulk_start() {
+		error_log( '[HyperLocal Bulk] handle_bulk_start ENTRY' );
 		if ( ! current_user_can( 'manage_options' ) ) {
+			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: insufficient permissions' );
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'seogen' ) );
 		}
 		check_admin_referer( 'hyper_local_bulk_start', 'hyper_local_bulk_start_nonce' );
-		error_log( '[HyperLocal Bulk] BEGIN clicked (handle_bulk_start)' );
+		error_log( '[HyperLocal Bulk] handle_bulk_start nonce verified' );
 
 		$user_id = get_current_user_id();
 		$validate_key = $this->get_bulk_validate_transient_key( $user_id );
 		$validated = get_transient( $validate_key );
 		if ( ! is_array( $validated ) || ! isset( $validated['rows'] ) || ! is_array( $validated['rows'] ) || ! isset( $validated['form'] ) || ! is_array( $validated['form'] ) ) {
-			error_log( '[HyperLocal Bulk] BEGIN validation data missing or expired' );
+			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: validation data missing or expired - is_array=' . ( is_array( $validated ) ? 'yes' : 'no' ) . ' has_rows=' . ( isset( $validated['rows'] ) ? 'yes' : 'no' ) . ' has_form=' . ( isset( $validated['form'] ) ? 'yes' : 'no' ) );
 			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
 			$redirect_url = add_query_arg(
 				array(
@@ -2303,7 +2307,7 @@ class SEOgen_Admin {
 		}
 		
 		if ( empty( $validated['rows'] ) ) {
-			error_log( '[HyperLocal Bulk] BEGIN validation rows empty' );
+			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: validation rows empty, count=' . count( $validated['rows'] ) );
 			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
 			$redirect_url = add_query_arg(
 				array(
@@ -2319,12 +2323,15 @@ class SEOgen_Admin {
 		$settings = $this->get_settings();
 		$api_url  = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
+		error_log( '[HyperLocal Bulk] handle_bulk_start api_url=' . $api_url . ' license_key=' . ( $license_key ? 'SET[' . strlen( $license_key ) . ']' : 'EMPTY' ) );
 		if ( '' === $api_url || '' === $license_key ) {
+			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: missing api_url or license_key' );
 			wp_safe_redirect( admin_url( 'admin.php?page=hyper-local-bulk' ) );
 			exit;
 		}
 
 		$job_id = sanitize_key( 'hl_job_' . wp_generate_password( 12, false, false ) );
+		error_log( '[HyperLocal Bulk] handle_bulk_start generated job_id=' . $job_id . ' processing ' . count( $validated['rows'] ) . ' rows' );
 		$job_rows = array();
 		foreach ( $validated['rows'] as $row ) {
 			$job_rows[] = array(
@@ -2364,6 +2371,7 @@ class SEOgen_Admin {
 
 		$api_items = array();
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
+		error_log( '[HyperLocal Bulk] handle_bulk_start job_name=' . $job_name . ' building api_items from ' . count( $job_rows ) . ' job_rows' );
 		foreach ( $job_rows as $row ) {
 			$api_items[] = array(
 				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
@@ -2375,10 +2383,11 @@ class SEOgen_Admin {
 			);
 		}
 
-		error_log( '[HyperLocal Bulk] BEGIN creating API bulk job url=' . trailingslashit( (string) $api_url ) . 'bulk-jobs' . ' items=' . count( $api_items ) );
+		error_log( '[HyperLocal Bulk] handle_bulk_start calling api_create_bulk_job url=' . trailingslashit( (string) $api_url ) . 'bulk-jobs items_count=' . count( $api_items ) . ' first_item=' . ( ! empty( $api_items[0] ) ? wp_json_encode( $api_items[0] ) : 'none' ) );
 		$created = $this->api_create_bulk_job( $api_url, $license_key, $job_name, $api_items );
+		error_log( '[HyperLocal Bulk] handle_bulk_start api_create_bulk_job returned: ' . wp_json_encode( $created ) );
 		if ( empty( $created['ok'] ) || ! is_array( $created['data'] ) || empty( $created['data']['job_id'] ) ) {
-			error_log( '[HyperLocal Bulk] BEGIN API bulk job create FAILED msg=' . ( isset( $created['error'] ) ? (string) $created['error'] : 'unknown' ) );
+			error_log( '[HyperLocal Bulk] handle_bulk_start API bulk job create FAILED - ok=' . ( isset( $created['ok'] ) ? ( $created['ok'] ? 'true' : 'false' ) : 'unset' ) . ' error=' . ( isset( $created['error'] ) ? (string) $created['error'] : 'none' ) . ' full_response=' . wp_json_encode( $created ) );
 			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
 			$redirect_url = add_query_arg(
 				array(
