@@ -2283,13 +2283,13 @@ class SEOgen_Admin {
 	}
 
 	public function handle_bulk_start() {
-		error_log( '[HyperLocal Bulk] handle_bulk_start ENTRY' );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] handle_bulk_start ENTRY' . PHP_EOL, FILE_APPEND );
 		if ( ! current_user_can( 'manage_options' ) ) {
-			error_log( '[HyperLocal Bulk] handle_bulk_start FAILED: insufficient permissions' );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] handle_bulk_start FAILED: insufficient permissions' . PHP_EOL, FILE_APPEND );
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'seogen' ) );
 		}
 		check_admin_referer( 'hyper_local_bulk_start', 'hyper_local_bulk_start_nonce' );
-		error_log( '[HyperLocal Bulk] handle_bulk_start nonce verified' );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] handle_bulk_start nonce verified' . PHP_EOL, FILE_APPEND );
 
 		$user_id = get_current_user_id();
 		$validate_key = $this->get_bulk_validate_transient_key( $user_id );
