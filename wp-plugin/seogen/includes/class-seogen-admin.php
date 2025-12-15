@@ -2289,7 +2289,30 @@ class SEOgen_Admin {
 		$validate_key = $this->get_bulk_validate_transient_key( $user_id );
 		$validated = get_transient( $validate_key );
 		if ( ! is_array( $validated ) || ! isset( $validated['rows'] ) || ! is_array( $validated['rows'] ) || ! isset( $validated['form'] ) || ! is_array( $validated['form'] ) ) {
-			wp_safe_redirect( admin_url( 'admin.php?page=hyper-local-bulk' ) );
+			error_log( '[HyperLocal Bulk] BEGIN validation data missing or expired' );
+			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
+			$redirect_url = add_query_arg(
+				array(
+					'hl_notice' => 'fail',
+					'hl_msg'    => __( 'Validation data expired. Please click "Validate & Preview Rows" again before starting bulk generation.', 'seogen' ),
+				),
+				$redirect_url
+			);
+			wp_safe_redirect( $redirect_url );
+			exit;
+		}
+		
+		if ( empty( $validated['rows'] ) ) {
+			error_log( '[HyperLocal Bulk] BEGIN validation rows empty' );
+			$redirect_url = admin_url( 'admin.php?page=hyper-local-bulk' );
+			$redirect_url = add_query_arg(
+				array(
+					'hl_notice' => 'fail',
+					'hl_msg'    => __( 'No rows to process. Please enter services and service areas, then click "Validate & Preview Rows".', 'seogen' ),
+				),
+				$redirect_url
+			);
+			wp_safe_redirect( $redirect_url );
 			exit;
 		}
 
