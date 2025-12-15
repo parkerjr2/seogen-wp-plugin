@@ -2648,8 +2648,25 @@ class SEOgen_Admin {
 			}
 		}
 		$rows = array();
+		$success_count = 0;
+		$failed_count = 0;
+		$skipped_count = 0;
+		$processed_count = 0;
 		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			foreach ( $job['rows'] as $row ) {
+				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
+				if ( 'success' === $row_status ) {
+					$success_count++;
+					$processed_count++;
+				} elseif ( 'failed' === $row_status ) {
+					$failed_count++;
+					$processed_count++;
+				} elseif ( 'skipped' === $row_status ) {
+					$skipped_count++;
+					$processed_count++;
+				} elseif ( in_array( $row_status, array( 'processing', 'running' ), true ) ) {
+					$processed_count++;
+				}
 				$edit_url = '';
 				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
 					$edit_url = get_edit_post_link( (int) $row['post_id'], 'raw' );
@@ -2658,22 +2675,22 @@ class SEOgen_Admin {
 					'service'  => isset( $row['service'] ) ? (string) $row['service'] : '',
 					'city'     => isset( $row['city'] ) ? (string) $row['city'] : '',
 					'state'    => isset( $row['state'] ) ? (string) $row['state'] : '',
-					'status'   => isset( $row['status'] ) ? (string) $row['status'] : '',
+					'status'   => $row_status,
 					'message'  => isset( $row['message'] ) ? (string) $row['message'] : '',
 					'edit_url' => $edit_url ? (string) $edit_url : '',
 				);
 			}
 		}
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Returning AJAX response with ' . count( $rows ) . ' rows' . PHP_EOL, FILE_APPEND );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Returning AJAX response: total=' . count( $rows ) . ' processed=' . $processed_count . ' success=' . $success_count . ' failed=' . $failed_count . ' skipped=' . $skipped_count . PHP_EOL, FILE_APPEND );
 		wp_send_json_success(
 			array(
 				'id'         => (string) $job_id,
 				'status'     => isset( $job['status'] ) ? (string) $job['status'] : '',
 				'total_rows' => isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0,
-				'processed'  => isset( $job['processed'] ) ? (int) $job['processed'] : 0,
-				'success'    => isset( $job['success'] ) ? (int) $job['success'] : 0,
-				'failed'     => isset( $job['failed'] ) ? (int) $job['failed'] : 0,
-				'skipped'    => isset( $job['skipped'] ) ? (int) $job['skipped'] : 0,
+				'processed'  => $processed_count,
+				'success'    => $success_count,
+				'failed'     => $failed_count,
+				'skipped'    => $skipped_count,
 				'rows'       => $rows,
 			)
 		);
