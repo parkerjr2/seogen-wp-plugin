@@ -1825,16 +1825,22 @@ class SEOgen_Admin {
 			return;
 		}
 
-		$body = wp_remote_retrieve_body( $response );
-		$data = json_decode( $body, true );
-
-		if ( ! is_array( $data ) || empty( $data['ok'] ) || ! isset( $data['data']['credits_remaining'] ) ) {
-			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Invalid license or unable to fetch credits.', 'seogen' ) . '</p>';
+		$status_code = wp_remote_retrieve_response_code( $response );
+		if ( 403 === $status_code ) {
+			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Invalid license key.', 'seogen' ) . '</p>';
 			return;
 		}
 
-		$credits = (int) $data['data']['credits_remaining'];
-		$status = isset( $data['data']['status'] ) ? (string) $data['data']['status'] : 'unknown';
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		if ( ! is_array( $data ) || ! isset( $data['credits_remaining'] ) ) {
+			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Unable to fetch credits.', 'seogen' ) . '</p>';
+			return;
+		}
+
+		$credits = (int) $data['credits_remaining'];
+		$status = isset( $data['status'] ) ? (string) $data['status'] : 'unknown';
 
 		if ( 'active' === $status ) {
 			printf(
