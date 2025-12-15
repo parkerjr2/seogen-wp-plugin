@@ -2462,11 +2462,13 @@ class SEOgen_Admin {
 	}
 
 	public function ajax_bulk_job_status() {
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ajax_bulk_job_status called' . PHP_EOL, FILE_APPEND );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error();
 		}
 		check_ajax_referer( 'hyper_local_bulk_job_status', 'nonce' );
 		$job_id = isset( $_POST['job_id'] ) ? sanitize_key( (string) wp_unslash( $_POST['job_id'] ) ) : '';
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Polling for job_id=' . $job_id . PHP_EOL, FILE_APPEND );
 		$job = $this->load_bulk_job( $job_id );
 		if ( ! is_array( $job ) ) {
 			wp_send_json_error();
@@ -2487,9 +2489,12 @@ class SEOgen_Admin {
 			}
 
 			$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . PHP_EOL, FILE_APPEND );
 			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, 10 );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
 			$acked_ids = array();
 			if ( ! empty( $results['ok'] ) && is_array( $results['data'] ) && isset( $results['data']['items'] ) && is_array( $results['data']['items'] ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Processing ' . count( $results['data']['items'] ) . ' result items' . PHP_EOL, FILE_APPEND );
 				$update_existing = ( isset( $job['update_existing'] ) && '1' === (string) $job['update_existing'] );
 				foreach ( $results['data']['items'] as $item ) {
 					$item_id = isset( $item['item_id'] ) ? (string) $item['item_id'] : '';
@@ -2499,11 +2504,14 @@ class SEOgen_Admin {
 					$result_json = isset( $item['result_json'] ) && is_array( $item['result_json'] ) ? $item['result_json'] : null;
 					$error = isset( $item['error'] ) ? (string) $item['error'] : '';
 					
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Processing item: idx=' . $idx . ' status=' . $item_status . ' item_id=' . $item_id . PHP_EOL, FILE_APPEND );
 					if ( '' === $item_id || $idx < 0 ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: invalid item_id or idx' . PHP_EOL, FILE_APPEND );
 						continue;
 					}
 					
 					if ( 'failed' === $item_status ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Item failed: ' . $error . PHP_EOL, FILE_APPEND );
 						if ( isset( $job['rows'][ $idx ] ) ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = '' !== $error ? $error : __( 'Generation failed.', 'seogen' );
@@ -2514,6 +2522,7 @@ class SEOgen_Admin {
 					}
 					
 					if ( ! is_array( $result_json ) ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: result_json not array' . PHP_EOL, FILE_APPEND );
 						continue;
 					}
 
@@ -2544,12 +2553,14 @@ class SEOgen_Admin {
 						'post_content' => $gutenberg_markup,
 					);
 
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . PHP_EOL, FILE_APPEND );
 					if ( $existing_id > 0 && $update_existing ) {
 						$postarr['ID'] = $existing_id;
 						$post_id = wp_update_post( $postarr, true );
 					} else {
 						$post_id = wp_insert_post( $postarr, true );
 					}
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Post created/updated: post_id=' . ( is_wp_error( $post_id ) ? 'ERROR' : $post_id ) . PHP_EOL, FILE_APPEND );
 
 					if ( is_wp_error( $post_id ) ) {
 						if ( isset( $job['rows'][ $idx ] ) ) {
