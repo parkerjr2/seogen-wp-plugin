@@ -11,6 +11,7 @@ class SEOgen_Admin {
 	const BULK_JOBS_INDEX_OPTION = 'hyper_local_jobs_index';
 	const BULK_VALIDATE_TRANSIENT_PREFIX = 'hyper_local_bulk_validate_';
 	const BULK_PROCESS_HOOK = 'hyper_local_process_job_batch';
+	const API_BASE_URL = 'https://seogen-production.up.railway.app';
 
 	public function run() {
 		error_log( '[HyperLocal] SEOgen_Admin::run() called - registering admin-post handlers' );
@@ -1630,17 +1631,17 @@ class SEOgen_Admin {
 		);
 
 		add_settings_field(
-			'seogen_api_url',
-			__( 'API Base URL', 'seogen' ),
-			array( $this, 'render_field_api_url' ),
+			'seogen_license_key',
+			__( 'License Key', 'seogen' ),
+			array( $this, 'render_field_license_key' ),
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
 
 		add_settings_field(
-			'seogen_license_key',
-			__( 'License Key', 'seogen' ),
-			array( $this, 'render_field_license_key' ),
+			'seogen_credits_remaining',
+			__( 'Credits Remaining', 'seogen' ),
+			array( $this, 'render_field_credits_remaining' ),
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
@@ -1755,7 +1756,7 @@ class SEOgen_Admin {
 
 	private function get_settings() {
 		$defaults = array(
-			'api_url'      => 'https://seogen-production.up.railway.app',
+			'api_url'      => self::API_BASE_URL,
 			'license_key'  => '',
 			'design_preset' => 'theme_default',
 			'show_h1_in_content' => '0',
@@ -1770,7 +1771,11 @@ class SEOgen_Admin {
 			$settings = array();
 		}
 
-		return wp_parse_args( $settings, $defaults );
+		// Always override api_url with constant
+		$settings = wp_parse_args( $settings, $defaults );
+		$settings['api_url'] = self::API_BASE_URL;
+
+		return $settings;
 	}
 
 	public function render_field_api_url() {
@@ -1791,6 +1796,58 @@ class SEOgen_Admin {
 			esc_attr( self::OPTION_NAME ),
 			esc_attr( $settings['license_key'] )
 		);
+	}
+
+	public function render_field_credits_remaining() {
+		$settings = $this->get_settings();
+		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
+
+		if ( '' === $license_key ) {
+			echo '<p class="description">' . esc_html__( 'Enter a license key to view credits.', 'seogen' ) . '</p>';
+			return;
+		}
+
+		// Fetch license info from API
+		$api_url = self::API_BASE_URL;
+		$validate_url = trailingslashit( $api_url ) . 'validate-license';
+		
+		$response = wp_remote_post(
+			$validate_url,
+			array(
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body'    => wp_json_encode( array( 'license_key' => $license_key ) ),
+				'timeout' => 10,
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Unable to fetch credits.', 'seogen' ) . '</p>';
+			return;
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		if ( ! is_array( $data ) || empty( $data['ok'] ) || ! isset( $data['data']['credits_remaining'] ) ) {
+			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Invalid license or unable to fetch credits.', 'seogen' ) . '</p>';
+			return;
+		}
+
+		$credits = (int) $data['data']['credits_remaining'];
+		$status = isset( $data['data']['status'] ) ? (string) $data['data']['status'] : 'unknown';
+
+		if ( 'active' === $status ) {
+			printf(
+				'<p style="font-size: 18px; font-weight: 600; color: #2271b1; margin: 0;">%s</p>',
+				esc_html( number_format( $credits ) )
+			);
+		} else {
+			printf(
+				'<p style="font-size: 18px; font-weight: 600; color: #d63638; margin: 0;">%s <span style="font-size: 14px; font-weight: 400;">(%s)</span></p>',
+				esc_html( number_format( $credits ) ),
+				esc_html( ucfirst( $status ) )
+			);
+		}
 	}
 
 	private function check_api_health( $api_url ) {
