@@ -1427,81 +1427,6 @@ class SEOgen_Admin {
 				<textarea class="large-text code" rows="16" readonly><?php echo esc_textarea( $gutenberg_markup ); ?></textarea>
 			<?php endif; ?>
 		</div>
-		<?php if ( is_array( $current_job ) ) : ?>
-		<script>
-		(function(){
-			console.log('[SEOgen] Bulk job page script loaded, ajaxurl:', ajaxurl);
-			var container = document.getElementById('hyper-local-bulk-job');
-			if(!container){console.log('[SEOgen] ERROR: container not found');return;}
-			var jobId = container.getAttribute('data-job-id');
-			console.log('[SEOgen] Job ID:', jobId);
-			var refreshBtn = document.getElementById('hyper-local-bulk-refresh');
-			var cancelBtn = document.getElementById('hyper-local-bulk-cancel');
-			function esc(s){return String(s).replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]);});}
-			function render(job){
-				if(!job){container.innerHTML = '<p><?php echo esc_js( __( 'Job not found.', 'seogen' ) ); ?></p>';return;}
-				var html = '';
-				html += '<p><strong><?php echo esc_js( __( 'Status:', 'seogen' ) ); ?></strong> ' + esc(job.status) + '</p>';
-				html += '<p><strong><?php echo esc_js( __( 'Totals:', 'seogen' ) ); ?></strong> ' + esc(job.processed) + '/' + esc(job.total_rows) + ' | <?php echo esc_js( __( 'Success', 'seogen' ) ); ?>: ' + esc(job.success) + ' | <?php echo esc_js( __( 'Failed', 'seogen' ) ); ?>: ' + esc(job.failed) + ' | <?php echo esc_js( __( 'Skipped', 'seogen' ) ); ?>: ' + esc(job.skipped) + '</p>';
-				html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
-				(job.rows||[]).forEach(function(r){
-					html += '<tr>';
-					html += '<td>' + esc(r.service||'') + '</td>';
-					html += '<td>' + esc(r.city||'') + '</td>';
-					html += '<td>' + esc(r.state||'') + '</td>';
-					html += '<td>' + esc(r.status||'') + '</td>';
-					html += '<td>' + esc(r.message||'') + '</td>';
-					if(r.edit_url){
-						html += '<td><a href="' + esc(r.edit_url) + '"><?php echo esc_js( __( 'Edit', 'seogen' ) ); ?></a></td>';
-					}else{
-						html += '<td></td>';
-					}
-					html += '</tr>';
-				});
-				html += '</tbody></table>';
-				container.innerHTML = html;
-			}
-			function fetchStatus(){
-				console.log('[SEOgen] fetchStatus called for job:', jobId);
-				var data = new FormData();
-				data.append('action','hyper_local_bulk_job_status');
-				data.append('job_id',jobId);
-				data.append('nonce','<?php echo esc_js( $status_nonce ); ?>');
-				console.log('[SEOgen] Fetching from:', ajaxurl);
-				return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){
-					console.log('[SEOgen] Response status:', r.status);
-					return r.json();
-				}).then(function(res){
-					console.log('[SEOgen] Response data:', res);
-					if(res && res.success){render(res.data);return res.data;}
-					render(null);return null;
-				}).catch(function(err){
-					console.error('[SEOgen] Fetch error:', err);
-					return null;
-				});
-			}
-			function cancelJob(){
-				var data = new FormData();
-				data.append('action','hyper_local_bulk_job_cancel');
-				data.append('job_id',jobId);
-				data.append('nonce','<?php echo esc_js( $cancel_nonce ); ?>');
-				return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){return r.json();}).then(function(){return fetchStatus();});
-			}
-			if(refreshBtn){refreshBtn.addEventListener('click',function(e){e.preventDefault();fetchStatus();});}
-			if(cancelBtn){cancelBtn.addEventListener('click',function(e){e.preventDefault();cancelJob();});}
-			console.log('[SEOgen] Starting initial fetchStatus');
-			fetchStatus().then(function(job){
-				console.log('[SEOgen] Initial fetch complete, job:', job);
-				if(job && (job.status === 'pending' || job.status === 'running')){
-					console.log('[SEOgen] Job is active, starting polling interval');
-					setInterval(fetchStatus,5000);
-				} else {
-					console.log('[SEOgen] Job not active, status:', job ? job.status : 'null');
-				}
-			});
-		})();
-		</script>
-		<?php endif; ?>
 		<?php
 	}
 
@@ -2124,6 +2049,82 @@ class SEOgen_Admin {
 					<a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_bulk_export&job_id=' . $job_id ), 'hyper_local_bulk_export_' . $job_id, 'nonce' ) ); ?>"><?php echo esc_html__( 'Export Results CSV', 'seogen' ); ?></a>
 				</p>
 				<hr />
+			<?php endif; ?>
+
+			<?php if ( is_array( $current_job ) ) : ?>
+			<script>
+			(function(){
+				console.log('[SEOgen] Bulk job page script loaded, ajaxurl:', ajaxurl);
+				var container = document.getElementById('hyper-local-bulk-job');
+				if(!container){console.log('[SEOgen] ERROR: container not found');return;}
+				var jobId = container.getAttribute('data-job-id');
+				console.log('[SEOgen] Job ID:', jobId);
+				var refreshBtn = document.getElementById('hyper-local-bulk-refresh');
+				var cancelBtn = document.getElementById('hyper-local-bulk-cancel');
+				function esc(s){return String(s).replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]);});}
+				function render(job){
+					if(!job){container.innerHTML = '<p><?php echo esc_js( __( 'Job not found.', 'seogen' ) ); ?></p>';return;}
+					var html = '';
+					html += '<p><strong><?php echo esc_js( __( 'Status:', 'seogen' ) ); ?></strong> ' + esc(job.status) + '</p>';
+					html += '<p><strong><?php echo esc_js( __( 'Totals:', 'seogen' ) ); ?></strong> ' + esc(job.processed) + '/' + esc(job.total_rows) + ' | <?php echo esc_js( __( 'Success', 'seogen' ) ); ?>: ' + esc(job.success) + ' | <?php echo esc_js( __( 'Failed', 'seogen' ) ); ?>: ' + esc(job.failed) + ' | <?php echo esc_js( __( 'Skipped', 'seogen' ) ); ?>: ' + esc(job.skipped) + '</p>';
+					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
+					(job.rows||[]).forEach(function(r){
+						html += '<tr>';
+						html += '<td>' + esc(r.service||'') + '</td>';
+						html += '<td>' + esc(r.city||'') + '</td>';
+						html += '<td>' + esc(r.state||'') + '</td>';
+						html += '<td>' + esc(r.status||'') + '</td>';
+						html += '<td>' + esc(r.message||'') + '</td>';
+						if(r.edit_url){
+							html += '<td><a href="' + esc(r.edit_url) + '"><?php echo esc_js( __( 'Edit', 'seogen' ) ); ?></a></td>';
+						}else{
+							html += '<td></td>';
+						}
+						html += '</tr>';
+					});
+					html += '</tbody></table>';
+					container.innerHTML = html;
+				}
+				function fetchStatus(){
+					console.log('[SEOgen] fetchStatus called for job:', jobId);
+					var data = new FormData();
+					data.append('action','hyper_local_bulk_job_status');
+					data.append('job_id',jobId);
+					data.append('nonce','<?php echo esc_js( $status_nonce ); ?>');
+					console.log('[SEOgen] Fetching from:', ajaxurl);
+					return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){
+						console.log('[SEOgen] Response status:', r.status);
+						return r.json();
+					}).then(function(res){
+						console.log('[SEOgen] Response data:', res);
+						if(res && res.success){render(res.data);return res.data;}
+						render(null);return null;
+					}).catch(function(err){
+						console.error('[SEOgen] Fetch error:', err);
+						return null;
+					});
+				}
+				function cancelJob(){
+					var data = new FormData();
+					data.append('action','hyper_local_bulk_job_cancel');
+					data.append('job_id',jobId);
+					data.append('nonce','<?php echo esc_js( $cancel_nonce ); ?>');
+					return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){return r.json();}).then(function(){return fetchStatus();});
+				}
+				if(refreshBtn){refreshBtn.addEventListener('click',function(e){e.preventDefault();fetchStatus();});}
+				if(cancelBtn){cancelBtn.addEventListener('click',function(e){e.preventDefault();cancelJob();});}
+				console.log('[SEOgen] Starting initial fetchStatus');
+				fetchStatus().then(function(job){
+					console.log('[SEOgen] Initial fetch complete, job:', job);
+					if(job && (job.status === 'pending' || job.status === 'running')){
+						console.log('[SEOgen] Job is active, starting polling interval');
+						setInterval(fetchStatus,5000);
+					} else {
+						console.log('[SEOgen] Job not active, status:', job ? job.status : 'null');
+					}
+				});
+			})();
+			</script>
 			<?php endif; ?>
 
 			<h2><?php echo esc_html__( 'Inputs', 'seogen' ); ?></h2>
