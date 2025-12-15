@@ -13,6 +13,7 @@ class SEOgen_Admin {
 	const BULK_PROCESS_HOOK = 'hyper_local_process_job_batch';
 
 	public function run() {
+		error_log( '[HyperLocal] SEOgen_Admin::run() called - registering admin-post handlers' );
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_post_seogen_test_connection', array( $this, 'handle_test_connection' ) );
@@ -20,6 +21,7 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_create_draft', array( $this, 'handle_create_draft' ) );
 		add_action( 'admin_post_hyper_local_bulk_validate', array( $this, 'handle_bulk_validate' ) );
 		add_action( 'admin_post_hyper_local_bulk_start', array( $this, 'handle_bulk_start' ) );
+		error_log( '[HyperLocal] Registered admin_post_hyper_local_bulk_start handler' );
 		add_action( 'admin_post_hyper_local_bulk_run_batch', array( $this, 'handle_bulk_run_batch' ) );
 		add_action( 'admin_post_hyper_local_bulk_export', array( $this, 'handle_bulk_export' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
