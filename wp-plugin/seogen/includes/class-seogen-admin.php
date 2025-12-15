@@ -318,58 +318,6 @@ class SEOgen_Admin {
 			$output[] = '<!-- /wp:list -->';
 		};
 
-		$add_h2 = function ( $text ) use ( &$output ) {
-			$output[] = '<!-- wp:heading {"level":2} -->';
-			$output[] = '<h2>' . esc_html( (string) $text ) . '</h2>';
-			$output[] = '<!-- /wp:heading -->';
-		};
-
-		$maybe_add_scannable_section_heading = function () use ( &$scannable_headings_added, &$section_heading_state, &$output, &$context_city, &$context_state, &$context_business, &$context_service, $add_h2 ) {
-			if ( ! $scannable_headings_added ) {
-				$scannable_headings_added = true;
-			}
-
-			$city = ( '' !== $context_city ) ? $context_city : __( 'Your City', 'seogen' );
-			$state = ( '' !== $context_state ) ? $context_state : __( 'Your State', 'seogen' );
-			$biz = ( '' !== $context_business ) ? $context_business : __( 'Your Business', 'seogen' );
-
-			if ( 0 === $section_heading_state ) {
-				$service = ( '' !== $context_service ) ? $context_service : esc_html__( 'Roof Repair', 'seogen' );
-				$add_h2( sprintf( __( 'Our %s Services', 'seogen' ), $service ) );
-				$section_heading_state = 1;
-				return;
-			}
-
-			if ( 1 === $section_heading_state ) {
-				$add_h2( __( 'Common Roofing Issues We Fix', 'seogen' ) );
-				$section_heading_state = 2;
-				return;
-			}
-
-			if ( 2 === $section_heading_state ) {
-				$add_h2( sprintf( __( 'Why Homeowners Choose %s', 'seogen' ), $biz ) );
-				$section_heading_state = 3;
-				return;
-			}
-		};
-
-		$add_issues_list = function () use ( &$output ) {
-			$items = array(
-				esc_html__( 'Leak detection and repair', 'seogen' ),
-				esc_html__( 'Shingle replacement', 'seogen' ),
-				esc_html__( 'Storm and hail damage repairs', 'seogen' ),
-				esc_html__( 'Flashing and vent repairs', 'seogen' ),
-				esc_html__( 'Preventive inspections', 'seogen' ),
-			);
-			$output[] = '<!-- wp:list -->';
-			$output[] = '<ul>';
-			foreach ( $items as $item ) {
-				$output[] = '<li>' . $item . '</li>';
-			}
-			$output[] = '</ul>';
-			$output[] = '<!-- /wp:list -->';
-		};
-
 		$close_body_group_if_open = function () use ( &$output, &$body_group_open ) {
 			if ( $body_group_open ) {
 				$output[] = '</div>';
@@ -498,19 +446,6 @@ class SEOgen_Admin {
 
 				if ( $hero_emitted ) {
 					$paragraphs_seen_after_hero++;
-					if ( 1 === $paragraphs_seen_after_hero ) {
-						$maybe_add_scannable_section_heading();
-					}
-					if ( 2 === $paragraphs_seen_after_hero ) {
-						$maybe_add_scannable_section_heading();
-						if ( ! $issues_list_added ) {
-							$add_issues_list();
-							$issues_list_added = true;
-						}
-					}
-					if ( 4 === $paragraphs_seen_after_hero ) {
-						$maybe_add_scannable_section_heading();
-					}
 				}
 
 				$output[] = '<!-- wp:paragraph -->';
