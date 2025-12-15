@@ -1430,9 +1430,11 @@ class SEOgen_Admin {
 		<?php if ( is_array( $current_job ) ) : ?>
 		<script>
 		(function(){
+			console.log('[SEOgen] Bulk job page script loaded');
 			var container = document.getElementById('hyper-local-bulk-job');
-			if(!container){return;}
+			if(!container){console.log('[SEOgen] ERROR: container not found');return;}
 			var jobId = container.getAttribute('data-job-id');
+			console.log('[SEOgen] Job ID:', jobId);
 			var refreshBtn = document.getElementById('hyper-local-bulk-refresh');
 			var cancelBtn = document.getElementById('hyper-local-bulk-cancel');
 			function esc(s){return String(s).replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]);});}
@@ -1460,13 +1462,22 @@ class SEOgen_Admin {
 				container.innerHTML = html;
 			}
 			function fetchStatus(){
+				console.log('[SEOgen] fetchStatus called for job:', jobId);
 				var data = new FormData();
 				data.append('action','hyper_local_bulk_job_status');
 				data.append('job_id',jobId);
 				data.append('nonce','<?php echo esc_js( $status_nonce ); ?>');
-				return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){return r.json();}).then(function(res){
+				console.log('[SEOgen] Fetching from:', ajaxurl);
+				return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){
+					console.log('[SEOgen] Response status:', r.status);
+					return r.json();
+				}).then(function(res){
+					console.log('[SEOgen] Response data:', res);
 					if(res && res.success){render(res.data);return res.data;}
 					render(null);return null;
+				}).catch(function(err){
+					console.error('[SEOgen] Fetch error:', err);
+					return null;
 				});
 			}
 			function cancelJob(){
@@ -1478,9 +1489,14 @@ class SEOgen_Admin {
 			}
 			if(refreshBtn){refreshBtn.addEventListener('click',function(e){e.preventDefault();fetchStatus();});}
 			if(cancelBtn){cancelBtn.addEventListener('click',function(e){e.preventDefault();cancelJob();});}
+			console.log('[SEOgen] Starting initial fetchStatus');
 			fetchStatus().then(function(job){
+				console.log('[SEOgen] Initial fetch complete, job:', job);
 				if(job && (job.status === 'pending' || job.status === 'running')){
+					console.log('[SEOgen] Job is active, starting polling interval');
 					setInterval(fetchStatus,5000);
+				} else {
+					console.log('[SEOgen] Job not active, status:', job ? job.status : 'null');
 				}
 			});
 		})();
