@@ -234,7 +234,6 @@ class SEOgen_Admin {
 		$scannable_headings_added = false;
 		$section_heading_state = 0;
 		$issues_list_added = false;
-		$process_added = false;
 
 		$details_available = class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( 'core/details' );
 
@@ -291,21 +290,6 @@ class SEOgen_Admin {
 					}
 				}
 			}
-		};
-
-		$add_process_section = function () use ( &$output, &$context_service ) {
-			$service = ( '' !== $context_service ) ? $context_service : esc_html__( 'Roof Repair', 'seogen' );
-			$output[] = '<!-- wp:heading {"level":2} -->';
-			$output[] = '<h2>' . esc_html( sprintf( __( '%s Process', 'seogen' ), $service ) ) . '</h2>';
-			$output[] = '<!-- /wp:heading -->';
-			$output[] = '<!-- wp:list {"ordered":true} -->';
-			$output[] = '<ol>';
-			$output[] = '<li>' . esc_html__( 'Inspection & diagnosis', 'seogen' ) . '</li>';
-			$output[] = '<li>' . esc_html__( 'Clear estimate & plan', 'seogen' ) . '</li>';
-			$output[] = '<li>' . esc_html__( 'Quality repairs', 'seogen' ) . '</li>';
-			$output[] = '<li>' . esc_html__( 'Final walkthrough', 'seogen' ) . '</li>';
-			$output[] = '</ol>';
-			$output[] = '<!-- /wp:list -->';
 		};
 
 		$add_h2 = function ( $text ) use ( &$output ) {
@@ -452,10 +436,6 @@ class SEOgen_Admin {
 
 			if ( 'faq' === $type ) {
 				$emit_hero_if_ready( true );
-				if ( ! $process_added && $paragraphs_seen_after_hero >= 4 ) {
-					$add_process_section();
-					$process_added = true;
-				}
 				$close_body_group_if_open();
 
 				if ( ! $faq_heading_added ) {
@@ -490,10 +470,6 @@ class SEOgen_Admin {
 
 			if ( 'nap' === $type ) {
 				$emit_hero_if_ready( true );
-				if ( ! $process_added && $paragraphs_seen_after_hero >= 4 ) {
-					$add_process_section();
-					$process_added = true;
-				}
 				$close_body_group_if_open();
 				$add_separator();
 
@@ -559,10 +535,6 @@ class SEOgen_Admin {
 
 			if ( 'cta' === $type ) {
 				$emit_hero_if_ready( true );
-				if ( ! $process_added && $paragraphs_seen_after_hero >= 4 ) {
-					$add_process_section();
-					$process_added = true;
-				}
 				$close_body_group_if_open();
 				$add_separator();
 				if ( '' === $context_city || '' === $context_state || '' === $context_business ) {
