@@ -11,7 +11,6 @@ class SEOgen_Admin {
 	const BULK_JOBS_INDEX_OPTION = 'hyper_local_jobs_index';
 	const BULK_VALIDATE_TRANSIENT_PREFIX = 'hyper_local_bulk_validate_';
 	const BULK_PROCESS_HOOK = 'hyper_local_process_job_batch';
-	const BULK_IMPORT_HOOK = 'hyper_local_import_api_results';
 
 	public function run() {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
@@ -24,7 +23,6 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_bulk_run_batch', array( $this, 'handle_bulk_run_batch' ) );
 		add_action( 'admin_post_hyper_local_bulk_export', array( $this, 'handle_bulk_export' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
-		add_action( 'wp_ajax_hyper_local_bulk_start', array( $this, 'ajax_bulk_start' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_cancel', array( $this, 'ajax_bulk_job_cancel' ) );
 		add_action( 'admin_notices', array( $this, 'render_hl_notice' ) );
 	}
@@ -33,7 +31,6 @@ class SEOgen_Admin {
 		add_action( self::BULK_PROCESS_HOOK, array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job', array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job_action', array( $this, 'process_bulk_job' ), 10, 1 );
-		add_action( self::BULK_IMPORT_HOOK, array( $this, 'process_bulk_import' ), 10, 1 );
 	}
 
 	private function get_last_preview_transient_key( $user_id ) {
@@ -1560,219 +1557,6 @@ class SEOgen_Admin {
 		}
 	}
 
-	private function schedule_bulk_import( $job_id, $delay_seconds = 10 ) {
-		$job_id = sanitize_key( (string) $job_id );
-		$delay_seconds = (int) $delay_seconds;
-		if ( $delay_seconds < 0 ) {
-			$delay_seconds = 0;
-		}
-		if ( '' === $job_id ) {
-			return;
-		}
-		$lock_key = 'hyper_local_bulk_import_lock_' . $job_id;
-		if ( get_transient( $lock_key ) ) {
-			return;
-		}
-		set_transient( $lock_key, '1', 30 );
-
-		error_log( '[HyperLocal Bulk] scheduling import job_id=' . $job_id . ' delay=' . $delay_seconds . 's backend=' . $this->get_bulk_backend_label() );
-
-		if ( function_exists( 'as_schedule_single_action' ) ) {
-			$when = time() + $delay_seconds;
-			$action_id = as_schedule_single_action( $when, self::BULK_IMPORT_HOOK, array( 'job_id' => $job_id ), 'hyper-local' );
-			if ( ! empty( $action_id ) ) {
-				return;
-			}
-		}
-		if ( ! wp_next_scheduled( self::BULK_IMPORT_HOOK, array( $job_id ) ) ) {
-			wp_schedule_single_event( time() + $delay_seconds, self::BULK_IMPORT_HOOK, array( $job_id ) );
-		}
-	}
-
-	private function sync_api_job_status_into_job( array &$job, $api_url, $license_key ) {
-		if ( ! isset( $job['api_job_id'] ) || '' === (string) $job['api_job_id'] ) {
-			return;
-		}
-		$status = $this->api_get_bulk_job_status( $api_url, $license_key, $job['api_job_id'] );
-		if ( empty( $status['ok'] ) ) {
-			error_log( '[HyperLocal Bulk] API status fetch failed job_id=' . ( isset( $job['id'] ) ? (string) $job['id'] : '' ) . ' api_job_id=' . (string) $job['api_job_id'] . ' err=' . ( isset( $status['error'] ) ? (string) $status['error'] : 'unknown' ) );
-			return;
-		}
-		if ( ! empty( $status['ok'] ) && is_array( $status['data'] ) ) {
-			$job['status'] = isset( $status['data']['status'] ) ? sanitize_text_field( (string) $status['data']['status'] ) : ( isset( $job['status'] ) ? $job['status'] : '' );
-			$job['total_rows'] = isset( $status['data']['total_items'] ) ? (int) $status['data']['total_items'] : ( isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0 );
-			$job['processed'] = isset( $status['data']['processed'] ) ? (int) $status['data']['processed'] : ( isset( $job['processed'] ) ? (int) $job['processed'] : 0 );
-			$job['success'] = isset( $status['data']['completed'] ) ? (int) $status['data']['completed'] : ( isset( $job['success'] ) ? (int) $job['success'] : 0 );
-			$job['failed'] = isset( $status['data']['failed'] ) ? (int) $status['data']['failed'] : ( isset( $job['failed'] ) ? (int) $job['failed'] : 0 );
-		}
-	}
-
-	private function import_completed_api_results_for_job( array &$job, $job_id, $api_url, $license_key, $limit = 10 ) {
-		$job_id = sanitize_key( (string) $job_id );
-		$imported_count = 0;
-		$acked_count = 0;
-		if ( ! isset( $job['api_job_id'] ) || '' === (string) $job['api_job_id'] ) {
-			return array(
-				'imported' => $imported_count,
-				'acked'    => $acked_count,
-			);
-		}
-		$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
-		$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, (int) $limit );
-		if ( empty( $results['ok'] ) ) {
-			error_log( '[HyperLocal Bulk] API results fetch failed job_id=' . (string) $job_id . ' api_job_id=' . (string) $job['api_job_id'] . ' cursor=' . (string) $cursor . ' err=' . ( isset( $results['error'] ) ? (string) $results['error'] : 'unknown' ) );
-			return array(
-				'imported' => $imported_count,
-				'acked'    => $acked_count,
-			);
-		}
-		$acked_ids = array();
-		if ( ! empty( $results['ok'] ) && is_array( $results['data'] ) && isset( $results['data']['items'] ) && is_array( $results['data']['items'] ) ) {
-			$update_existing = ( isset( $job['update_existing'] ) && '1' === (string) $job['update_existing'] );
-			foreach ( $results['data']['items'] as $item ) {
-				$item_id = isset( $item['item_id'] ) ? (string) $item['item_id'] : '';
-				$idx = isset( $item['idx'] ) ? (int) $item['idx'] : -1;
-				$canonical_key = isset( $item['canonical_key'] ) ? (string) $item['canonical_key'] : '';
-				$result_json = isset( $item['result_json'] ) && is_array( $item['result_json'] ) ? $item['result_json'] : null;
-				if ( '' === $item_id || $idx < 0 || ! is_array( $result_json ) ) {
-					continue;
-				}
-
-				$existing_id = ( '' !== $canonical_key ) ? $this->find_existing_post_id_by_key( $canonical_key ) : 0;
-				if ( $existing_id > 0 && ! $update_existing ) {
-					if ( isset( $job['rows'][ $idx ] ) ) {
-						$job['rows'][ $idx ]['status'] = 'skipped';
-						$job['rows'][ $idx ]['message'] = __( 'Existing page found for key; skipping import.', 'seogen' );
-						$job['rows'][ $idx ]['post_id'] = $existing_id;
-					}
-					$acked_ids[] = $item_id;
-					continue;
-				}
-
-				$title = isset( $result_json['title'] ) ? (string) $result_json['title'] : '';
-				$slug = isset( $result_json['slug'] ) ? (string) $result_json['slug'] : '';
-				$meta_description = isset( $result_json['meta_description'] ) ? (string) $result_json['meta_description'] : '';
-				$blocks = ( isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ) ? $result_json['blocks'] : array();
-				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
-
-				$postarr = array(
-					'post_type'    => 'programmatic_page',
-					'post_status'  => 'draft',
-					'post_title'   => $title,
-					'post_name'    => sanitize_title( $slug ),
-					'post_content' => $gutenberg_markup,
-				);
-
-				if ( $existing_id > 0 && $update_existing ) {
-					$postarr['ID'] = $existing_id;
-					$post_id = wp_update_post( $postarr, true );
-				} else {
-					$post_id = wp_insert_post( $postarr, true );
-				}
-
-				if ( is_wp_error( $post_id ) ) {
-					if ( isset( $job['rows'][ $idx ] ) ) {
-						$job['rows'][ $idx ]['status'] = 'failed';
-						$job['rows'][ $idx ]['message'] = $post_id->get_error_message();
-						$job['rows'][ $idx ]['post_id'] = 0;
-					}
-					$acked_ids[] = $item_id;
-					continue;
-				}
-
-				$post_id = (int) $post_id;
-				$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'programmatic_page', 0 );
-				if ( $unique_slug ) {
-					wp_update_post(
-						array(
-							'ID'        => $post_id,
-							'post_name' => $unique_slug,
-						)
-					);
-				}
-
-				update_post_meta( $post_id, '_hyper_local_managed', '1' );
-				if ( '' !== $canonical_key ) {
-					update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
-				}
-				update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
-				update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
-				update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
-
-				$service_for_meta = '';
-				if ( isset( $job['rows'][ $idx ] ) && isset( $job['rows'][ $idx ]['service'] ) ) {
-					$service_for_meta = sanitize_text_field( (string) $job['rows'][ $idx ]['service'] );
-				}
-				$this->apply_seo_plugin_meta( $post_id, $service_for_meta, $title, $meta_description, true );
-
-				if ( isset( $job['rows'][ $idx ] ) ) {
-					$job['rows'][ $idx ]['status'] = 'success';
-					$job['rows'][ $idx ]['message'] = __( 'Imported.', 'seogen' );
-					$job['rows'][ $idx ]['post_id'] = $post_id;
-				}
-				$imported_count++;
-				$acked_ids[] = $item_id;
-			}
-			if ( isset( $results['data']['next_cursor'] ) ) {
-				$job['api_cursor'] = sanitize_text_field( (string) $results['data']['next_cursor'] );
-			}
-		}
-		if ( ! empty( $acked_ids ) ) {
-			$this->api_ack_bulk_job_items( $api_url, $license_key, $job['api_job_id'], $acked_ids );
-			$acked_count = count( $acked_ids );
-		}
-		return array(
-			'imported' => $imported_count,
-			'acked'    => $acked_count,
-		);
-	}
-
-	public function process_bulk_import( $job_id ) {
-		if ( is_array( $job_id ) && isset( $job_id['job_id'] ) ) {
-			$job_id = $job_id['job_id'];
-		}
-		$job_id = sanitize_key( (string) $job_id );
-		if ( '' === $job_id ) {
-			return;
-		}
-		$job = $this->load_bulk_job( $job_id );
-		if ( ! is_array( $job ) ) {
-			return;
-		}
-		if ( isset( $job['status'] ) && in_array( (string) $job['status'], array( 'canceled' ), true ) ) {
-			return;
-		}
-		if ( ! isset( $job['mode'] ) || 'api' !== (string) $job['mode'] || ! isset( $job['api_job_id'] ) || '' === (string) $job['api_job_id'] ) {
-			return;
-		}
-		$settings = $this->get_settings();
-		$api_url  = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
-		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
-		if ( '' === $api_url || '' === $license_key ) {
-			return;
-		}
-
-		error_log( '[HyperLocal Bulk] running import job_id=' . $job_id . ' api_job_id=' . (string) $job['api_job_id'] . ' cursor=' . ( isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '' ) );
-		$this->sync_api_job_status_into_job( $job, $api_url, $license_key );
-		$import_result = $this->import_completed_api_results_for_job( $job, $job_id, $api_url, $license_key, 20 );
-		$imported = ( is_array( $import_result ) && isset( $import_result['imported'] ) ) ? (int) $import_result['imported'] : 0;
-		$acked = ( is_array( $import_result ) && isset( $import_result['acked'] ) ) ? (int) $import_result['acked'] : 0;
-		$this->save_bulk_job( $job_id, $job );
-
-		if ( isset( $job['status'] ) && 'canceled' === (string) $job['status'] ) {
-			return;
-		}
-		$api_running = ( ! isset( $job['status'] ) || in_array( (string) $job['status'], array( 'pending', 'running' ), true ) );
-		if ( $api_running ) {
-			$this->schedule_bulk_import( $job_id, ( $acked > 0 ? 5 : 15 ) );
-			return;
-		}
-		if ( $acked > 0 ) {
-			$this->schedule_bulk_import( $job_id, 5 );
-			return;
-		}
-	}
-
 	private function format_bulk_api_error_message( $code, $body ) {
 		$code = (int) $code;
 		$body = (string) $body;
@@ -1884,8 +1668,6 @@ class SEOgen_Admin {
 	}
 
 	private function api_json_request( $method, $url, $payload = null, $timeout = 30 ) {
-		$settings = $this->get_settings();
-		$seogen_token = isset( $settings['seogen_token'] ) ? trim( (string) $settings['seogen_token'] ) : '';
 		$args = array(
 			'timeout' => (int) $timeout,
 			'headers' => array(
@@ -1893,9 +1675,6 @@ class SEOgen_Admin {
 				'Accept'       => 'application/json',
 			),
 		);
-		if ( '' !== $seogen_token ) {
-			$args['headers']['X-SEOGEN-TOKEN'] = $seogen_token;
-		}
 		if ( null !== $payload ) {
 			$args['body'] = wp_json_encode( $payload );
 		}
@@ -1962,7 +1741,6 @@ class SEOgen_Admin {
 		$url = trailingslashit( (string) $api_url ) . 'bulk-jobs/' . rawurlencode( (string) $api_job_id ) . '/results';
 		$args = array(
 			'license_key' => (string) $license_key,
-			'status'      => 'completed',
 			'limit'       => (int) $limit,
 		);
 		if ( null !== $cursor && '' !== (string) $cursor ) {
@@ -2015,14 +1793,6 @@ class SEOgen_Admin {
 			'seogen_license_key',
 			__( 'License Key', 'seogen' ),
 			array( $this, 'render_field_license_key' ),
-			'seogen-settings',
-			'seogen_settings_section_main'
-		);
-
-		add_settings_field(
-			'seogen_token',
-			__( 'API Token', 'seogen' ),
-			array( $this, 'render_field_seogen_token' ),
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
@@ -2091,12 +1861,6 @@ class SEOgen_Admin {
 		}
 		$sanitized['license_key'] = $license_key;
 
-		$seogen_token = '';
-		if ( isset( $input['seogen_token'] ) ) {
-			$seogen_token = sanitize_text_field( (string) $input['seogen_token'] );
-		}
-		$sanitized['seogen_token'] = $seogen_token;
-
 		$design_preset = 'theme_default';
 		if ( isset( $input['design_preset'] ) ) {
 			$design_preset = sanitize_key( (string) $input['design_preset'] );
@@ -2145,7 +1909,6 @@ class SEOgen_Admin {
 		$defaults = array(
 			'api_url'      => 'https://seogen-production.up.railway.app',
 			'license_key'  => '',
-			'seogen_token' => '',
 			'design_preset' => 'theme_default',
 			'show_h1_in_content' => '0',
 			'hero_style' => 'minimal',
@@ -2179,15 +1942,6 @@ class SEOgen_Admin {
 			'<input type="text" class="regular-text" name="%1$s[license_key]" value="%2$s" autocomplete="off" />',
 			esc_attr( self::OPTION_NAME ),
 			esc_attr( $settings['license_key'] )
-		);
-	}
-
-	public function render_field_seogen_token() {
-		$settings = $this->get_settings();
-		printf(
-			'<input type="text" class="regular-text" name="%1$s[seogen_token]" value="%2$s" autocomplete="off" />',
-			esc_attr( self::OPTION_NAME ),
-			esc_attr( $settings['seogen_token'] )
 		);
 	}
 
@@ -2326,7 +2080,6 @@ class SEOgen_Admin {
 		}
 		$status_nonce = wp_create_nonce( 'hyper_local_bulk_job_status' );
 		$cancel_nonce = wp_create_nonce( 'hyper_local_bulk_job_cancel' );
-		$start_nonce  = wp_create_nonce( 'hyper_local_bulk_start' );
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Bulk Generate', 'seogen' ); ?></h1>
@@ -2424,30 +2177,11 @@ class SEOgen_Admin {
 
 			<?php if ( is_array( $validated ) && isset( $validated['rows'] ) && is_array( $validated['rows'] ) ) : ?>
 				<h2><?php echo esc_html__( 'Preview', 'seogen' ); ?></h2>
-				<p>
-					<button type="button" class="button button-primary" id="hyper-local-bulk-start" data-nonce="<?php echo esc_attr( $start_nonce ); ?>"><?php echo esc_html__( 'Start Bulk Generation', 'seogen' ); ?></button>
-				</p>
-				<script>
-				(function(){
-					var btn = document.getElementById('hyper-local-bulk-start');
-					if(!btn){return;}
-					var nonce = btn.getAttribute('data-nonce');
-					btn.addEventListener('click', function(e){
-						e.preventDefault();
-						btn.disabled = true;
-						var data = new FormData();
-						data.append('action','hyper_local_bulk_start');
-						data.append('nonce', nonce || '');
-						fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){return r.json();}).then(function(res){
-							if(res && res.success && res.data && res.data.job_id){
-								window.location = '<?php echo esc_js( admin_url( 'admin.php?page=hyper-local-bulk&job_id=' ) ); ?>' + encodeURIComponent(String(res.data.job_id));
-								return;
-							}
-							btn.disabled = false;
-						});
-					});
-				})();
-				</script>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="hyper_local_bulk_start" />
+					<?php wp_nonce_field( 'hyper_local_bulk_start', 'hyper_local_bulk_start_nonce' ); ?>
+					<?php submit_button( __( 'Start Bulk Generation', 'seogen' ), 'primary', 'submit' ); ?>
+				</form>
 				<table class="widefat striped" style="margin-top:12px;">
 					<thead>
 						<tr>
@@ -2648,104 +2382,6 @@ class SEOgen_Admin {
 		exit;
 	}
 
-	public function ajax_bulk_start() {
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error();
-		}
-		check_ajax_referer( 'hyper_local_bulk_start', 'nonce' );
-		error_log( '[HyperLocal Bulk] BEGIN clicked (ajax_bulk_start)' );
-
-		$user_id = get_current_user_id();
-		$validate_key = $this->get_bulk_validate_transient_key( $user_id );
-		$validated = get_transient( $validate_key );
-		if ( ! is_array( $validated ) || ! isset( $validated['rows'] ) || ! is_array( $validated['rows'] ) || ! isset( $validated['form'] ) || ! is_array( $validated['form'] ) ) {
-			wp_send_json_error( array( 'message' => 'Missing validated rows.' ) );
-		}
-
-		$settings = $this->get_settings();
-		$api_url  = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
-		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
-		if ( '' === $api_url || '' === $license_key ) {
-			wp_send_json_error( array( 'message' => 'Missing API URL or license key.' ) );
-		}
-
-		$job_id = sanitize_key( 'hl_job_' . wp_generate_password( 12, false, false ) );
-		$job_rows = array();
-		foreach ( $validated['rows'] as $row ) {
-			$job_rows[] = array(
-				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
-				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
-				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
-				'key'          => isset( $row['key'] ) ? (string) $row['key'] : '',
-				'slug_preview' => isset( $row['slug_preview'] ) ? (string) $row['slug_preview'] : '',
-				'status'       => 'pending',
-				'message'      => '',
-				'post_id'      => 0,
-			);
-		}
-
-		$form = $validated['form'];
-		$job = array(
-			'id'         => $job_id,
-			'status'     => 'running',
-			'created_by' => (int) $user_id,
-			'created_at' => current_time( 'mysql' ),
-			'total_rows' => count( $job_rows ),
-			'processed'  => 0,
-			'success'    => 0,
-			'failed'     => 0,
-			'skipped'    => 0,
-			'mode'       => 'api',
-			'api_job_id' => '',
-			'api_cursor' => '',
-			'update_existing' => ( isset( $form['update_existing'] ) && '1' === (string) $form['update_existing'] ) ? '1' : '0',
-			'inputs'     => array(
-				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
-				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
-				'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
-			),
-			'rows'       => $job_rows,
-		);
-
-		$api_items = array();
-		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
-		foreach ( $job_rows as $row ) {
-			$api_items[] = array(
-				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
-				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
-				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
-				'company_name' => isset( $job['inputs']['company_name'] ) ? (string) $job['inputs']['company_name'] : '',
-				'phone'        => isset( $job['inputs']['phone'] ) ? (string) $job['inputs']['phone'] : '',
-				'address'      => isset( $job['inputs']['address'] ) ? (string) $job['inputs']['address'] : '',
-			);
-		}
-
-		error_log( '[HyperLocal Bulk] BEGIN creating API bulk job url=' . trailingslashit( (string) $api_url ) . 'bulk-jobs' . ' items=' . count( $api_items ) );
-		$created = $this->api_create_bulk_job( $api_url, $license_key, $job_name, $api_items );
-		if ( empty( $created['ok'] ) || ! is_array( $created['data'] ) || empty( $created['data']['job_id'] ) ) {
-			error_log( '[HyperLocal Bulk] BEGIN API bulk job create FAILED msg=' . ( isset( $created['error'] ) ? (string) $created['error'] : 'unknown' ) );
-			wp_send_json_error( array( 'message' => isset( $created['error'] ) ? (string) $created['error'] : 'Failed to create bulk job on API.' ) );
-		}
-		error_log( '[HyperLocal Bulk] BEGIN API bulk job created api_job_id=' . (string) $created['data']['job_id'] );
-		$job['api_job_id'] = sanitize_text_field( (string) $created['data']['job_id'] );
-
-		foreach ( $job['rows'] as $i => $row ) {
-			$job['rows'][ $i ]['status'] = 'pending';
-			$job['rows'][ $i ]['message'] = __( 'Queued on API.', 'seogen' );
-		}
-		$this->save_bulk_job( $job_id, $job );
-		delete_transient( $validate_key );
-		error_log( '[HyperLocal Bulk] created API job job_id=' . $job_id . ' api_job_id=' . $job['api_job_id'] . ' total_rows=' . count( $job_rows ) );
-
-		wp_send_json_success(
-			array(
-				'job_id'      => (string) $job_id,
-				'total_items' => count( $job_rows ),
-				'message'     => 'Queued. Import will start automatically.',
-			)
-		);
-	}
-
 	public function handle_bulk_export() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'seogen' ) );
@@ -2805,8 +2441,129 @@ class SEOgen_Admin {
 		$is_api_mode = ( isset( $job['mode'] ) && 'api' === (string) $job['mode'] && isset( $job['api_job_id'] ) && '' !== (string) $job['api_job_id'] );
 
 		if ( $is_api_mode && '' !== $api_url && '' !== $license_key ) {
-			$this->sync_api_job_status_into_job( $job, $api_url, $license_key );
-			$this->import_completed_api_results_for_job( $job, $job_id, $api_url, $license_key, 10 );
+			$status = $this->api_get_bulk_job_status( $api_url, $license_key, $job['api_job_id'] );
+			if ( ! empty( $status['ok'] ) && is_array( $status['data'] ) ) {
+				$job['status'] = isset( $status['data']['status'] ) ? sanitize_text_field( (string) $status['data']['status'] ) : ( isset( $job['status'] ) ? $job['status'] : '' );
+				$job['total_rows'] = isset( $status['data']['total_items'] ) ? (int) $status['data']['total_items'] : ( isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0 );
+				$job['processed'] = isset( $status['data']['processed'] ) ? (int) $status['data']['processed'] : ( isset( $job['processed'] ) ? (int) $job['processed'] : 0 );
+				$job['success'] = isset( $status['data']['completed'] ) ? (int) $status['data']['completed'] : ( isset( $job['success'] ) ? (int) $job['success'] : 0 );
+				$job['failed'] = isset( $status['data']['failed'] ) ? (int) $status['data']['failed'] : ( isset( $job['failed'] ) ? (int) $job['failed'] : 0 );
+			}
+
+			$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
+			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, 10 );
+			$acked_ids = array();
+			if ( ! empty( $results['ok'] ) && is_array( $results['data'] ) && isset( $results['data']['items'] ) && is_array( $results['data']['items'] ) ) {
+				$update_existing = ( isset( $job['update_existing'] ) && '1' === (string) $job['update_existing'] );
+				foreach ( $results['data']['items'] as $item ) {
+					$item_id = isset( $item['item_id'] ) ? (string) $item['item_id'] : '';
+					$idx = isset( $item['idx'] ) ? (int) $item['idx'] : -1;
+					$canonical_key = isset( $item['canonical_key'] ) ? (string) $item['canonical_key'] : '';
+					$item_status = isset( $item['status'] ) ? (string) $item['status'] : '';
+					$result_json = isset( $item['result_json'] ) && is_array( $item['result_json'] ) ? $item['result_json'] : null;
+					$error = isset( $item['error'] ) ? (string) $item['error'] : '';
+					
+					if ( '' === $item_id || $idx < 0 ) {
+						continue;
+					}
+					
+					if ( 'failed' === $item_status ) {
+						if ( isset( $job['rows'][ $idx ] ) ) {
+							$job['rows'][ $idx ]['status'] = 'failed';
+							$job['rows'][ $idx ]['message'] = '' !== $error ? $error : __( 'Generation failed.', 'seogen' );
+							$job['rows'][ $idx ]['post_id'] = 0;
+						}
+						$acked_ids[] = $item_id;
+						continue;
+					}
+					
+					if ( ! is_array( $result_json ) ) {
+						continue;
+					}
+
+					$post_id = 0;
+					$existing_id = ( '' !== $canonical_key ) ? $this->find_existing_post_id_by_key( $canonical_key ) : 0;
+					if ( $existing_id > 0 && ! $update_existing ) {
+						$post_id = $existing_id;
+						if ( isset( $job['rows'][ $idx ] ) ) {
+							$job['rows'][ $idx ]['status'] = 'skipped';
+							$job['rows'][ $idx ]['message'] = __( 'Existing page found for key; skipping import.', 'seogen' );
+							$job['rows'][ $idx ]['post_id'] = $existing_id;
+						}
+						$acked_ids[] = $item_id;
+						continue;
+					}
+
+					$title = isset( $result_json['title'] ) ? (string) $result_json['title'] : '';
+					$slug = isset( $result_json['slug'] ) ? (string) $result_json['slug'] : '';
+					$meta_description = isset( $result_json['meta_description'] ) ? (string) $result_json['meta_description'] : '';
+					$blocks = ( isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ) ? $result_json['blocks'] : array();
+					$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
+
+					$postarr = array(
+						'post_type'    => 'programmatic_page',
+						'post_status'  => 'draft',
+						'post_title'   => $title,
+						'post_name'    => sanitize_title( $slug ),
+						'post_content' => $gutenberg_markup,
+					);
+
+					if ( $existing_id > 0 && $update_existing ) {
+						$postarr['ID'] = $existing_id;
+						$post_id = wp_update_post( $postarr, true );
+					} else {
+						$post_id = wp_insert_post( $postarr, true );
+					}
+
+					if ( is_wp_error( $post_id ) ) {
+						if ( isset( $job['rows'][ $idx ] ) ) {
+							$job['rows'][ $idx ]['status'] = 'failed';
+							$job['rows'][ $idx ]['message'] = $post_id->get_error_message();
+							$job['rows'][ $idx ]['post_id'] = 0;
+						}
+						$acked_ids[] = $item_id;
+						continue;
+					}
+
+					$post_id = (int) $post_id;
+					$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'programmatic_page', 0 );
+					if ( $unique_slug ) {
+						wp_update_post(
+							array(
+								'ID'        => $post_id,
+								'post_name' => $unique_slug,
+							)
+						);
+					}
+
+					update_post_meta( $post_id, '_hyper_local_managed', '1' );
+					if ( '' !== $canonical_key ) {
+						update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
+					}
+					update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
+					update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
+					update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
+
+					$service_for_meta = '';
+					if ( isset( $job['rows'][ $idx ] ) && isset( $job['rows'][ $idx ]['service'] ) ) {
+						$service_for_meta = sanitize_text_field( (string) $job['rows'][ $idx ]['service'] );
+					}
+					$this->apply_seo_plugin_meta( $post_id, $service_for_meta, $title, $meta_description, true );
+
+					if ( isset( $job['rows'][ $idx ] ) ) {
+						$job['rows'][ $idx ]['status'] = 'success';
+						$job['rows'][ $idx ]['message'] = __( 'Imported.', 'seogen' );
+						$job['rows'][ $idx ]['post_id'] = $post_id;
+					}
+					$acked_ids[] = $item_id;
+				}
+				if ( isset( $results['data']['next_cursor'] ) ) {
+					$job['api_cursor'] = sanitize_text_field( (string) $results['data']['next_cursor'] );
+				}
+			}
+			if ( ! empty( $acked_ids ) ) {
+				$this->api_ack_bulk_job_items( $api_url, $license_key, $job['api_job_id'], $acked_ids );
+			}
 			$this->save_bulk_job( $job_id, $job );
 		} else {
 			if ( isset( $job['status'] ) && in_array( (string) $job['status'], array( 'pending', 'running' ), true ) ) {
