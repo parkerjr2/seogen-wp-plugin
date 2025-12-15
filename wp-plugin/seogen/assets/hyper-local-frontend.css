@@ -1,0 +1,49 @@
+.hyper-local-page .hyper-local-content{
+	margin:0;
+}
+
+.hyper-local-page .hyper-local-content.hyper-local-preset-clean-card,
+.hyper-local-page .hyper-local-content.hyper-local-preset-bold-sections{
+	max-width:900px;
+	margin-left:auto;
+	margin-right:auto;
+	padding-left:16px;
+	padding-right:16px;
+}
+
+.hyper-local-page .hyper-local-content .wp-block-separator{
+	margin-top:2rem;
+	margin-bottom:2rem;
+}
+
+.hyper-local-page .hyper-local-content .wp-block-details{
+	border:1px solid var(--wp--preset--color--contrast-3,#e5e7eb);
+	border-radius:8px;
+	padding:0.75rem 1rem;
+	margin:0 0 1rem;
+	background:var(--wp--preset--color--base,#fff);
+}
+
+.hyper-local-page .hyper-local-content .wp-block-details summary{
+	cursor:pointer;
+	font-weight:600;
+}
+
+.hyper-local-page .hyper-local-content .wp-block-buttons{
+	margin-top:1rem;
+	margin-bottom:1rem;
+}
+
+.hyper-local-page .hyper-local-content.hyper-local-preset-clean-card .hyper-local-nap{
+	background:var(--wp--preset--color--base-2,#f9fafb);
+	border:1px solid var(--wp--preset--color--contrast-3,#e5e7eb);
+	border-radius:12px;
+	padding:1.25rem;
+	margin-bottom:1.5rem;
+}
+
+.hyper-local-page .hyper-local-content.hyper-local-preset-bold-sections h2{
+	margin-top:2.25rem;
+	padding-top:0.75rem;
+	border-top:2px solid var(--wp--preset--color--contrast-3,#e5e7eb);
+}

@@ -19,6 +19,8 @@ Settings are stored in a single WordPress option named `seogen_settings` with:
 - `api_url`
 - `license_key`
 
+After updating the plugin, go to **Settings → Permalinks → Save Changes**.
+
 ## Status
 
 The settings page displays two status lines.

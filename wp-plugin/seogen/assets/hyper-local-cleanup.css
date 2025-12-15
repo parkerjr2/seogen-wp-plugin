@@ -1,0 +1,29 @@
+.hyper-local-page .entry-meta,
+.hyper-local-page .byline,
+.hyper-local-page .author,
+.hyper-local-page .post-author,
+.hyper-local-page .posted-on,
+.hyper-local-page .entry-date,
+.hyper-local-page .post-date,
+.hyper-local-page .meta,
+.hyper-local-page .breadcrumbs,
+.hyper-local-page .breadcrumb,
+.hyper-local-page .yoast-breadcrumb,
+.hyper-local-page #breadcrumbs,
+.hyper-local-page nav.breadcrumbs,
+.hyper-local-page nav.breadcrumb,
+.hyper-local-page .rank-math-breadcrumb,
+.hyper-local-page .rank-math-breadcrumb p,
+.hyper-local-page .wpseo-breadcrumb,
+.hyper-local-page .wpseo-breadcrumbs{
+	display:none !important;
+}
+
+.hyper-local-page .entry-title,
+.hyper-local-page h1.entry-title,
+.hyper-local-page .page-title,
+.hyper-local-page h1.page-title,
+.hyper-local-page .post-title,
+.hyper-local-page h1.post-title{
+	display:none !important;
+}
