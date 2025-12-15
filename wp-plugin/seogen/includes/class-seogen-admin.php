@@ -2085,6 +2085,7 @@ class SEOgen_Admin {
 					html += '</tbody></table>';
 					container.innerHTML = html;
 				}
+				var pollInterval = null;
 				function fetchStatus(){
 					console.log('[SEOgen] fetchStatus called for job:', jobId);
 					var data = new FormData();
@@ -2097,10 +2098,17 @@ class SEOgen_Admin {
 						return r.json();
 					}).then(function(res){
 						console.log('[SEOgen] Response data:', res);
-						if(res && res.success){render(res.data);return res.data;}
-						render(null);return null;
+						if(res && res.success){
+							render(res.data);
+							return res.data;
+						}
+						console.error('[SEOgen] Job fetch failed, stopping polling');
+						if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+						render(null);
+						return null;
 					}).catch(function(err){
 						console.error('[SEOgen] Fetch error:', err);
+						if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
 						return null;
 					});
 				}
@@ -2118,7 +2126,7 @@ class SEOgen_Admin {
 					console.log('[SEOgen] Initial fetch complete, job:', job);
 					if(job && (job.status === 'pending' || job.status === 'running')){
 						console.log('[SEOgen] Job is active, starting polling interval');
-						setInterval(fetchStatus,5000);
+						pollInterval = setInterval(fetchStatus,5000);
 					} else {
 						console.log('[SEOgen] Job not active, status:', job ? job.status : 'null');
 					}
