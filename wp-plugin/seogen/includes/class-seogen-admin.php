@@ -1474,21 +1474,29 @@ class SEOgen_Admin {
 		return $out;
 	}
 
-	private function parse_service_areas( $raw_lines ) {
+	private function parse_service_areas( $raw_lines, $default_state = '' ) {
 		$lines = $this->parse_bulk_lines( $raw_lines );
 		$areas = array();
+		$default_state = trim( (string) $default_state );
 		foreach ( $lines as $line ) {
 			$parts = array_map( 'trim', explode( ',', (string) $line ) );
 			$parts = array_values( array_filter( $parts, static function ( $v ) {
 				return '' !== trim( (string) $v );
 			} ) );
-			if ( 2 !== count( $parts ) ) {
-				continue;
+			if ( 1 === count( $parts ) && '' !== $default_state ) {
+				// Single value (city only) with default state provided
+				$areas[] = array(
+					'city'  => sanitize_text_field( (string) $parts[0] ),
+					'state' => sanitize_text_field( $default_state ),
+				);
+			} elseif ( 2 === count( $parts ) ) {
+				// Standard format: City, ST
+				$areas[] = array(
+					'city'  => sanitize_text_field( (string) $parts[0] ),
+					'state' => sanitize_text_field( (string) $parts[1] ),
+				);
 			}
-			$areas[] = array(
-				'city'  => sanitize_text_field( (string) $parts[0] ),
-				'state' => sanitize_text_field( (string) $parts[1] ),
-			);
+			// Skip lines that don't match either format
 		}
 		return $areas;
 	}
@@ -1975,6 +1983,7 @@ class SEOgen_Admin {
 		$defaults = array(
 			'services'        => '',
 			'service_areas'   => '',
+			'default_state'   => '',
 			'company_name'    => '',
 			'phone'           => '',
 			'address'         => '',
@@ -2104,11 +2113,22 @@ class SEOgen_Admin {
 						<textarea name="services" id="hl_bulk_services" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['services'] ); ?></textarea>
 					</div>
 					<div class="hyper-local-bulk-col">
-						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST)', 'seogen' ); ?></label>
+						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City)', 'seogen' ); ?></label>
 						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
-						<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX', 'seogen' ); ?></p>
+						<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas', 'seogen' ); ?></p>
 					</div>
 				</div>
+				<table class="form-table" role="presentation" style="margin-top:20px;">
+					<tbody>
+						<tr>
+							<th scope="row"><label for="hl_bulk_default_state"><?php echo esc_html__( 'Default State (for city-only entries)', 'seogen' ); ?></label></th>
+							<td>
+								<input name="default_state" id="hl_bulk_default_state" type="text" class="regular-text" value="<?php echo esc_attr( (string) $defaults['default_state'] ); ?>" placeholder="TX" />
+								<p class="description"><?php echo esc_html__( 'Used when Service Areas contains only city names without state (e.g., "Dallas" will become "Dallas, TX")', 'seogen' ); ?></p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
 				<div class="hyper-local-bulk-count" id="hyper-local-bulk-count">
 					<strong><?php echo esc_html__( 'Total pages to be created:', 'seogen' ); ?></strong>
 					<span id="hyper-local-bulk-count-value">0</span>
@@ -2209,6 +2229,7 @@ class SEOgen_Admin {
 		$form = array(
 			'services'        => isset( $_POST['services'] ) ? (string) wp_unslash( $_POST['services'] ) : '',
 			'service_areas'   => isset( $_POST['service_areas'] ) ? (string) wp_unslash( $_POST['service_areas'] ) : '',
+			'default_state'   => isset( $_POST['default_state'] ) ? sanitize_text_field( wp_unslash( $_POST['default_state'] ) ) : '',
 			'company_name'    => isset( $_POST['company_name'] ) ? sanitize_text_field( wp_unslash( $_POST['company_name'] ) ) : '',
 			'phone'           => isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '',
 			'address'         => isset( $_POST['address'] ) ? sanitize_text_field( wp_unslash( $_POST['address'] ) ) : '',
@@ -2216,7 +2237,7 @@ class SEOgen_Admin {
 		);
 
 		$services = $this->parse_bulk_lines( $form['services'] );
-		$areas = $this->parse_service_areas( $form['service_areas'] );
+		$areas = $this->parse_service_areas( $form['service_areas'], $form['default_state'] );
 		$unique = array();
 		$preview = array();
 		foreach ( $services as $service ) {
