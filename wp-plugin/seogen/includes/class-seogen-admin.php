@@ -1252,15 +1252,6 @@ class SEOgen_Admin {
 				<?php echo esc_html__( 'This will call the API and display the returned JSON for preview/debug only. No WordPress pages are created in this phase.', 'seogen' ); ?>
 			</p>
 
-			<p>
-				<strong><?php echo esc_html__( 'API URL:', 'seogen' ); ?></strong>
-				<code><?php echo esc_html( $api_url ); ?></code>
-			</p>
-			<p>
-				<strong><?php echo esc_html__( 'License Key:', 'seogen' ); ?></strong>
-				<code><?php echo esc_html( $masked_license ); ?></code>
-			</p>
-
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="hyper_local_generate_preview" />
 				<?php wp_nonce_field( 'hyper_local_generate_preview', 'hyper_local_generate_preview_nonce' ); ?>
@@ -1997,13 +1988,6 @@ class SEOgen_Admin {
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Bulk Generate', 'seogen' ); ?></h1>
-			<p class="description">
-				<strong><?php echo esc_html__( 'Backend:', 'seogen' ); ?></strong>
-				<?php echo esc_html( $this->get_bulk_backend_label() ); ?>
-				|
-				<strong><?php echo esc_html__( 'DISABLE_WP_CRON:', 'seogen' ); ?></strong>
-				<?php echo esc_html( ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) ? 'true' : 'false' ); ?>
-			</p>
 
 			<?php if ( is_array( $current_job ) ) : ?>
 				<h2><?php echo esc_html__( 'Current Job', 'seogen' ); ?></h2>
