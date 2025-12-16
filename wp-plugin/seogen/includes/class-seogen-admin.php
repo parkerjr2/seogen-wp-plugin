@@ -600,6 +600,11 @@ class SEOgen_Admin {
 					$context_phone = trim( (string) $last_phone );
 				}
 
+				// Only show fields that have values
+				$has_business = '' !== trim( $business_name );
+				$has_address = '' !== trim( $address );
+				$has_phone = '' !== trim( $phone );
+
 				$output[] = '<!-- wp:heading {"level":2} -->';
 				$output[] = '<h2>' . esc_html__( 'Contact', 'seogen' ) . '</h2>';
 				$output[] = '<!-- /wp:heading -->';
@@ -608,38 +613,44 @@ class SEOgen_Admin {
 				$output[] = '<!-- wp:columns -->';
 				$output[] = '<div class="wp-block-columns">';
 
-				$output[] = '<!-- wp:column -->';
-				$output[] = '<div class="wp-block-column">';
-				$output[] = '<!-- wp:heading {"level":4} -->';
-				$output[] = '<h4>' . esc_html__( 'Business', 'seogen' ) . '</h4>';
-				$output[] = '<!-- /wp:heading -->';
-				$output[] = '<!-- wp:paragraph -->';
-				$output[] = '<p>' . $business_name . '</p>';
-				$output[] = '<!-- /wp:paragraph -->';
-				$output[] = '</div>';
-				$output[] = '<!-- /wp:column -->';
+				if ( $has_business ) {
+					$output[] = '<!-- wp:column -->';
+					$output[] = '<div class="wp-block-column">';
+					$output[] = '<!-- wp:heading {"level":4} -->';
+					$output[] = '<h4>' . esc_html__( 'Business', 'seogen' ) . '</h4>';
+					$output[] = '<!-- /wp:heading -->';
+					$output[] = '<!-- wp:paragraph -->';
+					$output[] = '<p>' . $business_name . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:column -->';
+				}
 
-				$output[] = '<!-- wp:column -->';
-				$output[] = '<div class="wp-block-column">';
-				$output[] = '<!-- wp:heading {"level":4} -->';
-				$output[] = '<h4>' . esc_html__( 'Address', 'seogen' ) . '</h4>';
-				$output[] = '<!-- /wp:heading -->';
-				$output[] = '<!-- wp:paragraph -->';
-				$output[] = '<p>' . $address . '</p>';
-				$output[] = '<!-- /wp:paragraph -->';
-				$output[] = '</div>';
-				$output[] = '<!-- /wp:column -->';
+				if ( $has_address ) {
+					$output[] = '<!-- wp:column -->';
+					$output[] = '<div class="wp-block-column">';
+					$output[] = '<!-- wp:heading {"level":4} -->';
+					$output[] = '<h4>' . esc_html__( 'Address', 'seogen' ) . '</h4>';
+					$output[] = '<!-- /wp:heading -->';
+					$output[] = '<!-- wp:paragraph -->';
+					$output[] = '<p>' . $address . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:column -->';
+				}
 
-				$output[] = '<!-- wp:column -->';
-				$output[] = '<div class="wp-block-column">';
-				$output[] = '<!-- wp:heading {"level":4} -->';
-				$output[] = '<h4>' . esc_html__( 'Phone', 'seogen' ) . '</h4>';
-				$output[] = '<!-- /wp:heading -->';
-				$output[] = '<!-- wp:paragraph -->';
-				$output[] = '<p>' . $phone . '</p>';
-				$output[] = '<!-- /wp:paragraph -->';
-				$output[] = '</div>';
-				$output[] = '<!-- /wp:column -->';
+				if ( $has_phone ) {
+					$output[] = '<!-- wp:column -->';
+					$output[] = '<div class="wp-block-column">';
+					$output[] = '<!-- wp:heading {"level":4} -->';
+					$output[] = '<h4>' . esc_html__( 'Phone', 'seogen' ) . '</h4>';
+					$output[] = '<!-- /wp:heading -->';
+					$output[] = '<!-- wp:paragraph -->';
+					$output[] = '<p>' . $phone . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:column -->';
+				}
 
 				$output[] = '</div>';
 				$output[] = '<!-- /wp:columns -->';
