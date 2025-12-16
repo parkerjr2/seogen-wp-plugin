@@ -1078,7 +1078,9 @@ class SEOgen_Admin {
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
-				$gutenberg_markup = $header_content . $gutenberg_markup;
+				// Add CSS to remove top spacing from content area
+				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 			}
 		}
 
@@ -2671,7 +2673,9 @@ class SEOgen_Admin {
 					if ( $header_template_id > 0 ) {
 						$header_content = $this->get_template_content( $header_template_id );
 						if ( '' !== $header_content ) {
-							$gutenberg_markup = $header_content . $gutenberg_markup;
+							// Add CSS to remove top spacing from content area
+							$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+							$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 						}
 					}
 
