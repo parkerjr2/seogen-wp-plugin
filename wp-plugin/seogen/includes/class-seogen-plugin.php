@@ -370,7 +370,7 @@ class SEOgen_Plugin {
 				'slug'       => 'service-area',
 				'with_front' => false,
 			),
-			'supports'           => array( 'title', 'editor', 'revisions' ),
+			'supports'           => array( 'title', 'editor', 'revisions', 'page-attributes', 'custom-fields', 'thumbnail', 'excerpt' ),
 			'menu_position'      => 25,
 			'menu_icon'          => 'dashicons-admin-page',
 		);
