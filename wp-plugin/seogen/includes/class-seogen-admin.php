@@ -2250,6 +2250,7 @@ class SEOgen_Admin {
 			'phone'           => '',
 			'address'         => '',
 			'update_existing' => '0',
+			'auto_publish'    => '0',
 		);
 		if ( is_array( $validated ) && isset( $validated['form'] ) && is_array( $validated['form'] ) ) {
 			$defaults = wp_parse_args( $validated['form'], $defaults );
@@ -2423,6 +2424,12 @@ class SEOgen_Admin {
 								<label><input type="checkbox" name="update_existing" value="1" <?php checked( (string) $defaults['update_existing'], '1' ); ?> /> <?php echo esc_html__( 'Update existing drafts instead of skipping', 'seogen' ); ?></label>
 							</td>
 						</tr>
+						<tr>
+							<th scope="row"><?php echo esc_html__( 'Auto-publish pages', 'seogen' ); ?></th>
+							<td>
+								<label><input type="checkbox" name="auto_publish" value="1" <?php checked( (string) $defaults['auto_publish'], '1' ); ?> /> <?php echo esc_html__( 'Automatically publish pages instead of saving as drafts', 'seogen' ); ?></label>
+							</td>
+						</tr>
 					</tbody>
 				</table>
 				<?php submit_button( __( 'Validate & Preview Rows', 'seogen' ), 'secondary', 'submit' ); ?>
@@ -2484,6 +2491,7 @@ class SEOgen_Admin {
 			'phone'           => isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '',
 			'address'         => isset( $_POST['address'] ) ? sanitize_text_field( wp_unslash( $_POST['address'] ) ) : '',
 			'update_existing' => ( isset( $_POST['update_existing'] ) && '1' === (string) wp_unslash( $_POST['update_existing'] ) ) ? '1' : '0',
+			'auto_publish'    => ( isset( $_POST['auto_publish'] ) && '1' === (string) wp_unslash( $_POST['auto_publish'] ) ) ? '1' : '0',
 		);
 
 		$services = $this->parse_bulk_lines( $form['services'] );
@@ -2615,6 +2623,7 @@ class SEOgen_Admin {
 			'api_job_id' => '',
 			'api_cursor' => '',
 			'update_existing' => ( isset( $form['update_existing'] ) && '1' === (string) $form['update_existing'] ) ? '1' : '0',
+			'auto_publish'    => ( isset( $form['auto_publish'] ) && '1' === (string) $form['auto_publish'] ) ? '1' : '0',
 			'inputs'     => array(
 				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
 				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
@@ -2838,15 +2847,18 @@ class SEOgen_Admin {
 						}
 					}
 
+					$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
+					$post_status = $auto_publish ? 'publish' : 'draft';
+
 					$postarr = array(
 						'post_type'    => 'programmatic_page',
-						'post_status'  => 'draft',
+						'post_status'  => $post_status,
 						'post_title'   => $title,
 						'post_name'    => sanitize_title( $slug ),
 						'post_content' => $gutenberg_markup,
 					);
 
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . PHP_EOL, FILE_APPEND );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . ' status=' . $post_status . PHP_EOL, FILE_APPEND );
 					if ( $existing_id > 0 && $update_existing ) {
 						$postarr['ID'] = $existing_id;
 						$post_id = wp_update_post( $postarr, true );
@@ -3205,9 +3217,12 @@ class SEOgen_Admin {
 			$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
 			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'] );
 
+			$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
+			$post_status = $auto_publish ? 'publish' : 'draft';
+
 			$postarr = array(
 				'post_type'    => 'programmatic_page',
-				'post_status'  => 'draft',
+				'post_status'  => $post_status,
 				'post_title'   => $title,
 				'post_name'    => sanitize_title( $slug ),
 				'post_content' => $gutenberg_markup,
