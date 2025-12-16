@@ -2640,6 +2640,7 @@ class SEOgen_Admin {
 		$failed_count = 0;
 		$skipped_count = 0;
 		$processed_count = 0;
+		$job_status = isset( $job['status'] ) ? (string) $job['status'] : '';
 		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			foreach ( $job['rows'] as $row ) {
 				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
@@ -2653,6 +2654,10 @@ class SEOgen_Admin {
 					$skipped_count++;
 					$processed_count++;
 				} elseif ( in_array( $row_status, array( 'processing', 'running' ), true ) ) {
+					$processed_count++;
+				} elseif ( 'pending' === $row_status && 'complete' === $job_status ) {
+					// If job is complete but row still shows pending, count it as processed
+					// This handles timing issues where API processed the item but local state wasn't updated
 					$processed_count++;
 				}
 				$edit_url = '';
