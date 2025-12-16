@@ -2113,18 +2113,18 @@ class SEOgen_Admin {
 						<textarea name="services" id="hl_bulk_services" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['services'] ); ?></textarea>
 					</div>
 					<div class="hyper-local-bulk-col">
-						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City)', 'seogen' ); ?></label>
+						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
 						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
-						<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas', 'seogen' ); ?></p>
+						<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas or Maple Ridge', 'seogen' ); ?></p>
 					</div>
 				</div>
 				<table class="form-table" role="presentation" style="margin-top:20px;">
 					<tbody>
 						<tr>
-							<th scope="row"><label for="hl_bulk_default_state"><?php echo esc_html__( 'Default State (for city-only entries)', 'seogen' ); ?></label></th>
+							<th scope="row"><label for="hl_bulk_default_state"><?php echo esc_html__( 'Default State (for city/neighborhood entries)', 'seogen' ); ?></label></th>
 							<td>
 								<input name="default_state" id="hl_bulk_default_state" type="text" class="regular-text" value="<?php echo esc_attr( (string) $defaults['default_state'] ); ?>" placeholder="TX" />
-								<p class="description"><?php echo esc_html__( 'Used when Service Areas contains only city names without state (e.g., "Dallas" will become "Dallas, TX")', 'seogen' ); ?></p>
+								<p class="description"><?php echo esc_html__( 'Used when Service Areas contains only city or neighborhood names without state (e.g., "Dallas" or "Maple Ridge" will become "Dallas, TX" or "Maple Ridge, TX")', 'seogen' ); ?></p>
 							</td>
 						</tr>
 					</tbody>
