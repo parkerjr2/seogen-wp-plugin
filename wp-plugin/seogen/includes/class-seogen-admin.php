@@ -189,6 +189,67 @@ class SEOgen_Admin {
 		$settings = $this->get_settings();
 		$current_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 		
+		$templates = $this->get_available_templates();
+
+		echo '<select name="' . esc_attr( self::OPTION_NAME ) . '[header_template_id]" id="seogen_header_template_id">';
+		echo '<option value="0">' . esc_html__( '-- None --', 'seogen' ) . '</option>';
+		
+		if ( empty( $templates ) ) {
+			echo '<option value="0" disabled>' . esc_html__( 'No templates found', 'seogen' ) . '</option>';
+		} else {
+			foreach ( $templates as $template ) {
+				$type_label = '';
+				if ( 'elementor_library' === $template->post_type ) {
+					$type_label = ' [Elementor]';
+				} elseif ( 'wp_block' === $template->post_type ) {
+					$type_label = ' [Block]';
+				}
+				printf(
+					'<option value="%d" %s>%s%s</option>',
+					$template->ID,
+					selected( $current_id, $template->ID, false ),
+					esc_html( $template->post_title ),
+					esc_html( $type_label )
+				);
+			}
+		}
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Select an Elementor template or reusable block to prepend to all generated pages.', 'seogen' ) . '</p>';
+	}
+
+	public function render_field_footer_template() {
+		$settings = $this->get_settings();
+		$current_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+		
+		$templates = $this->get_available_templates();
+
+		echo '<select name="' . esc_attr( self::OPTION_NAME ) . '[footer_template_id]" id="seogen_footer_template_id">';
+		echo '<option value="0">' . esc_html__( '-- None --', 'seogen' ) . '</option>';
+		
+		if ( empty( $templates ) ) {
+			echo '<option value="0" disabled>' . esc_html__( 'No templates found', 'seogen' ) . '</option>';
+		} else {
+			foreach ( $templates as $template ) {
+				$type_label = '';
+				if ( 'elementor_library' === $template->post_type ) {
+					$type_label = ' [Elementor]';
+				} elseif ( 'wp_block' === $template->post_type ) {
+					$type_label = ' [Block]';
+				}
+				printf(
+					'<option value="%d" %s>%s%s</option>',
+					$template->ID,
+					selected( $current_id, $template->ID, false ),
+					esc_html( $template->post_title ),
+					esc_html( $type_label )
+				);
+			}
+		}
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Select an Elementor template or reusable block to append to all generated pages.', 'seogen' ) . '</p>';
+	}
+
+	private function get_available_templates() {
 		// Check if Elementor is active
 		$has_elementor = class_exists( '\Elementor\Plugin' );
 		
@@ -223,30 +284,7 @@ class SEOgen_Admin {
 		) );
 		$templates = array_merge( $templates, $reusable_blocks );
 
-		echo '<select name="' . esc_attr( self::OPTION_NAME ) . '[header_template_id]" id="seogen_header_template_id">';
-		echo '<option value="0">' . esc_html__( '-- None --', 'seogen' ) . '</option>';
-		
-		if ( empty( $templates ) ) {
-			echo '<option value="0" disabled>' . esc_html__( 'No templates found', 'seogen' ) . '</option>';
-		} else {
-			foreach ( $templates as $template ) {
-				$type_label = '';
-				if ( 'elementor_library' === $template->post_type ) {
-					$type_label = ' [Elementor]';
-				} elseif ( 'wp_block' === $template->post_type ) {
-					$type_label = ' [Block]';
-				}
-				printf(
-					'<option value="%d" %s>%s%s</option>',
-					$template->ID,
-					selected( $current_id, $template->ID, false ),
-					esc_html( $template->post_title ),
-					esc_html( $type_label )
-				);
-			}
-		}
-		echo '</select>';
-		echo '<p class="description">' . esc_html__( 'Select an Elementor template or reusable block to prepend to all generated pages.', 'seogen' ) . '</p>';
+		return $templates;
 	}
 
 	public function render_field_primary_cta_label() {
@@ -1084,6 +1122,17 @@ class SEOgen_Admin {
 			}
 		}
 
+		// Append footer template if configured
+		$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+		if ( $footer_template_id > 0 ) {
+			$footer_content = $this->get_template_content( $footer_template_id );
+			if ( '' !== $footer_content ) {
+				// Add CSS to remove bottom spacing from content area
+				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
+			}
+		}
+
 		$postarr = array(
 			'post_type'    => 'programmatic_page',
 			'post_status'  => 'draft',
@@ -1775,6 +1824,14 @@ class SEOgen_Admin {
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
+
+		add_settings_field(
+			'seogen_footer_template_id',
+			__( 'Footer Template (Reusable Block)', 'seogen' ),
+			array( $this, 'render_field_footer_template' ),
+			'seogen-settings',
+			'seogen_settings_section_main'
+		);
 	}
 
 	public function sanitize_settings( $input ) {
@@ -1838,6 +1895,12 @@ class SEOgen_Admin {
 			$header_template_id = (int) $input['header_template_id'];
 		}
 		$sanitized['header_template_id'] = $header_template_id;
+
+		$footer_template_id = 0;
+		if ( isset( $input['footer_template_id'] ) ) {
+			$footer_template_id = (int) $input['footer_template_id'];
+		}
+		$sanitized['footer_template_id'] = $footer_template_id;
 
 		return $sanitized;
 	}
@@ -2676,6 +2739,17 @@ class SEOgen_Admin {
 							// Add CSS to remove top spacing from content area
 							$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
 							$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
+						}
+					}
+
+					// Append footer template if configured
+					$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+					if ( $footer_template_id > 0 ) {
+						$footer_content = $this->get_template_content( $footer_template_id );
+						if ( '' !== $footer_content ) {
+							// Add CSS to remove bottom spacing from content area
+							$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+							$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 						}
 					}
 
