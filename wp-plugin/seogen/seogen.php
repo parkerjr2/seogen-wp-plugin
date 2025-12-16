@@ -4,7 +4,7 @@
  * Plugin URI: https://github.com/parkerjr2/seogen-wp-plugin
  * Description: Hyper Local WordPress plugin skeleton.
  * Version: 0.1.0
- * Author: parkerjr2
+ * Author: Hyper Local
  * License: GPLv2 or later
  * Text Domain: seogen
  */

@@ -1319,6 +1319,16 @@ class SEOgen_Admin {
 			59
 		);
 
+		// Rename the first submenu item from "Hyper Local" to "Settings"
+		add_submenu_page(
+			'hyper-local',
+			__( 'Hyper Local Settings', 'seogen' ),
+			__( 'Settings', 'seogen' ),
+			'manage_options',
+			'hyper-local',
+			array( $this, 'render_settings_page' )
+		);
+
 		add_submenu_page(
 			'hyper-local',
 			__( 'Programmatic Pages', 'seogen' ),
