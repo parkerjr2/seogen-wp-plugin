@@ -249,6 +249,18 @@ class SEOgen_Admin {
 		echo '<p class="description">' . esc_html__( 'Select an Elementor template or reusable block to append to all generated pages.', 'seogen' ) . '</p>';
 	}
 
+	public function render_field_disable_theme_header_footer() {
+		$settings = $this->get_settings();
+		$current = ! empty( $settings['disable_theme_header_footer'] );
+		printf(
+			'<label><input type="checkbox" name="%1$s[disable_theme_header_footer]" value="1" %2$s /> %3$s</label>',
+			esc_attr( self::OPTION_NAME ),
+			checked( $current, true, false ),
+			esc_html__( 'Remove default theme header and footer from generated pages (uses your Header/Footer templates only).', 'seogen' )
+		);
+		echo '<p class="description">' . esc_html__( 'Works with Elementor, Gutenberg, Divi, and other page builders. Automatically detects your page builder and applies the appropriate settings.', 'seogen' ) . '</p>';
+	}
+
 	private function get_available_templates() {
 		// Check if Elementor is active
 		$has_elementor = class_exists( '\Elementor\Plugin' );
@@ -1179,6 +1191,11 @@ class SEOgen_Admin {
 		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $source_json ) );
 		update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
 
+		// Apply page builder settings to disable theme header/footer if configured
+		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+			$this->apply_page_builder_settings( $post_id );
+		}
+
 		$edit_url = admin_url( 'post.php?post=' . (int) $post_id . '&action=edit' );
 		$edit_url = add_query_arg(
 			array(
@@ -1832,6 +1849,14 @@ class SEOgen_Admin {
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
+
+		add_settings_field(
+			'seogen_disable_theme_header_footer',
+			__( 'Disable Theme Header/Footer', 'seogen' ),
+			array( $this, 'render_field_disable_theme_header_footer' ),
+			'seogen-settings',
+			'seogen_settings_section_main'
+		);
 	}
 
 	public function sanitize_settings( $input ) {
@@ -1902,7 +1927,56 @@ class SEOgen_Admin {
 		}
 		$sanitized['footer_template_id'] = $footer_template_id;
 
+		$sanitized['disable_theme_header_footer'] = ( isset( $input['disable_theme_header_footer'] ) && '1' === (string) $input['disable_theme_header_footer'] ) ? '1' : '0';
+
 		return $sanitized;
+	}
+
+	private function apply_page_builder_settings( $post_id ) {
+		// Elementor: Set to Canvas mode (no header/footer)
+		if ( class_exists( '\Elementor\Plugin' ) ) {
+			update_post_meta( $post_id, '_elementor_page_settings', array(
+				'hide_title' => 'yes',
+				'page_title' => '',
+			) );
+			update_post_meta( $post_id, '_elementor_template_type', 'wp-page' );
+			update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
+			// Set page layout to elementor_canvas (no header/footer)
+			update_post_meta( $post_id, '_wp_page_template', 'elementor_canvas' );
+		}
+		// Divi: Set to Blank template
+		elseif ( function_exists( 'et_pb_is_pagebuilder_used' ) ) {
+			update_post_meta( $post_id, '_wp_page_template', 'page-template-blank.php' );
+			update_post_meta( $post_id, '_et_pb_use_builder', 'on' );
+		}
+		// Beaver Builder: Set to no header/footer
+		elseif ( class_exists( 'FLBuilder' ) ) {
+			update_post_meta( $post_id, '_fl_builder_enabled', '1' );
+			update_post_meta( $post_id, '_fl_builder_data_settings', array(
+				'template' => 'no-header-footer',
+			) );
+		}
+		// Oxygen: Set to blank template
+		elseif ( class_exists( 'CT_Component' ) ) {
+			update_post_meta( $post_id, 'ct_builder_shortcodes', '' );
+			update_post_meta( $post_id, 'ct_other_template', '-1' );
+		}
+		// Bricks: Set to no header/footer
+		elseif ( class_exists( 'Bricks\Database' ) ) {
+			update_post_meta( $post_id, '_bricks_editor_mode', 'bricks' );
+			update_post_meta( $post_id, '_wp_page_template', 'bricks-blank' );
+		}
+		// Gutenberg/Block Editor: Use full-width template if available
+		else {
+			// Try common full-width template names
+			$templates = array( 'template-fullwidth.php', 'page-templates/full-width.php', 'templates/template-blank.php' );
+			foreach ( $templates as $template ) {
+				if ( locate_template( $template ) ) {
+					update_post_meta( $post_id, '_wp_page_template', $template );
+					break;
+				}
+			}
+		}
 	}
 
 	private function get_template_content( $template_id ) {
@@ -2798,6 +2872,11 @@ class SEOgen_Admin {
 					update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 					update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
 					update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
+
+					// Apply page builder settings to disable theme header/footer if configured
+					if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+						$this->apply_page_builder_settings( $post_id );
+					}
 
 					$service_for_meta = '';
 					if ( isset( $job['rows'][ $idx ] ) && isset( $job['rows'][ $idx ]['service'] ) ) {
