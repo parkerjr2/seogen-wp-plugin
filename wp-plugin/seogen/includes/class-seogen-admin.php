@@ -1069,7 +1069,7 @@ class SEOgen_Admin {
 		$response = wp_remote_post(
 			$url,
 			array(
-				'timeout' => 90,
+				'timeout' => 180,
 				'headers' => array(
 					'Content-Type' => 'application/json',
 				),
