@@ -189,7 +189,31 @@ class SEOgen_Admin {
 		$settings = $this->get_settings();
 		$current_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 		
-		// Get all reusable blocks (wp_block post type)
+		// Check if Elementor is active
+		$has_elementor = class_exists( '\Elementor\Plugin' );
+		
+		$templates = array();
+		
+		if ( $has_elementor ) {
+			// Get Elementor templates (elementor_library post type)
+			$elementor_templates = get_posts( array(
+				'post_type'      => 'elementor_library',
+				'posts_per_page' => -1,
+				'orderby'        => 'title',
+				'order'          => 'ASC',
+				'post_status'    => 'publish',
+				'meta_query'     => array(
+					array(
+						'key'     => '_elementor_template_type',
+						'value'   => array( 'section', 'page' ),
+						'compare' => 'IN',
+					),
+				),
+			) );
+			$templates = array_merge( $templates, $elementor_templates );
+		}
+		
+		// Also get WordPress reusable blocks
 		$reusable_blocks = get_posts( array(
 			'post_type'      => 'wp_block',
 			'posts_per_page' => -1,
@@ -197,19 +221,32 @@ class SEOgen_Admin {
 			'order'          => 'ASC',
 			'post_status'    => 'publish',
 		) );
+		$templates = array_merge( $templates, $reusable_blocks );
 
 		echo '<select name="' . esc_attr( self::OPTION_NAME ) . '[header_template_id]" id="seogen_header_template_id">';
 		echo '<option value="0">' . esc_html__( '-- None --', 'seogen' ) . '</option>';
-		foreach ( $reusable_blocks as $block ) {
-			printf(
-				'<option value="%d" %s>%s</option>',
-				$block->ID,
-				selected( $current_id, $block->ID, false ),
-				esc_html( $block->post_title )
-			);
+		
+		if ( empty( $templates ) ) {
+			echo '<option value="0" disabled>' . esc_html__( 'No templates found', 'seogen' ) . '</option>';
+		} else {
+			foreach ( $templates as $template ) {
+				$type_label = '';
+				if ( 'elementor_library' === $template->post_type ) {
+					$type_label = ' [Elementor]';
+				} elseif ( 'wp_block' === $template->post_type ) {
+					$type_label = ' [Block]';
+				}
+				printf(
+					'<option value="%d" %s>%s%s</option>',
+					$template->ID,
+					selected( $current_id, $template->ID, false ),
+					esc_html( $template->post_title ),
+					esc_html( $type_label )
+				);
+			}
 		}
 		echo '</select>';
-		echo '<p class="description">' . esc_html__( 'Select a reusable block to prepend to all generated pages. Create reusable blocks in the WordPress editor.', 'seogen' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Select an Elementor template or reusable block to prepend to all generated pages.', 'seogen' ) . '</p>';
 	}
 
 	public function render_field_primary_cta_label() {
@@ -1039,8 +1076,8 @@ class SEOgen_Admin {
 		$settings = $this->get_settings();
 		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 		if ( $header_template_id > 0 ) {
-			$header_content = get_post_field( 'post_content', $header_template_id );
-			if ( ! is_wp_error( $header_content ) && '' !== $header_content ) {
+			$header_content = $this->get_template_content( $header_template_id );
+			if ( '' !== $header_content ) {
 				$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
 			}
 		}
@@ -1801,6 +1838,32 @@ class SEOgen_Admin {
 		$sanitized['header_template_id'] = $header_template_id;
 
 		return $sanitized;
+	}
+
+	private function get_template_content( $template_id ) {
+		if ( $template_id <= 0 ) {
+			return '';
+		}
+
+		$post = get_post( $template_id );
+		if ( ! $post ) {
+			return '';
+		}
+
+		// Check if it's an Elementor template
+		if ( 'elementor_library' === $post->post_type && class_exists( '\Elementor\Plugin' ) ) {
+			// For Elementor templates, we need to use Elementor's shortcode
+			// This will render the template properly when the page is viewed
+			return '[elementor-template id="' . $template_id . '"]';
+		}
+
+		// For WordPress reusable blocks or other content, use post_content directly
+		$content = get_post_field( 'post_content', $template_id );
+		if ( is_wp_error( $content ) ) {
+			return '';
+		}
+
+		return $content;
 	}
 
 	private function get_settings() {
@@ -2606,8 +2669,8 @@ class SEOgen_Admin {
 					$settings = $this->get_settings();
 					$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 					if ( $header_template_id > 0 ) {
-						$header_content = get_post_field( 'post_content', $header_template_id );
-						if ( ! is_wp_error( $header_content ) && '' !== $header_content ) {
+						$header_content = $this->get_template_content( $header_template_id );
+						if ( '' !== $header_content ) {
 							$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
 						}
 					}
