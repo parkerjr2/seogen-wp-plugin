@@ -1078,7 +1078,7 @@ class SEOgen_Admin {
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
-				$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
+				$gutenberg_markup = $header_content . $gutenberg_markup;
 			}
 		}
 
@@ -2671,7 +2671,7 @@ class SEOgen_Admin {
 					if ( $header_template_id > 0 ) {
 						$header_content = $this->get_template_content( $header_template_id );
 						if ( '' !== $header_content ) {
-							$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
+							$gutenberg_markup = $header_content . $gutenberg_markup;
 						}
 					}
 
