@@ -185,6 +185,33 @@ class SEOgen_Admin {
 		);
 	}
 
+	public function render_field_header_template() {
+		$settings = $this->get_settings();
+		$current_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
+		
+		// Get all reusable blocks (wp_block post type)
+		$reusable_blocks = get_posts( array(
+			'post_type'      => 'wp_block',
+			'posts_per_page' => -1,
+			'orderby'        => 'title',
+			'order'          => 'ASC',
+			'post_status'    => 'publish',
+		) );
+
+		echo '<select name="' . esc_attr( self::OPTION_NAME ) . '[header_template_id]" id="seogen_header_template_id">';
+		echo '<option value="0">' . esc_html__( '-- None --', 'seogen' ) . '</option>';
+		foreach ( $reusable_blocks as $block ) {
+			printf(
+				'<option value="%d" %s>%s</option>',
+				$block->ID,
+				selected( $current_id, $block->ID, false ),
+				esc_html( $block->post_title )
+			);
+		}
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Select a reusable block to prepend to all generated pages. Create reusable blocks in the WordPress editor.', 'seogen' ) . '</p>';
+	}
+
 	public function render_field_primary_cta_label() {
 		$settings = $this->get_settings();
 		$value = isset( $settings['primary_cta_label'] ) ? (string) $settings['primary_cta_label'] : '';
@@ -1008,6 +1035,16 @@ class SEOgen_Admin {
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'] );
 		$source_json      = $full_data;
 
+		// Prepend header template if configured
+		$settings = $this->get_settings();
+		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
+		if ( $header_template_id > 0 ) {
+			$header_content = get_post_field( 'post_content', $header_template_id );
+			if ( ! is_wp_error( $header_content ) && '' !== $header_content ) {
+				$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
+			}
+		}
+
 		$postarr = array(
 			'post_type'    => 'programmatic_page',
 			'post_status'  => 'draft',
@@ -1691,6 +1728,14 @@ class SEOgen_Admin {
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
+
+		add_settings_field(
+			'seogen_header_template_id',
+			__( 'Header Template (Reusable Block)', 'seogen' ),
+			array( $this, 'render_field_header_template' ),
+			'seogen-settings',
+			'seogen_settings_section_main'
+		);
 	}
 
 	public function sanitize_settings( $input ) {
@@ -1748,6 +1793,12 @@ class SEOgen_Admin {
 			$primary_cta_label = 'Call Now';
 		}
 		$sanitized['primary_cta_label'] = $primary_cta_label;
+
+		$header_template_id = 0;
+		if ( isset( $input['header_template_id'] ) ) {
+			$header_template_id = (int) $input['header_template_id'];
+		}
+		$sanitized['header_template_id'] = $header_template_id;
 
 		return $sanitized;
 	}
@@ -2550,6 +2601,16 @@ class SEOgen_Admin {
 					$meta_description = isset( $result_json['meta_description'] ) ? (string) $result_json['meta_description'] : '';
 					$blocks = ( isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ) ? $result_json['blocks'] : array();
 					$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
+
+					// Prepend header template if configured
+					$settings = $this->get_settings();
+					$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
+					if ( $header_template_id > 0 ) {
+						$header_content = get_post_field( 'post_content', $header_template_id );
+						if ( ! is_wp_error( $header_content ) && '' !== $header_content ) {
+							$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
+						}
+					}
 
 					$postarr = array(
 						'post_type'    => 'programmatic_page',
