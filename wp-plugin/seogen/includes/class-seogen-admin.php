@@ -2654,7 +2654,14 @@ class SEOgen_Admin {
 						$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC LOOKUP: existing_id=' . $existing_id . PHP_EOL, FILE_APPEND );
 						
-						// Debug: Check if post_id is stored in the row already
+						// If key lookup fails, try alternate key format (pipe-separated)
+						if ( $existing_id === 0 && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
+							$alt_key = strtolower( $row['service'] . '|' . $row['city'] . '|' . $row['state'] );
+							$existing_id = $this->find_existing_post_id_by_key( $alt_key );
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC ALT KEY: alt_key=' . $alt_key . ' existing_id=' . $existing_id . PHP_EOL, FILE_APPEND );
+						}
+						
+						// If still not found, check if post_id is stored in the row already
 						if ( $existing_id === 0 && isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
 							$stored_post_id = (int) $row['post_id'];
 							$stored_key = get_post_meta( $stored_post_id, '_hyper_local_key', true );
