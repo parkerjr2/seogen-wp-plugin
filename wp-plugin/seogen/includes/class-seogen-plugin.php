@@ -339,27 +339,28 @@ class SEOgen_Plugin {
 
 	public function register_post_type() {
 		$labels = array(
-			'name'                  => __( 'Programmatic Pages', 'seogen' ),
-			'singular_name'         => __( 'Programmatic Page', 'seogen' ),
-			'menu_name'             => __( 'Programmatic Pages', 'seogen' ),
-			'name_admin_bar'        => __( 'Programmatic Page', 'seogen' ),
+			'name'                  => __( 'Service Pages', 'seogen' ),
+			'singular_name'         => __( 'Service Page', 'seogen' ),
+			'menu_name'             => __( 'Service Pages', 'seogen' ),
+			'name_admin_bar'        => __( 'Service Page', 'seogen' ),
 			'add_new'               => __( 'Add New', 'seogen' ),
-			'add_new_item'          => __( 'Add New Programmatic Page', 'seogen' ),
-			'new_item'              => __( 'New Programmatic Page', 'seogen' ),
-			'edit_item'             => __( 'Edit Programmatic Page', 'seogen' ),
-			'view_item'             => __( 'View Programmatic Page', 'seogen' ),
-			'all_items'             => __( 'Programmatic Pages', 'seogen' ),
-			'search_items'          => __( 'Search Programmatic Pages', 'seogen' ),
-			'not_found'             => __( 'No programmatic pages found.', 'seogen' ),
-			'not_found_in_trash'    => __( 'No programmatic pages found in Trash.', 'seogen' ),
-			'filter_items_list'     => __( 'Filter programmatic pages list', 'seogen' ),
-			'items_list_navigation' => __( 'Programmatic pages list navigation', 'seogen' ),
-			'items_list'            => __( 'Programmatic pages list', 'seogen' ),
+			'add_new_item'          => __( 'Add New Service Page', 'seogen' ),
+			'new_item'              => __( 'New Service Page', 'seogen' ),
+			'edit_item'             => __( 'Edit Service Page', 'seogen' ),
+			'view_item'             => __( 'View Service Page', 'seogen' ),
+			'all_items'             => __( 'Service Pages', 'seogen' ),
+			'search_items'          => __( 'Search Service Pages', 'seogen' ),
+			'not_found'             => __( 'No service pages found.', 'seogen' ),
+			'not_found_in_trash'    => __( 'No service pages found in Trash.', 'seogen' ),
+			'filter_items_list'     => __( 'Filter service pages list', 'seogen' ),
+			'items_list_navigation' => __( 'Service pages list navigation', 'seogen' ),
+			'items_list'            => __( 'Service pages list', 'seogen' ),
 		);
 
 		$args = array(
 			'labels'             => $labels,
 			'public'             => true,
+			'publicly_queryable' => true,
 			'show_ui'            => true,
 			'show_in_rest'       => true,
 			'show_in_menu'       => false,
@@ -376,5 +377,13 @@ class SEOgen_Plugin {
 		);
 
 		register_post_type( 'service_page', $args );
+		
+		// Ensure Yoast SEO includes this post type in sitemaps
+		add_filter( 'wpseo_sitemap_exclude_post_type', function( $excluded, $post_type ) {
+			if ( 'service_page' === $post_type ) {
+				return false;
+			}
+			return $excluded;
+		}, 10, 2 );
 	}
 }
