@@ -588,11 +588,17 @@ class SEOgen_Admin {
 				$close_body_group_if_open();
 				$add_separator();
 
+				// Debug: Log the entire NAP block to see what fields are present
+				error_log( '[HyperLocal] NAP block data: ' . wp_json_encode( $block ) );
+
 				$business_name_raw = isset( $block['business_name'] ) ? (string) $block['business_name'] : '';
 				$business_name = esc_html( $business_name_raw );
 				$phone         = isset( $block['phone'] ) ? esc_html( (string) $block['phone'] ) : '';
 				$email         = isset( $block['email'] ) ? esc_html( (string) $block['email'] ) : '';
 				$address       = isset( $block['address'] ) ? esc_html( (string) $block['address'] ) : '';
+				
+				// Debug: Log extracted values
+				error_log( '[HyperLocal] NAP extracted - business: ' . $business_name . ', phone: ' . $phone . ', email: ' . $email . ', address: ' . $address );
 				$last_phone    = isset( $block['phone'] ) ? (string) $block['phone'] : '';
 				if ( '' !== trim( $business_name_raw ) && '' === $context_business ) {
 					$context_business = trim( $business_name_raw );
