@@ -28,6 +28,9 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_hyper_local_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_cancel', array( $this, 'ajax_bulk_job_cancel' ) );
 		add_action( 'admin_notices', array( $this, 'render_hl_notice' ) );
+		
+		// Register REST API endpoint for background importing (works without WP-Cron)
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 	}
 
 	public function register_bulk_worker_hooks() {
@@ -45,7 +48,47 @@ class SEOgen_Admin {
 	}
 
 	/**
-	 * Background import handler called by WordPress cron.
+	 * Register REST API routes for background importing.
+	 */
+	public function register_rest_routes() {
+		register_rest_route( 'seogen/v1', '/background-import', array(
+			'methods'             => 'POST',
+			'callback'            => array( $this, 'rest_background_import' ),
+			'permission_callback' => array( $this, 'rest_background_import_permission' ),
+		) );
+	}
+
+	/**
+	 * Permission check for background import endpoint.
+	 * Requires valid license key in header.
+	 */
+	public function rest_background_import_permission( $request ) {
+		$license_key = $request->get_header( 'X-License-Key' );
+		if ( empty( $license_key ) ) {
+			return false;
+		}
+
+		$settings = $this->get_settings();
+		$stored_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
+		
+		return $license_key === $stored_key;
+	}
+
+	/**
+	 * REST API endpoint for background importing.
+	 * Can be called by system cron: curl -X POST -H "X-License-Key: YOUR_KEY" https://domain.com/wp-json/seogen/v1/background-import
+	 */
+	public function rest_background_import( $request ) {
+		$this->background_import_completed_items();
+		
+		return new WP_REST_Response( array(
+			'success' => true,
+			'message' => 'Background import completed',
+		), 200 );
+	}
+
+	/**
+	 * Background import handler called by WordPress cron or REST API.
 	 */
 	public function background_import_completed_items() {
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-background-importer.php';
