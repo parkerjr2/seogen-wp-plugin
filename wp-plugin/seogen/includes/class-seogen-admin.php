@@ -34,6 +34,23 @@ class SEOgen_Admin {
 		add_action( self::BULK_PROCESS_HOOK, array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job', array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job_action', array( $this, 'process_bulk_job' ), 10, 1 );
+		
+		// Register cron job for background importing
+		add_action( 'seogen_background_import_cron', array( $this, 'background_import_completed_items' ) );
+		
+		// Schedule cron if not already scheduled
+		if ( ! wp_next_scheduled( 'seogen_background_import_cron' ) ) {
+			wp_schedule_event( time(), 'every_minute', 'seogen_background_import_cron' );
+		}
+	}
+
+	/**
+	 * Background import handler called by WordPress cron.
+	 */
+	public function background_import_completed_items() {
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-background-importer.php';
+		$importer = new SEOgen_Background_Importer( $this );
+		$importer->process_all_running_jobs();
 	}
 
 	private function get_last_preview_transient_key( $user_id ) {
@@ -312,7 +329,7 @@ class SEOgen_Admin {
 		);
 	}
 
-	private function build_gutenberg_content_from_blocks( array $blocks ) {
+	public function build_gutenberg_content_from_blocks( array $blocks ) {
 		$settings = $this->get_settings();
 		$show_h1_in_content = ! empty( $settings['show_h1_in_content'] );
 		$design_preset = isset( $settings['design_preset'] ) ? sanitize_key( (string) $settings['design_preset'] ) : 'theme_default';
@@ -1974,7 +1991,7 @@ class SEOgen_Admin {
 		return $sanitized;
 	}
 
-	private function apply_page_builder_settings( $post_id ) {
+	public function apply_page_builder_settings( $post_id ) {
 		// Elementor: Set to Canvas mode (no header/footer)
 		if ( class_exists( '\Elementor\Plugin' ) ) {
 			update_post_meta( $post_id, '_elementor_page_settings', array(
@@ -2021,7 +2038,7 @@ class SEOgen_Admin {
 		}
 	}
 
-	private function get_template_content( $template_id ) {
+	public function get_template_content( $template_id ) {
 		if ( $template_id <= 0 ) {
 			return '';
 		}

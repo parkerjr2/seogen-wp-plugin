@@ -13,6 +13,7 @@ class SEOgen_Plugin {
 		add_filter( 'the_title', array( $this, 'filter_the_title' ), 10, 2 );
 		add_filter( 'wpseo_breadcrumb_output', array( $this, 'filter_yoast_breadcrumb_output' ), 10, 1 );
 		add_filter( 'rank_math/frontend/breadcrumb/html', array( $this, 'filter_rankmath_breadcrumb_html' ), 10, 2 );
+		add_filter( 'cron_schedules', array( $this, 'add_cron_schedules' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
@@ -20,6 +21,14 @@ class SEOgen_Plugin {
 		if ( is_admin() ) {
 			$admin->run();
 		}
+	}
+
+	public function add_cron_schedules( $schedules ) {
+		$schedules['every_minute'] = array(
+			'interval' => 60,
+			'display'  => __( 'Every Minute', 'seogen' ),
+		);
+		return $schedules;
 	}
 
 	public function filter_body_class( $classes ) {
