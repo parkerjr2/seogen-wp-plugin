@@ -3138,11 +3138,13 @@ class SEOgen_Admin {
 
 		$job['status'] = 'running';
 		$batch_size = 3;
+		$parallel_requests = 3; // Process 3 pages simultaneously
 		$processed_in_run = 0;
 		$update_existing = ( isset( $job['update_existing'] ) && '1' === (string) $job['update_existing'] );
 		$common_inputs = ( isset( $job['inputs'] ) && is_array( $job['inputs'] ) ) ? $job['inputs'] : array();
 		$company_name = isset( $common_inputs['company_name'] ) ? trim( (string) $common_inputs['company_name'] ) : '';
 		$phone = isset( $common_inputs['phone'] ) ? trim( (string) $common_inputs['phone'] ) : '';
+		$email = isset( $common_inputs['email'] ) ? trim( (string) $common_inputs['email'] ) : '';
 		$address = isset( $common_inputs['address'] ) ? trim( (string) $common_inputs['address'] ) : '';
 		if ( '' === $company_name ) {
 			$company_name = 'Local Business';
@@ -3154,8 +3156,10 @@ class SEOgen_Admin {
 			$address = '123 Main St';
 		}
 
+		// Collect items to process in parallel
+		$items_to_process = array();
 		foreach ( $job['rows'] as $i => $row ) {
-			if ( $processed_in_run >= $batch_size ) {
+			if ( count( $items_to_process ) >= $batch_size ) {
 				break;
 			}
 			if ( ! is_array( $row ) ) {
@@ -3173,12 +3177,12 @@ class SEOgen_Admin {
 			$state = isset( $row['state'] ) ? sanitize_text_field( (string) $row['state'] ) : '';
 			$key = isset( $row['key'] ) ? (string) $row['key'] : $this->compute_canonical_key( $service, $city, $state );
 			$key = trim( $key );
+
 			if ( '' === $service || '' === $city || '' === $state || '' === $key ) {
 				$job['rows'][ $i ]['status'] = 'failed';
 				$job['rows'][ $i ]['message'] = __( 'Missing required fields.', 'seogen' );
 				$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
 				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-				$processed_in_run++;
 				continue;
 			}
 
@@ -3189,120 +3193,144 @@ class SEOgen_Admin {
 				$job['rows'][ $i ]['post_id'] = $existing_id;
 				$job['skipped'] = isset( $job['skipped'] ) ? ( (int) $job['skipped'] + 1 ) : 1;
 				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-				$processed_in_run++;
 				continue;
 			}
 
-			$inputs = array(
-				'service'      => $service,
-				'city'         => $city,
-				'state'        => $state,
-				'company_name' => sanitize_text_field( $company_name ),
-				'phone'        => sanitize_text_field( $phone ),
-				'address'      => sanitize_text_field( $address ),
+			$items_to_process[] = array(
+				'index' => $i,
+				'service' => $service,
+				'city' => $city,
+				'state' => $state,
+				'key' => $key,
+				'existing_id' => $existing_id,
 			);
-			$payload = $this->build_generate_preview_payload( $settings, $inputs );
-			$payload['preview'] = false;
-			$url = trailingslashit( $api_url ) . 'generate-page';
-			$response = wp_remote_post(
-				$url,
-				array(
-					'timeout' => 90,
-					'headers' => array(
-						'Content-Type' => 'application/json',
-					),
-					'body'    => wp_json_encode( $payload ),
-				)
-			);
-			if ( is_wp_error( $response ) ) {
-				error_log( '[HyperLocal Bulk] API error job_id=' . $job_id . ' row=' . $key . ' msg=' . $response->get_error_message() );
-				$job['rows'][ $i ]['status'] = 'failed';
-				$job['rows'][ $i ]['message'] = $response->get_error_message();
-				$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
-				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-				$processed_in_run++;
-				continue;
-			}
-			$code = (int) wp_remote_retrieve_response_code( $response );
-			$body = (string) wp_remote_retrieve_body( $response );
-			if ( 200 !== $code ) {
-				error_log( '[HyperLocal Bulk] API http error job_id=' . $job_id . ' row=' . $key . ' code=' . $code );
-				$job['rows'][ $i ]['status'] = 'failed';
-				$job['rows'][ $i ]['message'] = $this->format_bulk_api_error_message( $code, $body );
-				$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
-				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-				$processed_in_run++;
-				continue;
-			}
-			$full_data = json_decode( $body, true );
-			if ( ! is_array( $full_data ) || ! isset( $full_data['blocks'] ) || ! is_array( $full_data['blocks'] ) ) {
-				error_log( '[HyperLocal Bulk] API invalid JSON job_id=' . $job_id . ' row=' . $key );
-				$job['rows'][ $i ]['status'] = 'failed';
-				$job['rows'][ $i ]['message'] = __( 'API response was not valid JSON.', 'seogen' );
-				$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
-				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-				$processed_in_run++;
-				continue;
-			}
-
-			$title = isset( $full_data['title'] ) ? (string) $full_data['title'] : '';
-			$slug = isset( $full_data['slug'] ) ? (string) $full_data['slug'] : '';
-			$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
-			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'] );
-
-			$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
-			$post_status = $auto_publish ? 'publish' : 'draft';
-
-			$postarr = array(
-				'post_type'    => 'programmatic_page',
-				'post_status'  => $post_status,
-				'post_title'   => $title,
-				'post_name'    => sanitize_title( $slug ),
-				'post_content' => $gutenberg_markup,
-			);
-
-			$post_id = 0;
-			if ( $existing_id > 0 && $update_existing ) {
-				$postarr['ID'] = $existing_id;
-				$post_id = wp_update_post( $postarr, true );
-			} else {
-				$post_id = wp_insert_post( $postarr, true );
-			}
-
-			if ( is_wp_error( $post_id ) ) {
-				$job['rows'][ $i ]['status'] = 'failed';
-				$job['rows'][ $i ]['message'] = $post_id->get_error_message();
-				$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
-				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-				$processed_in_run++;
-				continue;
-			}
-			$post_id = (int) $post_id;
-			$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'programmatic_page', 0 );
-			if ( $unique_slug ) {
-				wp_update_post(
-					array(
-						'ID'        => $post_id,
-						'post_name' => $unique_slug,
-					)
-				);
-			}
-
-			update_post_meta( $post_id, '_hyper_local_managed', '1' );
-			update_post_meta( $post_id, '_hyper_local_key', $key );
-			update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
-			update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $full_data ) );
-			update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
-			$this->apply_seo_plugin_meta( $post_id, $service, $title, $meta_description, true );
-
-			$job['rows'][ $i ]['status'] = 'success';
-			$job['rows'][ $i ]['message'] = __( 'Created.', 'seogen' );
-			$job['rows'][ $i ]['post_id'] = $post_id;
-			$job['success'] = isset( $job['success'] ) ? ( (int) $job['success'] + 1 ) : 1;
-			$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-			$processed_in_run++;
 		}
 
+		// Process items in parallel batches
+		$url = trailingslashit( $api_url ) . 'generate-page';
+		while ( ! empty( $items_to_process ) ) {
+			$current_batch = array_splice( $items_to_process, 0, $parallel_requests );
+			$requests = array();
+			$request_map = array();
+
+			// Prepare parallel requests
+			foreach ( $current_batch as $item ) {
+				$inputs = array(
+					'service'      => $item['service'],
+					'city'         => $item['city'],
+					'state'        => $item['state'],
+					'company_name' => sanitize_text_field( $company_name ),
+					'phone'        => sanitize_text_field( $phone ),
+					'email'        => sanitize_email( $email ),
+					'address'      => sanitize_text_field( $address ),
+				);
+				$payload = $this->build_generate_preview_payload( $settings, $inputs );
+				$payload['preview'] = false;
+
+				$request_id = 'req_' . $item['index'];
+				$requests[ $request_id ] = array(
+					'url' => $url,
+					'type' => 'POST',
+					'headers' => array( 'Content-Type' => 'application/json' ),
+					'data' => wp_json_encode( $payload ),
+					'timeout' => 90,
+				);
+				$request_map[ $request_id ] = $item;
+			}
+
+			// Execute parallel requests
+			$responses = \Requests::request_multiple( $requests );
+
+			// Process responses
+			foreach ( $responses as $request_id => $response ) {
+				$item = $request_map[ $request_id ];
+				$i = $item['index'];
+				$key = $item['key'];
+				$existing_id = $item['existing_id'];
+
+				if ( is_wp_error( $response ) || ! is_object( $response ) ) {
+					error_log( '[HyperLocal Bulk] API error job_id=' . $job_id . ' row=' . $key );
+					$job['rows'][ $i ]['status'] = 'failed';
+					$job['rows'][ $i ]['message'] = is_wp_error( $response ) ? $response->get_error_message() : 'Request failed';
+					$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
+					$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
+					$processed_in_run++;
+					continue;
+				}
+
+				$code = (int) $response->status_code;
+				$body = (string) $response->body;
+
+				if ( 200 !== $code ) {
+					error_log( '[HyperLocal Bulk] API http error job_id=' . $job_id . ' row=' . $key . ' code=' . $code );
+					$job['rows'][ $i ]['status'] = 'failed';
+					$job['rows'][ $i ]['message'] = $this->format_bulk_api_error_message( $code, $body );
+					$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
+					$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
+					$processed_in_run++;
+					continue;
+				}
+
+				$full_data = json_decode( $body, true );
+				if ( ! is_array( $full_data ) || ! isset( $full_data['blocks'] ) || ! is_array( $full_data['blocks'] ) ) {
+					error_log( '[HyperLocal Bulk] API invalid JSON job_id=' . $job_id . ' row=' . $key );
+					$job['rows'][ $i ]['status'] = 'failed';
+					$job['rows'][ $i ]['message'] = __( 'API response was not valid JSON.', 'seogen' );
+					$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
+					$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
+					$processed_in_run++;
+					continue;
+				}
+
+				$title = isset( $full_data['title'] ) ? (string) $full_data['title'] : '';
+				$slug = isset( $full_data['slug'] ) ? (string) $full_data['slug'] : '';
+				$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
+				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'] );
+
+				$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
+				$post_status = $auto_publish ? 'publish' : 'draft';
+
+				$postarr = array(
+					'post_type'    => 'programmatic_page',
+					'post_status'  => $post_status,
+					'post_title'   => $title,
+					'post_name'    => sanitize_title( $slug ),
+					'post_content' => $gutenberg_markup,
+				);
+
+				$post_id = 0;
+				if ( $existing_id > 0 && $update_existing ) {
+					$postarr['ID'] = $existing_id;
+					$post_id = wp_update_post( $postarr, true );
+				} else {
+					$post_id = wp_insert_post( $postarr, true );
+				}
+
+				if ( is_wp_error( $post_id ) ) {
+					$job['rows'][ $i ]['status'] = 'failed';
+					$job['rows'][ $i ]['message'] = $post_id->get_error_message();
+					$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
+					$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
+					$processed_in_run++;
+					continue;
+				}
+
+				update_post_meta( $post_id, '_hyper_local_key', $key );
+				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
+				if ( isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'] ) {
+					$this->apply_page_builder_settings( $post_id );
+				}
+
+				$job['rows'][ $i ]['status'] = 'success';
+				$job['rows'][ $i ]['message'] = __( 'Page created successfully.', 'seogen' );
+				$job['rows'][ $i ]['post_id'] = $post_id;
+				$job['success'] = isset( $job['success'] ) ? ( (int) $job['success'] + 1 ) : 1;
+				$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
+				$processed_in_run++;
+			}
+		}
+
+		// Check for remaining pending items
 		$has_pending = false;
 		foreach ( $job['rows'] as $row ) {
 			if ( is_array( $row ) && ( ! isset( $row['status'] ) || 'pending' === (string) $row['status'] ) ) {
