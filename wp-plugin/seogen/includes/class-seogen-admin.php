@@ -28,72 +28,12 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_hyper_local_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_cancel', array( $this, 'ajax_bulk_job_cancel' ) );
 		add_action( 'admin_notices', array( $this, 'render_hl_notice' ) );
-		
-		// Register REST API endpoint for background importing (works without WP-Cron)
-		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 	}
 
 	public function register_bulk_worker_hooks() {
 		add_action( self::BULK_PROCESS_HOOK, array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job', array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job_action', array( $this, 'process_bulk_job' ), 10, 1 );
-		
-		// Register cron job for background importing
-		add_action( 'seogen_background_import_cron', array( $this, 'background_import_completed_items' ) );
-		
-		// Schedule cron if not already scheduled
-		if ( ! wp_next_scheduled( 'seogen_background_import_cron' ) ) {
-			wp_schedule_event( time(), 'every_minute', 'seogen_background_import_cron' );
-		}
-	}
-
-	/**
-	 * Register REST API routes for background importing.
-	 */
-	public function register_rest_routes() {
-		register_rest_route( 'seogen/v1', '/background-import', array(
-			'methods'             => 'POST',
-			'callback'            => array( $this, 'rest_background_import' ),
-			'permission_callback' => array( $this, 'rest_background_import_permission' ),
-		) );
-	}
-
-	/**
-	 * Permission check for background import endpoint.
-	 * Requires valid license key in header.
-	 */
-	public function rest_background_import_permission( $request ) {
-		$license_key = $request->get_header( 'X-License-Key' );
-		if ( empty( $license_key ) ) {
-			return false;
-		}
-
-		$settings = $this->get_settings();
-		$stored_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
-		
-		return $license_key === $stored_key;
-	}
-
-	/**
-	 * REST API endpoint for background importing.
-	 * Can be called by system cron: curl -X POST -H "X-License-Key: YOUR_KEY" https://domain.com/wp-json/seogen/v1/background-import
-	 */
-	public function rest_background_import( $request ) {
-		$this->background_import_completed_items();
-		
-		return new WP_REST_Response( array(
-			'success' => true,
-			'message' => 'Background import completed',
-		), 200 );
-	}
-
-	/**
-	 * Background import handler called by WordPress cron or REST API.
-	 */
-	public function background_import_completed_items() {
-		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-background-importer.php';
-		$importer = new SEOgen_Background_Importer( $this );
-		$importer->process_all_running_jobs();
 	}
 
 	private function get_last_preview_transient_key( $user_id ) {
@@ -2355,6 +2295,21 @@ class SEOgen_Admin {
 
 			<?php if ( is_array( $current_job ) ) : ?>
 				<h2><?php echo esc_html__( 'Current Job', 'seogen' ); ?></h2>
+				
+				<?php
+				$job_status = isset( $current_job['status'] ) ? $current_job['status'] : '';
+				if ( 'running' === $job_status ) :
+				?>
+				<div class="notice notice-warning" style="padding: 15px; margin: 20px 0; border-left: 4px solid #ffb900;">
+					<p style="margin: 0; font-size: 14px; font-weight: bold;">
+						⚠️ <?php echo esc_html__( 'IMPORTANT: Keep this tab open until the job completes!', 'seogen' ); ?>
+					</p>
+					<p style="margin: 10px 0 0 0; font-size: 13px;">
+						<?php echo esc_html__( 'Pages are being generated in the background, but they will only be imported to WordPress while this tab remains open. You can minimize the tab, but do not close it or navigate away until the job status shows "complete".', 'seogen' ); ?>
+					</p>
+				</div>
+				<?php endif; ?>
+				
 				<div id="hyper-local-bulk-job" data-job-id="<?php echo esc_attr( $job_id ); ?>"></div>
 				<p>
 					<button type="button" class="button" id="hyper-local-bulk-refresh"><?php echo esc_html__( 'Refresh status', 'seogen' ); ?></button>
@@ -2435,14 +2390,35 @@ class SEOgen_Admin {
 				}
 				if(refreshBtn){refreshBtn.addEventListener('click',function(e){e.preventDefault();fetchStatus();});}
 				if(cancelBtn){cancelBtn.addEventListener('click',function(e){e.preventDefault();cancelJob();});}
+				
+				// Warn user before leaving page if job is running
+				var jobIsRunning = false;
+				window.addEventListener('beforeunload', function(e) {
+					if (jobIsRunning) {
+						var message = '<?php echo esc_js( __( 'Your bulk generation job is still running. If you leave this page, pages will stop being imported to WordPress. Are you sure you want to leave?', 'seogen' ) ); ?>';
+						e.preventDefault();
+						e.returnValue = message;
+						return message;
+					}
+				});
+				
 				console.log('[SEOgen] Starting initial fetchStatus');
 				fetchStatus().then(function(job){
 					console.log('[SEOgen] Initial fetch complete, job:', job);
 					if(job && (job.status === 'pending' || job.status === 'running')){
 						console.log('[SEOgen] Job is active, starting polling interval');
-						pollInterval = setInterval(fetchStatus,5000);
+						jobIsRunning = true;
+						pollInterval = setInterval(function(){
+							fetchStatus().then(function(updatedJob){
+								if(updatedJob && updatedJob.status !== 'pending' && updatedJob.status !== 'running'){
+									jobIsRunning = false;
+									if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+								}
+							});
+						},5000);
 					} else {
 						console.log('[SEOgen] Job not active, status:', job ? job.status : 'null');
+						jobIsRunning = false;
 					}
 				});
 			})();
