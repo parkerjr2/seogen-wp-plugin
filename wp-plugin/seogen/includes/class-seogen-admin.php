@@ -1178,7 +1178,7 @@ class SEOgen_Admin {
 		}
 
 		$postarr = array(
-			'post_type'    => 'programmatic_page',
+			'post_type'    => 'service_page',
 			'post_status'  => 'draft',
 			'post_title'   => $title,
 			'post_name'    => sanitize_title( $slug ),
@@ -1198,7 +1198,7 @@ class SEOgen_Admin {
 			exit;
 		}
 
-		$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'programmatic_page', 0 );
+		$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', 0 );
 		if ( $unique_slug ) {
 			wp_update_post(
 				array(
@@ -1351,11 +1351,11 @@ class SEOgen_Admin {
 		);
 
 		add_submenu_page(
-			'hyper-local',
-			__( 'Programmatic Pages', 'seogen' ),
-			__( 'Programmatic Pages', 'seogen' ),
+			'seogen',
+			__( 'Service Pages', 'seogen' ),
+			__( 'Service Pages', 'seogen' ),
 			'edit_posts',
-			'edit.php?post_type=programmatic_page'
+			'edit.php?post_type=service_page'
 		);
 
 		add_submenu_page(
@@ -1622,7 +1622,7 @@ class SEOgen_Admin {
 
 		$query = new WP_Query(
 			array(
-				'post_type'      => 'programmatic_page',
+				'post_type'      => 'service_page',
 				'post_status'    => 'any',
 				'fields'         => 'ids',
 				'posts_per_page' => 1,
@@ -2892,7 +2892,7 @@ class SEOgen_Admin {
 					$post_status = $auto_publish ? 'publish' : 'draft';
 
 					$postarr = array(
-						'post_type'    => 'programmatic_page',
+						'post_type'    => 'service_page',
 						'post_status'  => $post_status,
 						'post_title'   => $title,
 						'post_name'    => sanitize_title( $slug ),
@@ -2919,7 +2919,7 @@ class SEOgen_Admin {
 					}
 
 					$post_id = (int) $post_id;
-					$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'programmatic_page', 0 );
+					$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', 0 );
 					if ( $unique_slug ) {
 						wp_update_post(
 							array(
@@ -3313,7 +3313,7 @@ class SEOgen_Admin {
 				$post_status = $auto_publish ? 'publish' : 'draft';
 
 				$postarr = array(
-					'post_type'    => 'programmatic_page',
+					'post_type'    => 'service_page',
 					'post_status'  => $post_status,
 					'post_title'   => $title,
 					'post_name'    => sanitize_title( $slug ),
@@ -3329,13 +3329,13 @@ class SEOgen_Admin {
 				}
 
 				if ( is_wp_error( $post_id ) ) {
-					$job['rows'][ $i ]['status'] = 'failed';
-					$job['rows'][ $i ]['message'] = $post_id->get_error_message();
-					$job['failed'] = isset( $job['failed'] ) ? ( (int) $job['failed'] + 1 ) : 1;
-					$job['processed'] = isset( $job['processed'] ) ? ( (int) $job['processed'] + 1 ) : 1;
-					$processed_in_run++;
+					$error_msg = $post_id->get_error_message();
+					$this->log_debug( "Failed to insert/update post for item_id={$item_id}: {$error_msg}" );
 					continue;
 				}
+
+				$post_id = (int) $post_id;
+				$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', 0 );
 
 				update_post_meta( $post_id, '_hyper_local_key', $key );
 				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );

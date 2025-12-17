@@ -23,7 +23,7 @@ class SEOgen_Plugin {
 	}
 
 	public function filter_body_class( $classes ) {
-		if ( is_singular( 'programmatic_page' ) ) {
+		if ( is_singular( 'service_page' ) ) {
 			$classes[] = 'hyper-local-page';
 		}
 		return $classes;
@@ -34,7 +34,7 @@ class SEOgen_Plugin {
 			return $title;
 		}
 
-		if ( ! is_singular( 'programmatic_page' ) ) {
+		if ( ! is_singular( 'service_page' ) ) {
 			return $title;
 		}
 
@@ -51,21 +51,21 @@ class SEOgen_Plugin {
 	}
 
 	public function filter_yoast_breadcrumb_output( $output ) {
-		if ( is_singular( 'programmatic_page' ) ) {
+		if ( is_singular( 'service_page' ) ) {
 			return '';
 		}
 		return $output;
 	}
 
 	public function filter_rankmath_breadcrumb_html( $html, $crumbs ) {
-		if ( is_singular( 'programmatic_page' ) ) {
+		if ( is_singular( 'service_page' ) ) {
 			return '';
 		}
 		return $html;
 	}
 
 	public function enqueue_frontend_assets() {
-		if ( ! is_singular( 'programmatic_page' ) ) {
+		if ( ! is_singular( 'service_page' ) ) {
 			return;
 		}
 
@@ -211,7 +211,7 @@ class SEOgen_Plugin {
 		if ( is_admin() ) {
 			return;
 		}
-		if ( ! is_singular( 'programmatic_page' ) ) {
+		if ( ! is_singular( 'service_page' ) ) {
 			return;
 		}
 		if ( ! $this->is_yoast_active() && ! $this->is_rankmath_active() ) {
@@ -224,7 +224,7 @@ class SEOgen_Plugin {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post || 'programmatic_page' !== (string) $post->post_type ) {
+		if ( ! $post || 'service_page' !== (string) $post->post_type ) {
 			return;
 		}
 
@@ -375,6 +375,6 @@ class SEOgen_Plugin {
 			'menu_icon'          => 'dashicons-admin-page',
 		);
 
-		register_post_type( 'programmatic_page', $args );
+		register_post_type( 'service_page', $args );
 	}
 }
