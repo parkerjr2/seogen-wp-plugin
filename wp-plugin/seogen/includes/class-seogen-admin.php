@@ -590,8 +590,9 @@ class SEOgen_Admin {
 
 				$business_name_raw = isset( $block['business_name'] ) ? (string) $block['business_name'] : '';
 				$business_name = esc_html( $business_name_raw );
-				$address       = isset( $block['address'] ) ? esc_html( (string) $block['address'] ) : '';
 				$phone         = isset( $block['phone'] ) ? esc_html( (string) $block['phone'] ) : '';
+				$email         = isset( $block['email'] ) ? esc_html( (string) $block['email'] ) : '';
+				$address       = isset( $block['address'] ) ? esc_html( (string) $block['address'] ) : '';
 				$last_phone    = isset( $block['phone'] ) ? (string) $block['phone'] : '';
 				if ( '' !== trim( $business_name_raw ) && '' === $context_business ) {
 					$context_business = trim( $business_name_raw );
@@ -602,8 +603,9 @@ class SEOgen_Admin {
 
 				// Only show fields that have values
 				$has_business = '' !== trim( $business_name );
-				$has_address = '' !== trim( $address );
 				$has_phone = '' !== trim( $phone );
+				$has_email = '' !== trim( $email );
+				$has_address = '' !== trim( $address );
 
 				$output[] = '<!-- wp:heading {"level":2} -->';
 				$output[] = '<h2>' . esc_html__( 'Contact', 'seogen' ) . '</h2>';
@@ -647,6 +649,19 @@ class SEOgen_Admin {
 					$output[] = '<!-- /wp:heading -->';
 					$output[] = '<!-- wp:paragraph -->';
 					$output[] = '<p>' . $phone . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:column -->';
+				}
+
+				if ( $has_email ) {
+					$output[] = '<!-- wp:column -->';
+					$output[] = '<div class="wp-block-column">';
+					$output[] = '<!-- wp:heading {"level":4} -->';
+					$output[] = '<h4>' . esc_html__( 'Email', 'seogen' ) . '</h4>';
+					$output[] = '<!-- /wp:heading -->';
+					$output[] = '<!-- wp:paragraph -->';
+					$output[] = '<p>' . $email . '</p>';
 					$output[] = '<!-- /wp:paragraph -->';
 					$output[] = '</div>';
 					$output[] = '<!-- /wp:column -->';
@@ -2258,6 +2273,7 @@ class SEOgen_Admin {
 			'service_areas'   => '',
 			'company_name'    => '',
 			'phone'           => '',
+			'email'           => '',
 			'address'         => '',
 			'update_existing' => '0',
 			'auto_publish'    => '0',
@@ -2425,6 +2441,10 @@ class SEOgen_Admin {
 							<td><input name="phone" id="hl_bulk_phone" type="text" class="regular-text" value="<?php echo esc_attr( (string) $defaults['phone'] ); ?>" /></td>
 						</tr>
 						<tr>
+							<th scope="row"><label for="hl_bulk_email"><?php echo esc_html__( 'Email (optional)', 'seogen' ); ?></label></th>
+							<td><input name="email" id="hl_bulk_email" type="email" class="regular-text" value="<?php echo esc_attr( (string) $defaults['email'] ); ?>" /></td>
+						</tr>
+						<tr>
 							<th scope="row"><label for="hl_bulk_address"><?php echo esc_html__( 'Address (optional)', 'seogen' ); ?></label></th>
 							<td><input name="address" id="hl_bulk_address" type="text" class="regular-text" value="<?php echo esc_attr( (string) $defaults['address'] ); ?>" /></td>
 						</tr>
@@ -2499,6 +2519,7 @@ class SEOgen_Admin {
 			'service_areas'   => isset( $_POST['service_areas'] ) ? (string) wp_unslash( $_POST['service_areas'] ) : '',
 			'company_name'    => isset( $_POST['company_name'] ) ? sanitize_text_field( wp_unslash( $_POST['company_name'] ) ) : '',
 			'phone'           => isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '',
+			'email'           => isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '',
 			'address'         => isset( $_POST['address'] ) ? sanitize_text_field( wp_unslash( $_POST['address'] ) ) : '',
 			'update_existing' => ( isset( $_POST['update_existing'] ) && '1' === (string) wp_unslash( $_POST['update_existing'] ) ) ? '1' : '0',
 			'auto_publish'    => ( isset( $_POST['auto_publish'] ) && '1' === (string) wp_unslash( $_POST['auto_publish'] ) ) ? '1' : '0',
@@ -2637,6 +2658,7 @@ class SEOgen_Admin {
 			'inputs'     => array(
 				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
 				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
+				'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
 				'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
 			),
 			'rows'       => $job_rows,
@@ -2652,6 +2674,7 @@ class SEOgen_Admin {
 				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
 				'company_name' => isset( $job['inputs']['company_name'] ) ? (string) $job['inputs']['company_name'] : '',
 				'phone'        => isset( $job['inputs']['phone'] ) ? (string) $job['inputs']['phone'] : '',
+				'email'        => isset( $job['inputs']['email'] ) ? (string) $job['inputs']['email'] : '',
 				'address'      => isset( $job['inputs']['address'] ) ? (string) $job['inputs']['address'] : '',
 			);
 		}
