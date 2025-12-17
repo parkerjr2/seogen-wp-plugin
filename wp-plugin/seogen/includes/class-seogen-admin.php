@@ -1351,7 +1351,7 @@ class SEOgen_Admin {
 		);
 
 		add_submenu_page(
-			'seogen',
+			'hyper-local',
 			__( 'Service Pages', 'seogen' ),
 			__( 'Service Pages', 'seogen' ),
 			'edit_posts',
