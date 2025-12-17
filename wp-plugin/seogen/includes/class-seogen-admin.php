@@ -2673,6 +2673,7 @@ class SEOgen_Admin {
 		$api_items = array();
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Building API items from ' . count( $job_rows ) . ' job_rows' . PHP_EOL, FILE_APPEND );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Job inputs: ' . wp_json_encode( $job['inputs'] ) . PHP_EOL, FILE_APPEND );
 		foreach ( $job_rows as $row ) {
 			$api_items[] = array(
 				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
@@ -2684,6 +2685,7 @@ class SEOgen_Admin {
 				'address'      => isset( $job['inputs']['address'] ) ? (string) $job['inputs']['address'] : '',
 			);
 		}
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API items being sent: ' . wp_json_encode( $api_items ) . PHP_EOL, FILE_APPEND );
 
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Calling API with ' . count( $api_items ) . ' items' . PHP_EOL, FILE_APPEND );
 		$created = $this->api_create_bulk_job( $api_url, $license_key, $job_name, $api_items );
@@ -2971,11 +2973,12 @@ class SEOgen_Admin {
 			}
 		}
 		
-		// Sync row statuses from actual WordPress posts when job is complete
+		// Sync row statuses from actual WordPress posts on every poll
 		// This fixes stale "pending" and "skipped" statuses for items that were actually imported
 		$job_status = isset( $job['status'] ) ? (string) $job['status'] : '';
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: job_status=' . $job_status . ' rows_count=' . ( isset( $job['rows'] ) ? count( $job['rows'] ) : 0 ) . PHP_EOL, FILE_APPEND );
-		if ( 'complete' === $job_status && isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+		// Run status sync on every poll for API mode jobs
+		if ( $is_api_mode && isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			$status_updated = false;
 			foreach ( $job['rows'] as $idx => $row ) {
 				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
@@ -3031,28 +3034,41 @@ class SEOgen_Admin {
 		}
 		
 		$rows = array();
-		$success_count = 0;
-		$failed_count = 0;
-		$skipped_count = 0;
-		$processed_count = 0;
+		// For API mode, use API counters (source of truth from database)
+		// For non-API mode, count from local row statuses
+		if ( $is_api_mode && isset( $job['processed'] ) ) {
+			// Use API counters directly
+			$processed_count = isset( $job['processed'] ) ? (int) $job['processed'] : 0;
+			$success_count = isset( $job['success'] ) ? (int) $job['success'] : 0;
+			$failed_count = isset( $job['failed'] ) ? (int) $job['failed'] : 0;
+			$skipped_count = 0; // API doesn't track skipped separately
+		} else {
+			// Fallback: count from local row statuses for non-API mode
+			$success_count = 0;
+			$failed_count = 0;
+			$skipped_count = 0;
+			$processed_count = 0;
+		}
+		
 		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			foreach ( $job['rows'] as $row ) {
 				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
-				if ( 'success' === $row_status ) {
-					$success_count++;
-					$processed_count++;
-				} elseif ( 'failed' === $row_status ) {
-					$failed_count++;
-					$processed_count++;
-				} elseif ( 'skipped' === $row_status ) {
-					$skipped_count++;
-					$processed_count++;
-				} elseif ( in_array( $row_status, array( 'processing', 'running' ), true ) ) {
-					$processed_count++;
-				} elseif ( 'pending' === $row_status && 'complete' === $job_status ) {
-					// If job is complete but row still shows pending, count it as processed
-					// This handles timing issues where API processed the item but local state wasn't updated
-					$processed_count++;
+				// Only count for non-API mode
+				if ( ! $is_api_mode ) {
+					if ( 'success' === $row_status ) {
+						$success_count++;
+						$processed_count++;
+					} elseif ( 'failed' === $row_status ) {
+						$failed_count++;
+						$processed_count++;
+					} elseif ( 'skipped' === $row_status ) {
+						$skipped_count++;
+						$processed_count++;
+					} elseif ( in_array( $row_status, array( 'processing', 'running' ), true ) ) {
+						$processed_count++;
+					} elseif ( 'pending' === $row_status && 'complete' === $job_status ) {
+						$processed_count++;
+					}
 				}
 				$edit_url = '';
 				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
