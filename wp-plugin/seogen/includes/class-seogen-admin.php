@@ -3429,14 +3429,16 @@ class SEOgen_Admin {
 	}
 
 	public function handle_select_all_bulk_action( $redirect_to, $doaction, $post_ids ) {
-		// Log what we receive
-		error_log( '[SEOgen Select All] doaction: ' . $doaction );
-		error_log( '[SEOgen Select All] post_ids count: ' . count( $post_ids ) );
-		error_log( '[SEOgen Select All] seogen_select_all: ' . ( isset( $_REQUEST['seogen_select_all'] ) ? $_REQUEST['seogen_select_all'] : 'NOT SET' ) );
+		// Log what we receive to seogen-debug.log
+		$log_file = WP_CONTENT_DIR . '/seogen-debug.log';
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] doaction: ' . $doaction . PHP_EOL, FILE_APPEND );
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] post_ids count: ' . count( $post_ids ) . PHP_EOL, FILE_APPEND );
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] seogen_select_all: ' . ( isset( $_REQUEST['seogen_select_all'] ) ? $_REQUEST['seogen_select_all'] : 'NOT SET' ) . PHP_EOL, FILE_APPEND );
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] $_POST keys: ' . implode( ', ', array_keys( $_POST ) ) . PHP_EOL, FILE_APPEND );
 		
 		// Check if "Select All" was used
 		if ( isset( $_REQUEST['seogen_select_all'] ) && '1' === $_REQUEST['seogen_select_all'] ) {
-			error_log( '[SEOgen Select All] Select All detected, fetching all posts' );
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] Select All detected, fetching all posts' . PHP_EOL, FILE_APPEND );
 			
 			// Get all service_page post IDs (not in trash)
 			$args = array(
@@ -3446,7 +3448,7 @@ class SEOgen_Admin {
 				'post_status'    => array( 'publish', 'draft', 'pending', 'private', 'future' ),
 			);
 			$all_post_ids = get_posts( $args );
-			error_log( '[SEOgen Select All] Found ' . count( $all_post_ids ) . ' posts to process' );
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] Found ' . count( $all_post_ids ) . ' posts to process' . PHP_EOL, FILE_APPEND );
 			
 			// Perform the bulk action on all posts
 			if ( 'trash' === $doaction && ! empty( $all_post_ids ) ) {
@@ -3457,7 +3459,7 @@ class SEOgen_Admin {
 						$trashed++;
 					}
 				}
-				error_log( '[SEOgen Select All] Trashed ' . $trashed . ' posts' );
+				file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] Trashed ' . $trashed . ' posts' . PHP_EOL, FILE_APPEND );
 				$redirect_to = add_query_arg( 'trashed', $trashed, $redirect_to );
 			}
 		}
@@ -3480,18 +3482,22 @@ class SEOgen_Admin {
 		wp_add_inline_script( 'jquery', "
 		jQuery(document).ready(function($) {
 			var selectAllEnabled = false;
+			console.log('[SEOgen Select All] JavaScript loaded');
 			
 			// Add 'Select All' notice when header checkbox is clicked
 			var headerCheckbox = $('#cb-select-all-1, #cb-select-all-2');
 			var allCheckboxes = $('tbody .check-column input[type=\"checkbox\"]');
+			console.log('[SEOgen Select All] Found ' + headerCheckbox.length + ' header checkboxes');
 			
 			headerCheckbox.on('change', function() {
+				console.log('[SEOgen Select All] Header checkbox changed, checked=' + $(this).prop('checked'));
 				if ($(this).prop('checked')) {
 					// Show notice to select all items across all pages
 					var totalItems = $('.displaying-num').text().match(/\\d+/);
 					if (totalItems && totalItems[0]) {
 						var count = parseInt(totalItems[0]);
 						var visibleCount = allCheckboxes.length;
+						console.log('[SEOgen Select All] Total items: ' + count + ', Visible: ' + visibleCount);
 						
 						if (count > visibleCount) {
 							// Remove existing notice
@@ -3502,11 +3508,13 @@ class SEOgen_Admin {
 							var notice = $('<div class=\"seogen-select-all-notice\" style=\"background: #e5f5fa; border-left: 4px solid #00a0d2; padding: 12px; margin: 10px 0;\"></div>');
 							notice.html('<strong>All ' + visibleCount + ' items on this page are selected.</strong> <a href=\"#\" class=\"seogen-select-all-link\" style=\"text-decoration: underline;\">Select all ' + count + ' items</a>');
 							$('.wp-list-table').before(notice);
+							console.log('[SEOgen Select All] Notice added');
 							
 							// Handle click on 'Select all X items' link
 							$('.seogen-select-all-link').on('click', function(e) {
 								e.preventDefault();
 								selectAllEnabled = true;
+								console.log('[SEOgen Select All] Select All link clicked, enabled=true');
 								$(this).replaceWith('<span>All ' + count + ' items are selected.</span>');
 							});
 						}
@@ -3514,17 +3522,27 @@ class SEOgen_Admin {
 				} else {
 					$('.seogen-select-all-notice').remove();
 					selectAllEnabled = false;
+					console.log('[SEOgen Select All] Header checkbox unchecked, notice removed');
 				}
 			});
 			
 			// Intercept form submission to add hidden input
-			$('#posts-filter').on('submit', function() {
+			$('#posts-filter').on('submit', function(e) {
+				console.log('[SEOgen Select All] Form submitting, selectAllEnabled=' + selectAllEnabled);
+				
 				// Remove any existing hidden input first
 				$('input[name=\"seogen_select_all\"]').remove();
 				
 				// Add hidden input if Select All was enabled
 				if (selectAllEnabled) {
 					$(this).append('<input type=\"hidden\" name=\"seogen_select_all\" value=\"1\" />');
+					console.log('[SEOgen Select All] Added hidden input to form');
+					
+					// Log all form data
+					var formData = $(this).serializeArray();
+					console.log('[SEOgen Select All] Form data:', formData);
+				} else {
+					console.log('[SEOgen Select All] Select All NOT enabled, no hidden input added');
 				}
 			});
 		});
