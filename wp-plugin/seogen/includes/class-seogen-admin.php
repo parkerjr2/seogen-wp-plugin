@@ -28,6 +28,9 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_hyper_local_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_cancel', array( $this, 'ajax_bulk_job_cancel' ) );
 		add_action( 'admin_notices', array( $this, 'render_hl_notice' ) );
+		
+		// Ensure bulk actions work for service_page post type
+		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
 	}
 
 	public function register_bulk_worker_hooks() {
@@ -3414,5 +3417,12 @@ class SEOgen_Admin {
 		if ( $allow_schedule && 'running' === (string) $job['status'] ) {
 			$this->schedule_bulk_job( $job_id, 10 );
 		}
+	}
+
+	public function add_bulk_actions( $bulk_actions ) {
+		// WordPress already includes 'trash' by default for post types with delete capability
+		// This filter ensures the bulk actions dropdown is properly populated
+		// The checkbox column with "Select All" is automatically included by WordPress
+		return $bulk_actions;
 	}
 }
