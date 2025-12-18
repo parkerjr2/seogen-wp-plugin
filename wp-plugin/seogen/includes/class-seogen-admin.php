@@ -3466,6 +3466,8 @@ class SEOgen_Admin {
 		// Add inline JavaScript for Select All functionality
 		wp_add_inline_script( 'jquery', "
 		jQuery(document).ready(function($) {
+			var selectAllEnabled = false;
+			
 			// Add 'Select All' notice when header checkbox is clicked
 			var headerCheckbox = $('#cb-select-all-1, #cb-select-all-2');
 			var allCheckboxes = $('tbody .check-column input[type=\"checkbox\"]');
@@ -3481,6 +3483,7 @@ class SEOgen_Admin {
 						if (count > visibleCount) {
 							// Remove existing notice
 							$('.seogen-select-all-notice').remove();
+							selectAllEnabled = false;
 							
 							// Add notice above the table
 							var notice = $('<div class=\"seogen-select-all-notice\" style=\"background: #e5f5fa; border-left: 4px solid #00a0d2; padding: 12px; margin: 10px 0;\"></div>');
@@ -3490,19 +3493,25 @@ class SEOgen_Admin {
 							// Handle click on 'Select all X items' link
 							$('.seogen-select-all-link').on('click', function(e) {
 								e.preventDefault();
-								// Add hidden input to indicate all items should be selected
-								$('<input>').attr({
-									type: 'hidden',
-									name: 'seogen_select_all',
-									value: '1'
-								}).appendTo('form#posts-filter');
-								
+								selectAllEnabled = true;
 								$(this).replaceWith('<span>All ' + count + ' items are selected.</span>');
 							});
 						}
 					}
 				} else {
 					$('.seogen-select-all-notice').remove();
+					selectAllEnabled = false;
+				}
+			});
+			
+			// Intercept form submission to add hidden input
+			$('#posts-filter').on('submit', function() {
+				// Remove any existing hidden input first
+				$('input[name=\"seogen_select_all\"]').remove();
+				
+				// Add hidden input if Select All was enabled
+				if (selectAllEnabled) {
+					$(this).append('<input type=\"hidden\" name=\"seogen_select_all\" value=\"1\" />');
 				}
 			});
 		});
