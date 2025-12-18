@@ -3386,7 +3386,10 @@ class SEOgen_Admin {
 
 				update_post_meta( $post_id, '_hyper_local_key', $key );
 				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
-				if ( isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'] ) {
+				
+				// Apply page builder settings to disable theme header/footer if configured
+				$settings = $this->get_settings();
+				if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
 					$this->apply_page_builder_settings( $post_id );
 				}
 
