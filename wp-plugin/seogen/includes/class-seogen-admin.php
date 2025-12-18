@@ -593,74 +593,64 @@ class SEOgen_Admin {
 				$close_body_group_if_open();
 				$add_separator();
 
-				// Debug: Log the entire NAP block to see what fields are present
-				error_log( '[HyperLocal] NAP block data: ' . wp_json_encode( $block ) );
-
 				$business_name_raw = isset( $block['business_name'] ) ? (string) $block['business_name'] : '';
 				$business_name = esc_html( $business_name_raw );
-				$phone         = isset( $block['phone'] ) ? esc_html( (string) $block['phone'] ) : '';
-				$email         = isset( $block['email'] ) ? esc_html( (string) $block['email'] ) : '';
+				$phone_raw     = isset( $block['phone'] ) ? (string) $block['phone'] : '';
+				$phone         = esc_html( $phone_raw );
+				$email_raw     = isset( $block['email'] ) ? (string) $block['email'] : '';
+				$email         = esc_html( $email_raw );
 				$address       = isset( $block['address'] ) ? esc_html( (string) $block['address'] ) : '';
 				
-				// Debug: Log extracted values
-				error_log( '[HyperLocal] NAP extracted - business: ' . $business_name . ', phone: ' . $phone . ', email: ' . $email . ', address: ' . $address );
-				$last_phone    = isset( $block['phone'] ) ? (string) $block['phone'] : '';
+				$last_phone    = $phone_raw;
 				if ( '' !== trim( $business_name_raw ) && '' === $context_business ) {
 					$context_business = trim( $business_name_raw );
 				}
 				if ( '' !== trim( $last_phone ) && '' === $context_phone ) {
-					$context_phone = trim( (string) $last_phone );
+					$context_phone = trim( $last_phone );
 				}
 
 				// Only show fields that have values
-				$has_business = '' !== trim( $business_name );
 				$has_phone = '' !== trim( $phone );
 				$has_email = '' !== trim( $email );
-				$has_address = '' !== trim( $address );
+
+				// Prepare clickable links
+				$tel_digits = preg_replace( '/\D+/', '', $phone_raw );
+				$tel_url = ( '' !== $tel_digits ) ? 'tel:' . $tel_digits : '';
+				$mailto_url = ( '' !== trim( $email_raw ) ) ? 'mailto:' . $email_raw : '';
 
 				$output[] = '<!-- wp:heading {"level":2} -->';
-				$output[] = '<h2>' . esc_html__( 'Contact', 'seogen' ) . '</h2>';
+				$output[] = '<h2>' . esc_html__( 'Ready to Get Started?', 'seogen' ) . '</h2>';
 				$output[] = '<!-- /wp:heading -->';
-				$output[] = '<!-- wp:group {"className":"hyper-local-card hyper-local-nap"} -->';
-				$output[] = '<div class="wp-block-group hyper-local-card hyper-local-nap">';
+				$output[] = '<!-- wp:group {"className":"hyper-local-contact-cards"} -->';
+				$output[] = '<div class="wp-block-group hyper-local-contact-cards">';
 				$output[] = '<!-- wp:columns -->';
 				$output[] = '<div class="wp-block-columns">';
-
-				if ( $has_business ) {
-					$output[] = '<!-- wp:column -->';
-					$output[] = '<div class="wp-block-column">';
-					$output[] = '<!-- wp:heading {"level":4} -->';
-					$output[] = '<h4>' . esc_html__( 'Business', 'seogen' ) . '</h4>';
-					$output[] = '<!-- /wp:heading -->';
-					$output[] = '<!-- wp:paragraph -->';
-					$output[] = '<p>' . $business_name . '</p>';
-					$output[] = '<!-- /wp:paragraph -->';
-					$output[] = '</div>';
-					$output[] = '<!-- /wp:column -->';
-				}
-
-				if ( $has_address ) {
-					$output[] = '<!-- wp:column -->';
-					$output[] = '<div class="wp-block-column">';
-					$output[] = '<!-- wp:heading {"level":4} -->';
-					$output[] = '<h4>' . esc_html__( 'Address', 'seogen' ) . '</h4>';
-					$output[] = '<!-- /wp:heading -->';
-					$output[] = '<!-- wp:paragraph -->';
-					$output[] = '<p>' . $address . '</p>';
-					$output[] = '<!-- /wp:paragraph -->';
-					$output[] = '</div>';
-					$output[] = '<!-- /wp:column -->';
-				}
 
 				if ( $has_phone ) {
 					$output[] = '<!-- wp:column -->';
 					$output[] = '<div class="wp-block-column">';
-					$output[] = '<!-- wp:heading {"level":4} -->';
-					$output[] = '<h4>' . esc_html__( 'Phone', 'seogen' ) . '</h4>';
-					$output[] = '<!-- /wp:heading -->';
-					$output[] = '<!-- wp:paragraph -->';
-					$output[] = '<p>' . $phone . '</p>';
+					$output[] = '<!-- wp:group {"className":"hyper-local-contact-card"} -->';
+					$output[] = '<div class="wp-block-group hyper-local-contact-card">';
+					$output[] = '<!-- wp:paragraph {"className":"contact-card-icon"} -->';
+					$output[] = '<p class="contact-card-icon">📞</p>';
 					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '<!-- wp:heading {"level":3} -->';
+					$output[] = '<h3>' . esc_html__( 'Call Us', 'seogen' ) . '</h3>';
+					$output[] = '<!-- /wp:heading -->';
+					if ( '' !== $tel_url ) {
+						$output[] = '<!-- wp:paragraph {"className":"contact-card-link"} -->';
+						$output[] = '<p class="contact-card-link"><a href="' . esc_url( $tel_url ) . '">' . $phone . '</a></p>';
+						$output[] = '<!-- /wp:paragraph -->';
+					} else {
+						$output[] = '<!-- wp:paragraph -->';
+						$output[] = '<p>' . $phone . '</p>';
+						$output[] = '<!-- /wp:paragraph -->';
+					}
+					$output[] = '<!-- wp:paragraph {"className":"contact-card-label"} -->';
+					$output[] = '<p class="contact-card-label">' . esc_html__( 'Tap to call', 'seogen' ) . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:group -->';
 					$output[] = '</div>';
 					$output[] = '<!-- /wp:column -->';
 				}
@@ -668,12 +658,28 @@ class SEOgen_Admin {
 				if ( $has_email ) {
 					$output[] = '<!-- wp:column -->';
 					$output[] = '<div class="wp-block-column">';
-					$output[] = '<!-- wp:heading {"level":4} -->';
-					$output[] = '<h4>' . esc_html__( 'Email', 'seogen' ) . '</h4>';
-					$output[] = '<!-- /wp:heading -->';
-					$output[] = '<!-- wp:paragraph -->';
-					$output[] = '<p>' . $email . '</p>';
+					$output[] = '<!-- wp:group {"className":"hyper-local-contact-card"} -->';
+					$output[] = '<div class="wp-block-group hyper-local-contact-card">';
+					$output[] = '<!-- wp:paragraph {"className":"contact-card-icon"} -->';
+					$output[] = '<p class="contact-card-icon">✉️</p>';
 					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '<!-- wp:heading {"level":3} -->';
+					$output[] = '<h3>' . esc_html__( 'Email Us', 'seogen' ) . '</h3>';
+					$output[] = '<!-- /wp:heading -->';
+					if ( '' !== $mailto_url ) {
+						$output[] = '<!-- wp:paragraph {"className":"contact-card-link"} -->';
+						$output[] = '<p class="contact-card-link"><a href="' . esc_url( $mailto_url ) . '">' . $email . '</a></p>';
+						$output[] = '<!-- /wp:paragraph -->';
+					} else {
+						$output[] = '<!-- wp:paragraph -->';
+						$output[] = '<p>' . $email . '</p>';
+						$output[] = '<!-- /wp:paragraph -->';
+					}
+					$output[] = '<!-- wp:paragraph {"className":"contact-card-label"} -->';
+					$output[] = '<p class="contact-card-label">' . esc_html__( 'Send a message', 'seogen' ) . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:group -->';
 					$output[] = '</div>';
 					$output[] = '<!-- /wp:column -->';
 				}
@@ -692,7 +698,6 @@ class SEOgen_Admin {
 				if ( '' === $context_city || '' === $context_state || '' === $context_business ) {
 					$infer_context_from_title( (string) $hero_heading_text );
 				}
-				$add_h2( __( 'Get a Free Estimate', 'seogen' ) );
 
 				$text = isset( $block['text'] ) ? esc_html( (string) $block['text'] ) : '';
 				$tel_digits = preg_replace( '/\D+/', '', (string) $last_phone );
@@ -701,17 +706,31 @@ class SEOgen_Admin {
 					$tel_url = 'tel:' . $tel_digits;
 				}
 
-				$output[] = '<!-- wp:buttons -->';
+				$output[] = '<!-- wp:group {"className":"hyper-local-cta-section"} -->';
+				$output[] = '<div class="wp-block-group hyper-local-cta-section">';
+				
+				$output[] = '<!-- wp:heading {"level":2,"className":"cta-heading"} -->';
+				$output[] = '<h2 class="cta-heading">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
+				$output[] = '<!-- /wp:heading -->';
+				
+				$output[] = '<!-- wp:paragraph {"className":"cta-subheading"} -->';
+				$output[] = '<p class="cta-subheading">' . $text . '</p>';
+				$output[] = '<!-- /wp:paragraph -->';
+
+				$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
 				$output[] = '<div class="wp-block-buttons">';
-				$output[] = '<!-- wp:button ' . wp_json_encode( array( 'url' => $tel_url ) ) . ' -->';
-				$output[] = '<div class="wp-block-button"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now', 'seogen' ) . '</a></div>';
+				$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
+				$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now for Free Quote', 'seogen' ) . '</a></div>';
 				$output[] = '<!-- /wp:button -->';
 				$output[] = '</div>';
 				$output[] = '<!-- /wp:buttons -->';
-
-				$output[] = '<!-- wp:paragraph -->';
-				$output[] = '<p>' . $text . '</p>';
+				
+				$output[] = '<!-- wp:paragraph {"className":"cta-trust-signals"} -->';
+				$output[] = '<p class="cta-trust-signals">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
 				$output[] = '<!-- /wp:paragraph -->';
+				
+				$output[] = '</div>';
+				$output[] = '<!-- /wp:group -->';
 				continue;
 			}
 		}
