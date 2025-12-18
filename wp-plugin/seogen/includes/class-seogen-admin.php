@@ -3526,21 +3526,33 @@ class SEOgen_Admin {
 				}
 			});
 			
-			// Intercept form submission to add hidden input
+			// Intercept both form submission and doaction button clicks
 			$('#posts-filter').on('submit', function(e) {
-				console.log('[SEOgen Select All] Form submitting, selectAllEnabled=' + selectAllEnabled);
+				console.log('[SEOgen Select All] Form submit event fired, selectAllEnabled=' + selectAllEnabled);
+			});
+			
+			// Also intercept the doaction button clicks (WordPress uses these)
+			$('#doaction, #doaction2').on('click', function(e) {
+				console.log('[SEOgen Select All] Doaction button clicked, selectAllEnabled=' + selectAllEnabled);
 				
 				// Remove any existing hidden input first
 				$('input[name=\"seogen_select_all\"]').remove();
 				
 				// Add hidden input if Select All was enabled
 				if (selectAllEnabled) {
-					$(this).append('<input type=\"hidden\" name=\"seogen_select_all\" value=\"1\" />');
-					console.log('[SEOgen Select All] Added hidden input to form');
+					// Add to the form
+					$('#posts-filter').append('<input type=\"hidden\" name=\"seogen_select_all\" value=\"1\" />');
+					console.log('[SEOgen Select All] Added hidden input to form before submission');
 					
-					// Log all form data
-					var formData = $(this).serializeArray();
-					console.log('[SEOgen Select All] Form data:', formData);
+					// Also add to URL if WordPress uses GET
+					var form = $('#posts-filter');
+					var action = form.attr('action') || '';
+					if (action.indexOf('?') > -1) {
+						form.attr('action', action + '&seogen_select_all=1');
+					} else {
+						form.attr('action', action + '?seogen_select_all=1');
+					}
+					console.log('[SEOgen Select All] Updated form action URL');
 				} else {
 					console.log('[SEOgen Select All] Select All NOT enabled, no hidden input added');
 				}
