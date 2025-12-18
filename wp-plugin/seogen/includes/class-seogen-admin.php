@@ -2879,6 +2879,12 @@ class SEOgen_Admin {
 					
 					if ( ! is_array( $result_json ) ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: result_json not array' . PHP_EOL, FILE_APPEND );
+						if ( isset( $job['rows'][ $idx ] ) ) {
+							$job['rows'][ $idx ]['status'] = 'failed';
+							$job['rows'][ $idx ]['message'] = __( 'Invalid result data from API.', 'seogen' );
+							$job['rows'][ $idx ]['post_id'] = 0;
+						}
+						$acked_ids[] = $item_id;
 						continue;
 					}
 
