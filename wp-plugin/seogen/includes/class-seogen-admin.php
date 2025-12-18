@@ -31,6 +31,8 @@ class SEOgen_Admin {
 		
 		// Ensure bulk actions work for service_page post type
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
+		add_filter( 'handle_bulk_actions-edit-service_page', array( $this, 'handle_select_all_bulk_action' ), 10, 3 );
 	}
 
 	public function register_bulk_worker_hooks() {
@@ -3424,5 +3426,86 @@ class SEOgen_Admin {
 		// This filter ensures the bulk actions dropdown is properly populated
 		// The checkbox column with "Select All" is automatically included by WordPress
 		return $bulk_actions;
+	}
+
+	public function handle_select_all_bulk_action( $redirect_to, $doaction, $post_ids ) {
+		// Check if "Select All" was used
+		if ( isset( $_REQUEST['seogen_select_all'] ) && '1' === $_REQUEST['seogen_select_all'] ) {
+			// Get all service_page post IDs
+			$args = array(
+				'post_type'      => 'service_page',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'post_status'    => 'any',
+			);
+			$all_post_ids = get_posts( $args );
+			
+			// Perform the bulk action on all posts
+			if ( 'trash' === $doaction && ! empty( $all_post_ids ) ) {
+				foreach ( $all_post_ids as $post_id ) {
+					wp_trash_post( $post_id );
+				}
+				$redirect_to = add_query_arg( 'trashed', count( $all_post_ids ), $redirect_to );
+			}
+		}
+		
+		return $redirect_to;
+	}
+
+	public function enqueue_admin_scripts( $hook ) {
+		// Only load on the service_page edit screen
+		if ( 'edit.php' !== $hook ) {
+			return;
+		}
+		
+		$screen = get_current_screen();
+		if ( ! $screen || 'service_page' !== $screen->post_type ) {
+			return;
+		}
+		
+		// Add inline JavaScript for Select All functionality
+		wp_add_inline_script( 'jquery', "
+		jQuery(document).ready(function($) {
+			// Add 'Select All' notice when header checkbox is clicked
+			var headerCheckbox = $('#cb-select-all-1, #cb-select-all-2');
+			var allCheckboxes = $('tbody .check-column input[type=\"checkbox\"]');
+			
+			headerCheckbox.on('change', function() {
+				if ($(this).prop('checked')) {
+					// Show notice to select all items across all pages
+					var totalItems = $('.displaying-num').text().match(/\\d+/);
+					if (totalItems && totalItems[0]) {
+						var count = parseInt(totalItems[0]);
+						var visibleCount = allCheckboxes.length;
+						
+						if (count > visibleCount) {
+							// Remove existing notice
+							$('.seogen-select-all-notice').remove();
+							
+							// Add notice above the table
+							var notice = $('<div class=\"seogen-select-all-notice\" style=\"background: #e5f5fa; border-left: 4px solid #00a0d2; padding: 12px; margin: 10px 0;\"></div>');
+							notice.html('<strong>All ' + visibleCount + ' items on this page are selected.</strong> <a href=\"#\" class=\"seogen-select-all-link\" style=\"text-decoration: underline;\">Select all ' + count + ' items</a>');
+							$('.wp-list-table').before(notice);
+							
+							// Handle click on 'Select all X items' link
+							$('.seogen-select-all-link').on('click', function(e) {
+								e.preventDefault();
+								// Add hidden input to indicate all items should be selected
+								$('<input>').attr({
+									type: 'hidden',
+									name: 'seogen_select_all',
+									value: '1'
+								}).appendTo('form#posts-filter');
+								
+								$(this).replaceWith('<span>All ' + count + ' items are selected.</span>');
+							});
+						}
+					}
+				} else {
+					$('.seogen-select-all-notice').remove();
+				}
+			});
+		});
+		" );
 	}
 }
