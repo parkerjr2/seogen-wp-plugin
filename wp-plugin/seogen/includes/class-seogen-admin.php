@@ -2877,8 +2877,35 @@ class SEOgen_Admin {
 			}
 
 			$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' job_rows_count=' . count( $job['rows'] ) . PHP_EOL, FILE_APPEND );
-			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, 10 );
+			
+			// Dynamic batch size: fetch more items when job is complete or has many pending items
+			$api_status = isset( $status['data']['status'] ) ? (string) $status['data']['status'] : '';
+			$total_items = isset( $status['data']['total_items'] ) ? (int) $status['data']['total_items'] : 0;
+			$completed_items = isset( $status['data']['completed'] ) ? (int) $status['data']['completed'] : 0;
+			$local_success_count = 0;
+			if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+				foreach ( $job['rows'] as $row ) {
+					if ( isset( $row['status'] ) && 'success' === $row['status'] ) {
+						$local_success_count++;
+					}
+				}
+			}
+			$pending_import_count = $completed_items - $local_success_count;
+			
+			// Use larger batch size when:
+			// 1. Job is complete (fetch all remaining)
+			// 2. Many items pending import (catch up faster)
+			$batch_size = 10; // Default
+			if ( 'complete' === $api_status || 'completed' === $api_status ) {
+				$batch_size = 100; // Fetch all remaining when job is done
+			} elseif ( $pending_import_count > 50 ) {
+				$batch_size = 50; // Catch up faster if falling behind
+			} elseif ( $pending_import_count > 20 ) {
+				$batch_size = 25;
+			}
+			
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' batch_size=' . $batch_size . ' api_status=' . $api_status . ' pending_import=' . $pending_import_count . PHP_EOL, FILE_APPEND );
+			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, $batch_size );
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
 			$acked_ids = array();
 			if ( ! empty( $results['ok'] ) && is_array( $results['data'] ) && isset( $results['data']['items'] ) && is_array( $results['data']['items'] ) ) {
@@ -3055,12 +3082,26 @@ class SEOgen_Admin {
 				if ( isset( $results['data']['next_cursor'] ) ) {
 					$job['api_cursor'] = sanitize_text_field( (string) $results['data']['next_cursor'] );
 				}
+				
+				// If job is complete and we still have a cursor, schedule immediate re-poll to fetch remaining items
+				if ( ( 'complete' === $api_status || 'completed' === $api_status ) && isset( $results['data']['next_cursor'] ) && '' !== $results['data']['next_cursor'] ) {
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Job complete but more items to fetch, will continue polling' . PHP_EOL, FILE_APPEND );
+				}
 			}
 			if ( ! empty( $acked_ids ) ) {
 				$this->api_ack_bulk_job_items( $api_url, $license_key, $job['api_job_id'], $acked_ids );
 			}
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Saving job with ' . count( $acked_ids ) . ' acked items' . PHP_EOL, FILE_APPEND );
 			$this->save_bulk_job( $job_id, $job );
+			
+			// Schedule background processing if job is still running and user might navigate away
+			// Action Scheduler will continue processing even if user leaves or computer sleeps
+			if ( ( 'running' === $api_status || 'complete' === $api_status || 'completed' === $api_status ) && $pending_import_count > 0 ) {
+				// Schedule immediate re-processing to fetch remaining items
+				// This ensures all completed items get imported even if user navigates away
+				$this->schedule_bulk_job( $job_id, 2 );
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Scheduled background import: pending=' . $pending_import_count . PHP_EOL, FILE_APPEND );
+			}
 		} else {
 			if ( isset( $job['status'] ) && in_array( (string) $job['status'], array( 'pending', 'running' ), true ) ) {
 				$this->schedule_bulk_job( $job_id );
