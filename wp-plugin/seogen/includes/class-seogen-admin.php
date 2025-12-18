@@ -2120,7 +2120,7 @@ class SEOgen_Admin {
 		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
 
 		if ( '' === $license_key ) {
-			echo '<p class="description">' . esc_html__( 'Enter a license key to view credits.', 'seogen' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Enter a license key to view usage.', 'seogen' ) . '</p>';
 			return;
 		}
 
@@ -2138,7 +2138,7 @@ class SEOgen_Admin {
 		);
 
 		if ( is_wp_error( $response ) ) {
-			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Unable to fetch credits.', 'seogen' ) . '</p>';
+			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Unable to fetch usage data.', 'seogen' ) . '</p>';
 			return;
 		}
 
@@ -2151,26 +2151,54 @@ class SEOgen_Admin {
 		$body = wp_remote_retrieve_body( $response );
 		$data = json_decode( $body, true );
 
-		if ( ! is_array( $data ) || ! isset( $data['credits_remaining'] ) ) {
-			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Unable to fetch credits.', 'seogen' ) . '</p>';
+		if ( ! is_array( $data ) ) {
+			echo '<p class="description" style="color: #d63638;">' . esc_html__( 'Unable to fetch usage data.', 'seogen' ) . '</p>';
 			return;
 		}
 
-		$credits = (int) $data['credits_remaining'];
 		$status = isset( $data['status'] ) ? (string) $data['status'] : 'unknown';
+		$page_limit = isset( $data['page_limit'] ) ? (int) $data['page_limit'] : 0;
+		$monthly_limit = isset( $data['monthly_generation_limit'] ) ? (int) $data['monthly_generation_limit'] : 0;
+		$total_pages = isset( $data['total_pages_generated'] ) ? (int) $data['total_pages_generated'] : 0;
+		$pages_this_month = isset( $data['pages_generated_this_month'] ) ? (int) $data['pages_generated_this_month'] : 0;
+		$capacity_remaining = isset( $data['pages_remaining_capacity'] ) ? (int) $data['pages_remaining_capacity'] : 0;
+		$monthly_remaining = isset( $data['pages_remaining_this_month'] ) ? (int) $data['pages_remaining_this_month'] : 0;
 
-		if ( 'active' === $status ) {
-			printf(
-				'<p style="font-size: 18px; font-weight: 600; color: #2271b1; margin: 0;">%s</p>',
-				esc_html( number_format( $credits ) )
-			);
-		} else {
-			printf(
-				'<p style="font-size: 18px; font-weight: 600; color: #d63638; margin: 0;">%s <span style="font-size: 14px; font-weight: 400;">(%s)</span></p>',
-				esc_html( number_format( $credits ) ),
-				esc_html( ucfirst( $status ) )
-			);
-		}
+		$color = 'active' === $status ? '#2271b1' : '#d63638';
+		
+		?>
+		<div style="background: #f6f7f7; border-left: 4px solid <?php echo esc_attr( $color ); ?>; padding: 12px 16px; margin: 8px 0;">
+			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
+				<div>
+					<div style="font-size: 11px; text-transform: uppercase; color: #646970; font-weight: 600; margin-bottom: 4px;">
+						<?php esc_html_e( 'Total Pages', 'seogen' ); ?>
+					</div>
+					<div style="font-size: 24px; font-weight: 600; color: <?php echo esc_attr( $color ); ?>;">
+						<?php echo esc_html( number_format( $total_pages ) ); ?> <span style="font-size: 14px; color: #646970;">/ <?php echo esc_html( number_format( $page_limit ) ); ?></span>
+					</div>
+					<div style="font-size: 12px; color: #646970; margin-top: 2px;">
+						<?php echo esc_html( number_format( $capacity_remaining ) ); ?> <?php esc_html_e( 'pages remaining', 'seogen' ); ?>
+					</div>
+				</div>
+				<div>
+					<div style="font-size: 11px; text-transform: uppercase; color: #646970; font-weight: 600; margin-bottom: 4px;">
+						<?php esc_html_e( 'This Month', 'seogen' ); ?>
+					</div>
+					<div style="font-size: 24px; font-weight: 600; color: <?php echo esc_attr( $color ); ?>;">
+						<?php echo esc_html( number_format( $pages_this_month ) ); ?> <span style="font-size: 14px; color: #646970;">/ <?php echo esc_html( number_format( $monthly_limit ) ); ?></span>
+					</div>
+					<div style="font-size: 12px; color: #646970; margin-top: 2px;">
+						<?php echo esc_html( number_format( $monthly_remaining ) ); ?> <?php esc_html_e( 'pages remaining', 'seogen' ); ?>
+					</div>
+				</div>
+			</div>
+			<?php if ( 'active' !== $status ) : ?>
+				<div style="font-size: 12px; color: #d63638; font-weight: 600; margin-top: 8px; padding-top: 8px; border-top: 1px solid #dcdcde;">
+					<?php printf( esc_html__( 'License Status: %s', 'seogen' ), esc_html( ucfirst( $status ) ) ); ?>
+				</div>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	private function check_api_health( $api_url ) {
