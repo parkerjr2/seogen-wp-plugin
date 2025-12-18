@@ -3429,23 +3429,36 @@ class SEOgen_Admin {
 	}
 
 	public function handle_select_all_bulk_action( $redirect_to, $doaction, $post_ids ) {
+		// Log what we receive
+		error_log( '[SEOgen Select All] doaction: ' . $doaction );
+		error_log( '[SEOgen Select All] post_ids count: ' . count( $post_ids ) );
+		error_log( '[SEOgen Select All] seogen_select_all: ' . ( isset( $_REQUEST['seogen_select_all'] ) ? $_REQUEST['seogen_select_all'] : 'NOT SET' ) );
+		
 		// Check if "Select All" was used
 		if ( isset( $_REQUEST['seogen_select_all'] ) && '1' === $_REQUEST['seogen_select_all'] ) {
-			// Get all service_page post IDs
+			error_log( '[SEOgen Select All] Select All detected, fetching all posts' );
+			
+			// Get all service_page post IDs (not in trash)
 			$args = array(
 				'post_type'      => 'service_page',
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
-				'post_status'    => 'any',
+				'post_status'    => array( 'publish', 'draft', 'pending', 'private', 'future' ),
 			);
 			$all_post_ids = get_posts( $args );
+			error_log( '[SEOgen Select All] Found ' . count( $all_post_ids ) . ' posts to process' );
 			
 			// Perform the bulk action on all posts
 			if ( 'trash' === $doaction && ! empty( $all_post_ids ) ) {
+				$trashed = 0;
 				foreach ( $all_post_ids as $post_id ) {
-					wp_trash_post( $post_id );
+					$result = wp_trash_post( $post_id );
+					if ( $result ) {
+						$trashed++;
+					}
 				}
-				$redirect_to = add_query_arg( 'trashed', count( $all_post_ids ), $redirect_to );
+				error_log( '[SEOgen Select All] Trashed ' . $trashed . ' posts' );
+				$redirect_to = add_query_arg( 'trashed', $trashed, $redirect_to );
 			}
 		}
 		
