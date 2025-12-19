@@ -36,6 +36,10 @@ class SEOgen_Admin {
 		
 		// Force template for service_page posts (including drafts) when header/footer is disabled
 		add_filter( 'template_include', array( $this, 'force_service_page_template' ), 99 );
+		
+		// Add body class and CSS to hide header/footer for service pages
+		add_filter( 'body_class', array( $this, 'add_service_page_body_class' ) );
+		add_action( 'wp_head', array( $this, 'add_service_page_styles' ), 999 );
 	}
 
 	public function register_bulk_worker_hooks() {
@@ -1999,6 +2003,47 @@ class SEOgen_Admin {
 		$sanitized['disable_theme_header_footer'] = ( isset( $input['disable_theme_header_footer'] ) && '1' === (string) $input['disable_theme_header_footer'] ) ? '1' : '0';
 
 		return $sanitized;
+	}
+
+	public function add_service_page_body_class( $classes ) {
+		if ( ! is_singular( 'service_page' ) ) {
+			return $classes;
+		}
+		
+		$settings = $this->get_settings();
+		if ( empty( $settings['disable_theme_header_footer'] ) ) {
+			return $classes;
+		}
+		
+		$classes[] = 'seogen-no-header-footer';
+		return $classes;
+	}
+	
+	public function add_service_page_styles() {
+		if ( ! is_singular( 'service_page' ) ) {
+			return;
+		}
+		
+		$settings = $this->get_settings();
+		if ( empty( $settings['disable_theme_header_footer'] ) ) {
+			return;
+		}
+		
+		// Universal CSS to hide header and footer - works across all themes
+		echo '<style id="seogen-hide-header-footer">
+			body.seogen-no-header-footer header,
+			body.seogen-no-header-footer .site-header,
+			body.seogen-no-header-footer .header,
+			body.seogen-no-header-footer #masthead,
+			body.seogen-no-header-footer .masthead,
+			body.seogen-no-header-footer footer,
+			body.seogen-no-header-footer .site-footer,
+			body.seogen-no-header-footer .footer,
+			body.seogen-no-header-footer #colophon,
+			body.seogen-no-header-footer .colophon {
+				display: none !important;
+			}
+		</style>';
 	}
 
 	public function force_service_page_template( $template ) {
