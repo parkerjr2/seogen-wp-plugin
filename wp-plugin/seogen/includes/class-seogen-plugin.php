@@ -17,6 +17,10 @@ class SEOgen_Plugin {
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
 		$admin->register_bulk_worker_hooks();
+		
+		// Always register frontend hooks (needed for preview requests)
+		$admin->register_frontend_hooks();
+		
 		if ( is_admin() ) {
 			$admin->run();
 		}

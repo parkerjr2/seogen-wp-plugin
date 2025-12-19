@@ -33,20 +33,22 @@ class SEOgen_Admin {
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 		add_filter( 'handle_bulk_actions-edit-service_page', array( $this, 'handle_select_all_bulk_action' ), 10, 3 );
-		
-		// Force template for service_page posts (including drafts) when header/footer is disabled
-		add_filter( 'template_include', array( $this, 'force_service_page_template' ), 99 );
-		
-		// Add body class and CSS to hide header/footer for service pages
-		add_filter( 'body_class', array( $this, 'add_service_page_body_class' ) );
-		add_action( 'wp_head', array( $this, 'add_service_page_styles' ), 999 );
-		add_action( 'wp_footer', array( $this, 'add_service_page_styles_footer' ), 999 );
 	}
 
 	public function register_bulk_worker_hooks() {
 		add_action( self::BULK_PROCESS_HOOK, array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job', array( $this, 'process_bulk_job' ), 10, 1 );
 		add_action( 'hyper_local_bulk_process_job_action', array( $this, 'process_bulk_job' ), 10, 1 );
+	}
+
+	public function register_frontend_hooks() {
+		// Force template for service_page posts (including drafts) when header/footer is disabled
+		add_filter( 'template_include', array( $this, 'force_service_page_template' ), 99 );
+		
+		// Add body class and CSS/JS to hide header/footer for service pages
+		add_filter( 'body_class', array( $this, 'add_service_page_body_class' ) );
+		add_action( 'wp_head', array( $this, 'add_service_page_styles' ), 999 );
+		add_action( 'wp_footer', array( $this, 'add_service_page_styles_footer' ), 999 );
 	}
 
 	private function get_last_preview_transient_key( $user_id ) {
