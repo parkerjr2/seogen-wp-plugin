@@ -2118,6 +2118,9 @@ class SEOgen_Admin {
 			
 			/* Constrain/center the actual service-page content wrapper */
 			body.seogen-no-header-footer .hyper-local-body,
+			body.seogen-no-header-footer .hyper-local-content,
+			body.seogen-no-header-footer .hyper-local-hero,
+			body.seogen-no-header-footer .hyper-local-cta-section,
 			body.seogen-no-header-footer .elementor-location-single .elementor-widget-theme-post-content,
 			body.seogen-no-header-footer .elementor-location-single .elementor-widget-theme-post-content > .elementor-widget-container {
 				max-width: 1140px;
