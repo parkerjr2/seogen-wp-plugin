@@ -33,6 +33,9 @@ class SEOgen_Admin {
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 		add_filter( 'handle_bulk_actions-edit-service_page', array( $this, 'handle_select_all_bulk_action' ), 10, 3 );
+		
+		// Force template for service_page posts (including drafts) when header/footer is disabled
+		add_filter( 'template_include', array( $this, 'force_service_page_template' ), 99 );
 	}
 
 	public function register_bulk_worker_hooks() {
@@ -1996,6 +1999,35 @@ class SEOgen_Admin {
 		$sanitized['disable_theme_header_footer'] = ( isset( $input['disable_theme_header_footer'] ) && '1' === (string) $input['disable_theme_header_footer'] ) ? '1' : '0';
 
 		return $sanitized;
+	}
+
+	public function force_service_page_template( $template ) {
+		// Only apply to service_page post type
+		if ( ! is_singular( 'service_page' ) ) {
+			return $template;
+		}
+		
+		$settings = $this->get_settings();
+		if ( empty( $settings['disable_theme_header_footer'] ) ) {
+			return $template;
+		}
+		
+		// Force Elementor to use header/footer template for this page
+		if ( class_exists( '\Elementor\Plugin' ) ) {
+			$post_id = get_the_ID();
+			if ( $post_id ) {
+				// Force the template meta
+				update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
+				
+				// Use Elementor's template loader
+				$elementor_template = ELEMENTOR_PATH . 'modules/page-templates/templates/header-footer.php';
+				if ( file_exists( $elementor_template ) ) {
+					return $elementor_template;
+				}
+			}
+		}
+		
+		return $template;
 	}
 
 	public function apply_page_builder_settings( $post_id ) {
