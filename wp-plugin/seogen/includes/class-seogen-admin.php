@@ -2012,14 +2012,23 @@ class SEOgen_Admin {
 			return $template;
 		}
 		
-		// Force Elementor to use header/footer template for this page
+		// For Elementor, force the header-footer template (removes theme header/footer, keeps Elementor templates)
 		if ( class_exists( '\Elementor\Plugin' ) ) {
 			$post_id = get_the_ID();
 			if ( $post_id ) {
-				// Force the template meta
+				// Force the template meta - this is critical for drafts
 				update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
 				
-				// Use Elementor's template loader
+				// Also set Elementor's page settings
+				$page_settings = get_post_meta( $post_id, '_elementor_page_settings', true );
+				if ( ! is_array( $page_settings ) ) {
+					$page_settings = array();
+				}
+				$page_settings['template'] = 'elementor_header_footer';
+				$page_settings['hide_title'] = 'yes';
+				update_post_meta( $post_id, '_elementor_page_settings', $page_settings );
+				
+				// Return Elementor's header-footer template file
 				$elementor_template = ELEMENTOR_PATH . 'modules/page-templates/templates/header-footer.php';
 				if ( file_exists( $elementor_template ) ) {
 					return $elementor_template;
