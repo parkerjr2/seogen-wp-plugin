@@ -40,6 +40,7 @@ class SEOgen_Admin {
 		// Add body class and CSS to hide header/footer for service pages
 		add_filter( 'body_class', array( $this, 'add_service_page_body_class' ) );
 		add_action( 'wp_head', array( $this, 'add_service_page_styles' ), 999 );
+		add_action( 'wp_footer', array( $this, 'add_service_page_styles_footer' ), 999 );
 	}
 
 	public function register_bulk_worker_hooks() {
@@ -2092,6 +2093,50 @@ class SEOgen_Admin {
 				display: none !important;
 			}
 		</style>';
+	}
+	
+	public function add_service_page_styles_footer() {
+		global $post;
+		
+		// Check if we're viewing a service_page (including previews)
+		$is_service_page = false;
+		
+		// Check current post
+		if ( $post && 'service_page' === $post->post_type ) {
+			$is_service_page = true;
+		}
+		// Check preview parameter
+		elseif ( isset( $_GET['p'] ) ) {
+			$preview_post = get_post( (int) $_GET['p'] );
+			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
+				$is_service_page = true;
+			}
+		}
+		
+		if ( ! $is_service_page ) {
+			return;
+		}
+		
+		$settings = $this->get_settings();
+		if ( empty( $settings['disable_theme_header_footer'] ) ) {
+			return;
+		}
+		
+		// Inject JavaScript to hide header/footer as a backup
+		echo '<script>
+			(function() {
+				var selectors = [
+					"header", ".site-header", ".header", "#masthead", ".masthead",
+					"footer", ".site-footer", ".footer", "#colophon", ".colophon"
+				];
+				selectors.forEach(function(selector) {
+					var elements = document.querySelectorAll(selector);
+					elements.forEach(function(el) {
+						el.style.display = "none";
+					});
+				});
+			})();
+		</script>';
 	}
 
 	public function force_service_page_template( $template ) {
