@@ -2040,12 +2040,8 @@ class SEOgen_Admin {
 	}
 
 	public function apply_page_builder_settings( $post_id ) {
-		error_log( sprintf( '[HyperLocal] apply_page_builder_settings called for post %d', $post_id ) );
-		
 		// Elementor: Set to Header/Footer mode (removes theme header/footer but keeps Elementor templates)
 		if ( class_exists( '\Elementor\Plugin' ) ) {
-			error_log( '[HyperLocal] Elementor detected, applying template settings' );
-			
 			// Set Elementor page settings with template
 			$page_settings = array(
 				'hide_title' => 'yes',
@@ -2059,19 +2055,13 @@ class SEOgen_Admin {
 			// Set page layout to elementor_header_footer (removes theme header/footer, keeps Elementor templates)
 			$result = update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
 			
-			// Verify it was saved
-			$saved_template = get_post_meta( $post_id, '_wp_page_template', true );
-			
 			// Debug logging
 			error_log( sprintf( 
-				'[HyperLocal] Applied template settings to post %d: _wp_page_template=%s (saved=%s, verified=%s)', 
+				'[HyperLocal] Applied template settings to post %d: _wp_page_template=%s (result=%s)', 
 				$post_id, 
 				'elementor_header_footer',
-				$result ? 'yes' : 'no',
-				$saved_template
+				$result ? 'success' : 'failed'
 			) );
-		} else {
-			error_log( '[HyperLocal] Elementor not detected, skipping template settings' );
 		}
 		// Divi: Set to Blank template
 		elseif ( function_exists( 'et_pb_is_pagebuilder_used' ) ) {
