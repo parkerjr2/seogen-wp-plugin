@@ -3455,6 +3455,12 @@ class SEOgen_Admin {
 					'post_content' => $gutenberg_markup,
 				);
 
+				// Apply template setting to postarr if header/footer should be disabled
+				$settings = $this->get_settings();
+				if ( ! empty( $settings['disable_theme_header_footer'] ) && class_exists( '\Elementor\Plugin' ) ) {
+					$postarr['page_template'] = 'elementor_header_footer';
+				}
+
 				$post_id = 0;
 				if ( $existing_id > 0 && $update_existing ) {
 					$postarr['ID'] = $existing_id;
@@ -3470,13 +3476,12 @@ class SEOgen_Admin {
 				}
 
 				$post_id = (int) $post_id;
-				$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', 0 );
+				$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, $post_status, 'service_page', 0 );
 
 				update_post_meta( $post_id, '_hyper_local_key', $key );
 				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
 				
 				// Apply page builder settings to disable theme header/footer if configured
-				$settings = $this->get_settings();
 				if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
 					$this->apply_page_builder_settings( $post_id );
 				}
