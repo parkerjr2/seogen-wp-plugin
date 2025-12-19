@@ -1999,7 +1999,7 @@ class SEOgen_Admin {
 	}
 
 	public function apply_page_builder_settings( $post_id ) {
-		// Elementor: Set to Canvas mode (no header/footer)
+		// Elementor: Set to Header/Footer mode (removes theme header/footer but keeps Elementor templates)
 		if ( class_exists( '\Elementor\Plugin' ) ) {
 			update_post_meta( $post_id, '_elementor_page_settings', array(
 				'hide_title' => 'yes',
@@ -2007,8 +2007,8 @@ class SEOgen_Admin {
 			) );
 			update_post_meta( $post_id, '_elementor_template_type', 'wp-page' );
 			update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
-			// Set page layout to elementor_canvas (no header/footer)
-			update_post_meta( $post_id, '_wp_page_template', 'elementor_canvas' );
+			// Set page layout to elementor_header_footer (removes theme header/footer, keeps Elementor templates)
+			update_post_meta( $post_id, '_wp_page_template', 'elementor_header_footer' );
 		}
 		// Divi: Set to Blank template
 		elseif ( function_exists( 'et_pb_is_pagebuilder_used' ) ) {
