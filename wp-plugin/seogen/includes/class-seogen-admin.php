@@ -2006,21 +2006,26 @@ class SEOgen_Admin {
 	}
 
 	public function add_service_page_body_class( $classes ) {
+		global $post;
+		
 		// Check if we're viewing a service_page (including previews)
 		$is_service_page = false;
 		
-		if ( is_singular( 'service_page' ) ) {
+		// Check current post
+		if ( $post && 'service_page' === $post->post_type ) {
 			$is_service_page = true;
-		} elseif ( isset( $_GET['preview'] ) && isset( $_GET['p'] ) ) {
-			// Editor preview mode
-			$post = get_post( (int) $_GET['p'] );
-			if ( $post && 'service_page' === $post->post_type ) {
+		}
+		// Check preview parameter
+		elseif ( isset( $_GET['p'] ) ) {
+			$preview_post = get_post( (int) $_GET['p'] );
+			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
 				$is_service_page = true;
 			}
-		} elseif ( isset( $_GET['preview_id'] ) ) {
-			// Alternative preview mode
-			$post = get_post( (int) $_GET['preview_id'] );
-			if ( $post && 'service_page' === $post->post_type ) {
+		}
+		// Check preview_id parameter
+		elseif ( isset( $_GET['preview_id'] ) ) {
+			$preview_post = get_post( (int) $_GET['preview_id'] );
+			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
 				$is_service_page = true;
 			}
 		}
@@ -2039,21 +2044,26 @@ class SEOgen_Admin {
 	}
 	
 	public function add_service_page_styles() {
+		global $post;
+		
 		// Check if we're viewing a service_page (including previews)
 		$is_service_page = false;
 		
-		if ( is_singular( 'service_page' ) ) {
+		// Check current post
+		if ( $post && 'service_page' === $post->post_type ) {
 			$is_service_page = true;
-		} elseif ( isset( $_GET['preview'] ) && isset( $_GET['p'] ) ) {
-			// Editor preview mode
-			$post = get_post( (int) $_GET['p'] );
-			if ( $post && 'service_page' === $post->post_type ) {
+		}
+		// Check preview parameter
+		elseif ( isset( $_GET['p'] ) ) {
+			$preview_post = get_post( (int) $_GET['p'] );
+			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
 				$is_service_page = true;
 			}
-		} elseif ( isset( $_GET['preview_id'] ) ) {
-			// Alternative preview mode
-			$post = get_post( (int) $_GET['preview_id'] );
-			if ( $post && 'service_page' === $post->post_type ) {
+		}
+		// Check preview_id parameter
+		elseif ( isset( $_GET['preview_id'] ) ) {
+			$preview_post = get_post( (int) $_GET['preview_id'] );
+			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
 				$is_service_page = true;
 			}
 		}
