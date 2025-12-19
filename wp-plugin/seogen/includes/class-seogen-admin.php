@@ -2110,6 +2110,11 @@ class SEOgen_Admin {
 			body.seogen-no-header-footer .colophon {
 				display: none !important;
 			}
+			
+			/* Constrain main content width, but not header/footer sections */
+			body.seogen-no-header-footer .elementor-location-single .elementor-section-wrap > .elementor-section:not(.elementor-section-full_width) .elementor-container {
+				max-width: 1140px;
+			}
 		</style>';
 	}
 	
