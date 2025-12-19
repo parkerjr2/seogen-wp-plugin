@@ -2115,6 +2115,18 @@ class SEOgen_Admin {
 			body.seogen-no-header-footer .elementor-location-single .elementor-section-wrap > .elementor-section:not(.elementor-section-full_width) .elementor-container {
 				max-width: 1140px;
 			}
+			
+			/* Constrain/center the actual service-page content wrapper */
+			body.seogen-no-header-footer .hyper-local-body,
+			body.seogen-no-header-footer .elementor-location-single .elementor-widget-theme-post-content,
+			body.seogen-no-header-footer .elementor-location-single .elementor-widget-theme-post-content > .elementor-widget-container {
+				max-width: 1140px;
+				margin-left: auto;
+				margin-right: auto;
+				padding-left: 20px;
+				padding-right: 20px;
+				box-sizing: border-box;
+			}
 		</style>';
 	}
 	
