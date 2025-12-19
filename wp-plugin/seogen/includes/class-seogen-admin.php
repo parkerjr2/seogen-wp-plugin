@@ -2009,29 +2009,37 @@ class SEOgen_Admin {
 	public function add_service_page_body_class( $classes ) {
 		global $post;
 		
-		// Check if we're viewing a service_page (including previews)
-		$is_service_page = false;
-		
-		// Check current post
-		if ( $post && 'service_page' === $post->post_type ) {
-			$is_service_page = true;
-		}
-		// Check preview parameter
-		elseif ( isset( $_GET['p'] ) ) {
-			$preview_post = get_post( (int) $_GET['p'] );
-			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
-				$is_service_page = true;
-			}
-		}
-		// Check preview_id parameter
-		elseif ( isset( $_GET['preview_id'] ) ) {
-			$preview_post = get_post( (int) $_GET['preview_id'] );
-			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
-				$is_service_page = true;
-			}
+		// Get the actual post ID, handling revisions/autosaves
+		$post_id = 0;
+		if ( $post ) {
+			$post_id = $post->ID;
+		} elseif ( isset( $_GET['p'] ) ) {
+			$post_id = (int) $_GET['p'];
+		} elseif ( isset( $_GET['preview_id'] ) ) {
+			$post_id = (int) $_GET['preview_id'];
 		}
 		
-		if ( ! $is_service_page ) {
+		if ( ! $post_id ) {
+			return $classes;
+		}
+		
+		// If this is a revision/autosave, get the parent post ID
+		$parent_id = wp_is_post_revision( $post_id );
+		if ( $parent_id ) {
+			$post_id = $parent_id;
+		}
+		
+		// In preview mode, also check for parent
+		if ( is_preview() ) {
+			$maybe_parent = wp_get_post_parent_id( $post_id );
+			if ( $maybe_parent ) {
+				$post_id = $maybe_parent;
+			}
+		}
+		
+		// Check if this is a service_page
+		$post_obj = get_post( $post_id );
+		if ( ! $post_obj || 'service_page' !== $post_obj->post_type ) {
 			return $classes;
 		}
 		
@@ -2047,29 +2055,37 @@ class SEOgen_Admin {
 	public function add_service_page_styles() {
 		global $post;
 		
-		// Check if we're viewing a service_page (including previews)
-		$is_service_page = false;
-		
-		// Check current post
-		if ( $post && 'service_page' === $post->post_type ) {
-			$is_service_page = true;
-		}
-		// Check preview parameter
-		elseif ( isset( $_GET['p'] ) ) {
-			$preview_post = get_post( (int) $_GET['p'] );
-			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
-				$is_service_page = true;
-			}
-		}
-		// Check preview_id parameter
-		elseif ( isset( $_GET['preview_id'] ) ) {
-			$preview_post = get_post( (int) $_GET['preview_id'] );
-			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
-				$is_service_page = true;
-			}
+		// Get the actual post ID, handling revisions/autosaves
+		$post_id = 0;
+		if ( $post ) {
+			$post_id = $post->ID;
+		} elseif ( isset( $_GET['p'] ) ) {
+			$post_id = (int) $_GET['p'];
+		} elseif ( isset( $_GET['preview_id'] ) ) {
+			$post_id = (int) $_GET['preview_id'];
 		}
 		
-		if ( ! $is_service_page ) {
+		if ( ! $post_id ) {
+			return;
+		}
+		
+		// If this is a revision/autosave, get the parent post ID
+		$parent_id = wp_is_post_revision( $post_id );
+		if ( $parent_id ) {
+			$post_id = $parent_id;
+		}
+		
+		// In preview mode, also check for parent
+		if ( is_preview() ) {
+			$maybe_parent = wp_get_post_parent_id( $post_id );
+			if ( $maybe_parent ) {
+				$post_id = $maybe_parent;
+			}
+		}
+		
+		// Check if this is a service_page
+		$post_obj = get_post( $post_id );
+		if ( ! $post_obj || 'service_page' !== $post_obj->post_type ) {
 			return;
 		}
 		
@@ -2098,22 +2114,37 @@ class SEOgen_Admin {
 	public function add_service_page_styles_footer() {
 		global $post;
 		
-		// Check if we're viewing a service_page (including previews)
-		$is_service_page = false;
-		
-		// Check current post
-		if ( $post && 'service_page' === $post->post_type ) {
-			$is_service_page = true;
+		// Get the actual post ID, handling revisions/autosaves
+		$post_id = 0;
+		if ( $post ) {
+			$post_id = $post->ID;
+		} elseif ( isset( $_GET['p'] ) ) {
+			$post_id = (int) $_GET['p'];
+		} elseif ( isset( $_GET['preview_id'] ) ) {
+			$post_id = (int) $_GET['preview_id'];
 		}
-		// Check preview parameter
-		elseif ( isset( $_GET['p'] ) ) {
-			$preview_post = get_post( (int) $_GET['p'] );
-			if ( $preview_post && 'service_page' === $preview_post->post_type ) {
-				$is_service_page = true;
+		
+		if ( ! $post_id ) {
+			return;
+		}
+		
+		// If this is a revision/autosave, get the parent post ID
+		$parent_id = wp_is_post_revision( $post_id );
+		if ( $parent_id ) {
+			$post_id = $parent_id;
+		}
+		
+		// In preview mode, also check for parent
+		if ( is_preview() ) {
+			$maybe_parent = wp_get_post_parent_id( $post_id );
+			if ( $maybe_parent ) {
+				$post_id = $maybe_parent;
 			}
 		}
 		
-		if ( ! $is_service_page ) {
+		// Check if this is a service_page
+		$post_obj = get_post( $post_id );
+		if ( ! $post_obj || 'service_page' !== $post_obj->post_type ) {
 			return;
 		}
 		
