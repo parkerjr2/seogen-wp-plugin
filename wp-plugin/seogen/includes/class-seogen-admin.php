@@ -2110,6 +2110,17 @@ class SEOgen_Admin {
 			body.seogen-no-header-footer .colophon {
 				display: none !important;
 			}
+			
+			/* Center and constrain content width */
+			body.seogen-no-header-footer .elementor-section-wrap,
+			body.seogen-no-header-footer .elementor-inner,
+			body.seogen-no-header-footer .entry-content,
+			body.seogen-no-header-footer main,
+			body.seogen-no-header-footer article {
+				max-width: 1200px;
+				margin-left: auto;
+				margin-right: auto;
+			}
 		</style>';
 	}
 	
