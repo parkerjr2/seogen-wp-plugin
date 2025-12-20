@@ -13,6 +13,7 @@ class SEOgen_Plugin {
 		add_filter( 'the_title', array( $this, 'filter_the_title' ), 10, 2 );
 		add_filter( 'wpseo_breadcrumb_output', array( $this, 'filter_yoast_breadcrumb_output' ), 10, 1 );
 		add_filter( 'rank_math/frontend/breadcrumb/html', array( $this, 'filter_rankmath_breadcrumb_html' ), 10, 2 );
+		add_shortcode( 'seogen_service_hub_links', array( $this, 'render_service_hub_links_shortcode' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
@@ -389,5 +390,79 @@ class SEOgen_Plugin {
 			}
 			return $excluded;
 		}, 10, 2 );
+	}
+
+	public function render_service_hub_links_shortcode( $atts ) {
+		$atts = shortcode_atts( array(
+			'hub_key' => '',
+		), $atts, 'seogen_service_hub_links' );
+
+		$hub_key = sanitize_text_field( $atts['hub_key'] );
+		if ( '' === $hub_key ) {
+			return '<p><em>Error: hub_key attribute is required.</em></p>';
+		}
+
+		$args = array(
+			'post_type' => 'service_page',
+			'post_status' => 'publish',
+			'posts_per_page' => 50,
+			'meta_query' => array(
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'service_city',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+				),
+			),
+			'orderby' => 'title',
+			'order' => 'ASC',
+		);
+
+		$query = new WP_Query( $args );
+
+		if ( ! $query->have_posts() ) {
+			return '<p><em>No service pages found for this hub yet.</em></p>';
+		}
+
+		$pages_by_city = array();
+		while ( $query->have_posts() ) {
+			$query->the_post();
+			$post_id = get_the_ID();
+			$city = get_post_meta( $post_id, '_seogen_city', true );
+			$service_name = get_post_meta( $post_id, '_seogen_service_name', true );
+			
+			if ( '' === $city ) {
+				$city = 'Other';
+			}
+
+			if ( ! isset( $pages_by_city[ $city ] ) ) {
+				$pages_by_city[ $city ] = array();
+			}
+
+			$pages_by_city[ $city ][] = array(
+				'id' => $post_id,
+				'title' => get_the_title(),
+				'permalink' => get_permalink(),
+				'service_name' => $service_name,
+			);
+		}
+		wp_reset_postdata();
+
+		ksort( $pages_by_city );
+
+		$output = '<div class="seogen-hub-links">';
+		foreach ( $pages_by_city as $city => $pages ) {
+			$output .= '<h3>' . esc_html( 'Services in ' . $city ) . '</h3>';
+			$output .= '<ul>';
+			foreach ( $pages as $page ) {
+				$output .= '<li><a href="' . esc_url( $page['permalink'] ) . '">' . esc_html( $page['title'] ) . '</a></li>';
+			}
+			$output .= '</ul>';
+		}
+		$output .= '</div>';
+
+		return $output;
 	}
 }

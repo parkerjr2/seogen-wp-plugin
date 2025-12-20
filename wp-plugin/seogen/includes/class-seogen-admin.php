@@ -4,8 +4,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
+
 class SEOgen_Admin {
+	use SEOgen_Admin_Extensions;
 	const OPTION_NAME = 'seogen_settings';
+	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
+	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
 	const LAST_PREVIEW_TRANSIENT_PREFIX = 'hyper_local_last_preview_';
 	const BULK_JOB_OPTION_PREFIX = 'hyper_local_job_';
 	const BULK_JOBS_INDEX_OPTION = 'hyper_local_jobs_index';
@@ -28,6 +33,10 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_hyper_local_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
 		add_action( 'wp_ajax_hyper_local_bulk_job_cancel', array( $this, 'ajax_bulk_job_cancel' ) );
 		add_action( 'admin_notices', array( $this, 'render_hl_notice' ) );
+		add_action( 'admin_post_hyper_local_save_business_config', array( $this, 'handle_save_business_config' ) );
+		add_action( 'admin_post_hyper_local_save_services', array( $this, 'handle_save_services' ) );
+		add_action( 'admin_post_hyper_local_hub_preview', array( $this, 'handle_hub_preview' ) );
+		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
 		
 		// Ensure bulk actions work for service_page post type
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
@@ -1232,6 +1241,35 @@ class SEOgen_Admin {
 			exit;
 		}
 
+		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $source_json ) );
+		
+		// Store universal meta for service_city pages
+		$config = $this->get_business_config();
+		update_post_meta( $post_id, '_seogen_page_mode', 'service_city' );
+		update_post_meta( $post_id, '_seogen_vertical', isset( $config['vertical'] ) ? $config['vertical'] : '' );
+		
+		// Extract service and city from inputs
+		if ( isset( $inputs['service'] ) ) {
+			update_post_meta( $post_id, '_seogen_service_name', sanitize_text_field( $inputs['service'] ) );
+			update_post_meta( $post_id, '_seogen_service_slug', sanitize_title( $inputs['service'] ) );
+		}
+		if ( isset( $inputs['city'], $inputs['state'] ) ) {
+			$city_state = $inputs['city'] . ', ' . $inputs['state'];
+			update_post_meta( $post_id, '_seogen_city', sanitize_text_field( $city_state ) );
+			update_post_meta( $post_id, '_seogen_city_slug', sanitize_title( $inputs['city'] . '-' . $inputs['state'] ) );
+		}
+		
+		// Try to determine hub_key from service name
+		$services = $this->get_services();
+		if ( isset( $inputs['service'] ) && ! empty( $services ) ) {
+			foreach ( $services as $service ) {
+				if ( isset( $service['name'], $service['hub_key'] ) && strtolower( $service['name'] ) === strtolower( $inputs['service'] ) ) {
+					update_post_meta( $post_id, '_seogen_hub_key', $service['hub_key'] );
+					break;
+				}
+			}
+		}
+
 		$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', 0 );
 		if ( $unique_slug ) {
 			wp_update_post(
@@ -1382,6 +1420,33 @@ class SEOgen_Admin {
 			'manage_options',
 			'hyper-local',
 			array( $this, 'render_settings_page' )
+		);
+
+		add_submenu_page(
+			'hyper-local',
+			__( 'Business Setup (Step 0)', 'seogen' ),
+			__( 'Business Setup', 'seogen' ),
+			'manage_options',
+			'hyper-local-business-setup',
+			array( $this, 'render_business_setup_page' )
+		);
+
+		add_submenu_page(
+			'hyper-local',
+			__( 'Services', 'seogen' ),
+			__( 'Services', 'seogen' ),
+			'manage_options',
+			'hyper-local-services',
+			array( $this, 'render_services_page' )
+		);
+
+		add_submenu_page(
+			'hyper-local',
+			__( 'Service Hubs (Step 3.5)', 'seogen' ),
+			__( 'Service Hubs', 'seogen' ),
+			'manage_options',
+			'hyper-local-service-hubs',
+			array( $this, 'render_service_hubs_page' )
 		);
 
 		add_submenu_page(
