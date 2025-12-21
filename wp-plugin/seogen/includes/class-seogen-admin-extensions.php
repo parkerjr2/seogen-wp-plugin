@@ -131,6 +131,18 @@ trait SEOgen_Admin_Extensions {
 						</td>
 					</tr>
 					<tr>
+						<th scope="row"><label for="email"><?php esc_html_e( 'Email (Optional)', 'seogen' ); ?></label></th>
+						<td>
+							<input type="email" name="email" id="email" class="regular-text" value="<?php echo esc_attr( isset( $config['email'] ) ? $config['email'] : '' ); ?>" placeholder="contact@example.com" />
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="address"><?php esc_html_e( 'Address (Optional)', 'seogen' ); ?></label></th>
+						<td>
+							<input type="text" name="address" id="address" class="regular-text" value="<?php echo esc_attr( isset( $config['address'] ) ? $config['address'] : '' ); ?>" placeholder="123 Main St, City, ST 12345" />
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><?php esc_html_e( 'Hub Categories', 'seogen' ); ?> *</th>
 						<td>
 							<p><?php esc_html_e( 'Select the service hub categories for your business:', 'seogen' ); ?></p>
@@ -175,6 +187,8 @@ trait SEOgen_Admin_Extensions {
 			'phone' => isset( $_POST['phone'] ) ? sanitize_text_field( wp_unslash( $_POST['phone'] ) ) : '',
 			'cta_text' => isset( $_POST['cta_text'] ) ? sanitize_text_field( wp_unslash( $_POST['cta_text'] ) ) : 'Request a Free Estimate',
 			'service_area_label' => isset( $_POST['service_area_label'] ) ? sanitize_text_field( wp_unslash( $_POST['service_area_label'] ) ) : '',
+			'email' => isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '',
+			'address' => isset( $_POST['address'] ) ? sanitize_text_field( wp_unslash( $_POST['address'] ) ) : '',
 			'hubs' => array(),
 		);
 

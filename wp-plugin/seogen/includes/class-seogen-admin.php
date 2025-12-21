@@ -2662,19 +2662,53 @@ class SEOgen_Admin {
 		}
 		$jobs_index = $this->get_bulk_jobs_index();
 
+		// Pre-populate from existing setup data (UX improvement - reduce manual re-entry)
+		$business_config = $this->get_business_config();
+		$services_cache = $this->get_services();
+		$cities = $this->get_cities();
+
+		// Build services list (one per line)
+		$services_list = '';
+		if ( ! empty( $services_cache ) && is_array( $services_cache ) ) {
+			$service_names = array();
+			foreach ( $services_cache as $service ) {
+				if ( isset( $service['name'] ) && ! empty( $service['name'] ) ) {
+					$service_names[] = $service['name'];
+				}
+			}
+			$services_list = implode( "\n", $service_names );
+		}
+
+		// Build service areas list (one per line: City, ST)
+		$service_areas_list = '';
+		if ( ! empty( $cities ) && is_array( $cities ) ) {
+			$city_lines = array();
+			foreach ( $cities as $city ) {
+				if ( isset( $city['name'] ) && ! empty( $city['name'] ) ) {
+					$city_line = $city['name'];
+					if ( isset( $city['state'] ) && ! empty( $city['state'] ) ) {
+						$city_line .= ', ' . $city['state'];
+					}
+					$city_lines[] = $city_line;
+				}
+			}
+			$service_areas_list = implode( "\n", $city_lines );
+		}
+
 		$defaults = array(
-			'services'        => '',
-			'service_areas'   => '',
-			'company_name'    => '',
-			'phone'           => '',
-			'email'           => '',
-			'address'         => '',
+			'services'        => $services_list,
+			'service_areas'   => $service_areas_list,
+			'company_name'    => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
+			'phone'           => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
+			'email'           => isset( $business_config['email'] ) ? $business_config['email'] : '',
+			'address'         => isset( $business_config['address'] ) ? $business_config['address'] : '',
 			'update_existing' => '0',
 			'auto_publish'    => '0',
 		);
 		if ( is_array( $validated ) && isset( $validated['form'] ) && is_array( $validated['form'] ) ) {
 			$defaults = wp_parse_args( $validated['form'], $defaults );
 		}
+
 		$status_nonce = wp_create_nonce( 'hyper_local_bulk_job_status' );
 		$cancel_nonce = wp_create_nonce( 'hyper_local_bulk_job_cancel' );
 		?>
@@ -2826,17 +2860,20 @@ class SEOgen_Admin {
 					.hyper-local-bulk-count strong{display:inline-block;min-width:240px}
 					@media (max-width: 960px){.hyper-local-bulk-grid{flex-direction:column}}
 				</style>
-				<div class="hyper-local-bulk-grid">
-					<div class="hyper-local-bulk-col">
-						<label for="hl_bulk_services"><?php echo esc_html__( 'Services (one per line)', 'seogen' ); ?></label>
-						<textarea name="services" id="hl_bulk_services" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['services'] ); ?></textarea>
-					</div>
-					<div class="hyper-local-bulk-col">
-						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
-						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
-						<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas or Maple Ridge', 'seogen' ); ?></p>
-					</div>
+				<p class="description" style="margin-bottom: 12px; padding: 10px; background: #f0f6fc; border-left: 4px solid #2271b1;">
+				<?php echo esc_html__( 'Pre-populated from your setup. Edit as needed before generating.', 'seogen' ); ?>
+			</p>
+			<div class="hyper-local-bulk-grid">
+				<div class="hyper-local-bulk-col">
+					<label for="hl_bulk_services"><?php echo esc_html__( 'Services (one per line)', 'seogen' ); ?></label>
+					<textarea name="services" id="hl_bulk_services" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['services'] ); ?></textarea>
 				</div>
+				<div class="hyper-local-bulk-col">
+					<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
+					<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
+					<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas or Maple Ridge', 'seogen' ); ?></p>
+				</div>
+			</div>
 				<div class="hyper-local-bulk-count" id="hyper-local-bulk-count">
 					<strong><?php echo esc_html__( 'Total pages to be created:', 'seogen' ); ?></strong>
 					<span id="hyper-local-bulk-count-value">0</span>
