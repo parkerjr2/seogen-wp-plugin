@@ -5,9 +5,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
+	use SEOgen_Admin_City_Hub_Helpers;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
@@ -4483,48 +4485,15 @@ class SEOgen_Admin {
 
 			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
 
+			// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication)
+			$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city );
+
 			$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 			if ( $header_template_id > 0 ) {
 				$header_content = $this->get_template_content( $header_template_id );
 				if ( '' !== $header_content ) {
 					$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
 					$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
-				}
-			}
-
-			// Inject parent hub link BEFORE FAQ section
-			// Generate link directly instead of using shortcode to avoid rendering issues
-			$hub_post_id = $this->find_service_hub_post_id( $hub_key );
-			if ( $hub_post_id > 0 ) {
-				$parent_hub_url = get_permalink( $hub_post_id );
-				$parent_hub_title = get_the_title( $hub_post_id );
-				
-				// Clean title for display: Remove business name, location, and trailing 'Services'
-				// Example: "Residential Electrical Services | M Electric" → "Residential Electrical"
-				$clean_title = $parent_hub_title;
-				// Remove business name after pipe
-				if ( false !== strpos( $clean_title, '|' ) ) {
-					$parts = explode( '|', $clean_title );
-					$clean_title = trim( $parts[0] );
-				}
-				// Remove trailing location phrases
-				$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $clean_title );
-				// Remove trailing "Services" or "Service"
-				$clean_title = preg_replace( '/\s+services?$/i', '', $clean_title );
-				$clean_title = trim( $clean_title );
-				
-				// Generate link HTML using "overview" to avoid redundant "services" phrasing
-				$link_text = 'Back to the ' . esc_html( $clean_title ) . ' overview';
-				$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
-				$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->' . "\n\n";
-				
-				// Insert before FAQ heading if it exists, otherwise append at end
-				$faq_heading_marker = '<h2>FAQ</h2>';
-				if ( false !== strpos( $gutenberg_markup, $faq_heading_marker ) ) {
-					$gutenberg_markup = str_replace( $faq_heading_marker, $parent_hub_link_block . $faq_heading_marker, $gutenberg_markup );
-				} else {
-					// No FAQ section found, append at end
-					$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
 				}
 			}
 
@@ -4902,48 +4871,15 @@ class SEOgen_Admin {
 
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
 
+		// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication)
+		$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city );
+
 		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
 				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
 				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
-			}
-		}
-
-		// Inject parent hub link BEFORE FAQ section
-		// Generate link directly instead of using shortcode to avoid rendering issues
-		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
-		if ( $hub_post_id > 0 ) {
-			$parent_hub_url = get_permalink( $hub_post_id );
-			$parent_hub_title = get_the_title( $hub_post_id );
-			
-			// Clean title for display: Remove business name, location, and trailing 'Services'
-			// Example: "Residential Electrical Services | M Electric" → "Residential Electrical"
-			$clean_title = $parent_hub_title;
-			// Remove business name after pipe
-			if ( false !== strpos( $clean_title, '|' ) ) {
-				$parts = explode( '|', $clean_title );
-				$clean_title = trim( $parts[0] );
-			}
-			// Remove trailing location phrases
-			$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $clean_title );
-			// Remove trailing "Services" or "Service"
-			$clean_title = preg_replace( '/\s+services?$/i', '', $clean_title );
-			$clean_title = trim( $clean_title );
-			
-			// Generate link HTML using "overview" to avoid redundant "services" phrasing
-			$link_text = 'Back to the ' . esc_html( $clean_title ) . ' overview';
-			$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
-			$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->' . "\n\n";
-			
-			// Insert before FAQ heading if it exists, otherwise append at end
-			$faq_heading_marker = '<h2>FAQ</h2>';
-			if ( false !== strpos( $gutenberg_markup, $faq_heading_marker ) ) {
-				$gutenberg_markup = str_replace( $faq_heading_marker, $parent_hub_link_block . $faq_heading_marker, $gutenberg_markup );
-			} else {
-				// No FAQ section found, append at end
-				$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
 			}
 		}
 
