@@ -4499,13 +4499,22 @@ class SEOgen_Admin {
 				$parent_hub_url = get_permalink( $hub_post_id );
 				$parent_hub_title = get_the_title( $hub_post_id );
 				
-				// Clean title: Remove trailing city/state if present
-				$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $parent_hub_title );
-				$clean_title = preg_replace( '/\s+services$/i', '', $clean_title );
+				// Clean title for display: Remove business name, location, and trailing 'Services'
+				// Example: "Residential Electrical Services | M Electric" → "Residential Electrical"
+				$clean_title = $parent_hub_title;
+				// Remove business name after pipe
+				if ( false !== strpos( $clean_title, '|' ) ) {
+					$parts = explode( '|', $clean_title );
+					$clean_title = trim( $parts[0] );
+				}
+				// Remove trailing location phrases
+				$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $clean_title );
+				// Remove trailing "Services" or "Service"
+				$clean_title = preg_replace( '/\s+services?$/i', '', $clean_title );
 				$clean_title = trim( $clean_title );
 				
-				// Generate link HTML
-				$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
+				// Generate link HTML using "overview" to avoid redundant "services" phrasing
+				$link_text = 'Back to the ' . esc_html( $clean_title ) . ' overview';
 				$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
 				$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->' . "\n\n";
 				
@@ -4902,13 +4911,22 @@ class SEOgen_Admin {
 			$parent_hub_url = get_permalink( $hub_post_id );
 			$parent_hub_title = get_the_title( $hub_post_id );
 			
-			// Clean title: Remove trailing city/state if present
-			$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $parent_hub_title );
-			$clean_title = preg_replace( '/\s+services$/i', '', $clean_title );
+			// Clean title for display: Remove business name, location, and trailing 'Services'
+			// Example: "Residential Electrical Services | M Electric" → "Residential Electrical"
+			$clean_title = $parent_hub_title;
+			// Remove business name after pipe
+			if ( false !== strpos( $clean_title, '|' ) ) {
+				$parts = explode( '|', $clean_title );
+				$clean_title = trim( $parts[0] );
+			}
+			// Remove trailing location phrases
+			$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $clean_title );
+			// Remove trailing "Services" or "Service"
+			$clean_title = preg_replace( '/\s+services?$/i', '', $clean_title );
 			$clean_title = trim( $clean_title );
 			
-			// Generate link HTML
-			$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
+			// Generate link HTML using "overview" to avoid redundant "services" phrasing
+			$link_text = 'Back to the ' . esc_html( $clean_title ) . ' overview';
 			$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
 			$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->' . "\n\n";
 			
