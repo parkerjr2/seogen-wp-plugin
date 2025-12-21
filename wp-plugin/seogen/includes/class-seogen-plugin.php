@@ -1153,11 +1153,17 @@ class SEOgen_Plugin {
 		// Safety check: Only render on city_hub pages
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
+			if ( current_user_can( 'manage_options' ) ) {
+				return '<!-- DEBUG: No post_id -->';
+			}
 			return '';
 		}
 		
 		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
 		if ( 'city_hub' !== $page_mode ) {
+			if ( current_user_can( 'manage_options' ) ) {
+				return '<!-- DEBUG: page_mode=' . esc_html( $page_mode ) . ', expected=city_hub -->';
+			}
 			return '';
 		}
 		
