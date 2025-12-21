@@ -579,6 +579,26 @@ trait SEOgen_Admin_Extensions {
 			exit;
 		}
 
+		// Set up transient with context so build_gutenberg_content_from_blocks works correctly
+		// This is required because the method pulls context from transient (designed for service+city pages)
+		$user_id = get_current_user_id();
+		if ( $user_id > 0 ) {
+			$last_preview_key = 'hyper_local_last_preview_' . $user_id;
+			$preview_data = array(
+				'title' => $data['title'],
+				'slug' => $hub['slug'],
+				'blocks' => $data['blocks'],
+				'inputs' => array(
+					'company_name' => $config['business_name'],
+					'phone' => $config['phone'],
+					'service' => $hub['label'] . ' Services',  // For hero context
+					'city' => '',  // Hub pages don't have city
+					'state' => '',  // Hub pages don't have state
+				),
+			);
+			set_transient( $last_preview_key, $preview_data, 30 * MINUTE_IN_SECONDS );
+		}
+
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'] );
 
 		// Prepend header template if configured (same as service+city pages)
