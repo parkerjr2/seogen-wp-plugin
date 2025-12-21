@@ -737,13 +737,14 @@ trait SEOgen_Admin_Extensions {
 		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $data ) );
 		update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
 
-		// SEO meta
+		// SEO meta - use apply_seo_plugin_meta for consistency with service+city pages
 		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
-		if ( '' !== $meta_description ) {
-			update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
-			update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
-			update_post_meta( $post_id, 'rank_math_description', $meta_description );
-		}
+		$title = $data['title'];
+		// Generate focus keyword for SEO plugins: "hub_label Services"
+		$focus_keyword = $hub['label'] . ' Services';
+		
+		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
+		$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $title, $meta_description, true );
 
 		// Apply page builder settings to disable theme header/footer if configured (same as service+city)
 		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {

@@ -4544,7 +4544,9 @@ class SEOgen_Admin {
 				$this->apply_page_builder_settings( $post_id );
 			}
 
-			$this->apply_seo_plugin_meta( $post_id, '', $title, $meta_description, true );
+			// Generate focus keyword for SEO plugins: "hub_label city_name"
+			$focus_keyword = $hub['label'] . ' ' . $city['name'];
+			$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $title, $meta_description, true );
 
 			$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', $hub_post_id );
 			if ( $unique_slug ) {
@@ -4922,7 +4924,9 @@ class SEOgen_Admin {
 			$this->apply_page_builder_settings( $post_id );
 		}
 
-		$this->apply_seo_plugin_meta( $post_id, '', $title, $meta_description, true );
+		// Generate focus keyword for SEO plugins: "hub_label city_name"
+		$focus_keyword = $hub['label'] . ' ' . $city['name'];
+		$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $title, $meta_description, true );
 
 		$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', $hub_post_id );
 		if ( $unique_slug ) {
