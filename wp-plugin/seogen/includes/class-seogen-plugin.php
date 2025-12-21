@@ -64,6 +64,7 @@ class SEOgen_Plugin {
 		add_filter( 'rank_math/frontend/breadcrumb/html', array( $this, 'filter_rankmath_breadcrumb_html' ), 10, 2 );
 		add_shortcode( 'seogen_service_hub_links', array( $this, 'render_service_hub_links_shortcode' ) );
 		add_shortcode( 'seogen_city_hub_links', array( $this, 'render_city_hub_links_shortcode' ) );
+		add_shortcode( 'seogen_service_hub_city_links', array( $this, 'render_service_hub_city_links_shortcode' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
@@ -610,6 +611,65 @@ class SEOgen_Plugin {
 			$output .= '<li><a href="' . esc_url( get_permalink() ) . '">' . esc_html( get_the_title() ) . '</a></li>';
 		}
 		$output .= '</ul></div>';
+		wp_reset_postdata();
+
+		return $output;
+	}
+
+	public function render_service_hub_city_links_shortcode( $atts ) {
+		$atts = shortcode_atts( array(
+			'hub_key' => '',
+			'limit' => 6,
+		), $atts, 'seogen_service_hub_city_links' );
+
+		$hub_key = sanitize_text_field( $atts['hub_key'] );
+		$limit = absint( $atts['limit'] );
+		
+		if ( '' === $hub_key ) {
+			return '<p><em>Error: hub_key attribute is required.</em></p>';
+		}
+
+		if ( $limit < 1 ) {
+			$limit = 6;
+		}
+		if ( $limit > 50 ) {
+			$limit = 50;
+		}
+
+		$args = array(
+			'post_type' => 'service_page',
+			'post_status' => 'publish',
+			'posts_per_page' => $limit,
+			'meta_query' => array(
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'city_hub',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+				),
+			),
+			'orderby' => 'title',
+			'order' => 'ASC',
+		);
+
+		$query = new WP_Query( $args );
+
+		if ( ! $query->have_posts() ) {
+			return '<p class="seogen-placeholder"><em>Service areas will appear here once city pages are published.</em></p>';
+		}
+
+		$output = '<div class="seogen-service-hub-city-links">';
+		$output .= '<ul>';
+		while ( $query->have_posts() ) {
+			$query->the_post();
+			$city_meta = get_post_meta( get_the_ID(), '_seogen_city', true );
+			$link_text = ! empty( $city_meta ) ? esc_html( $city_meta ) : esc_html( get_the_title() );
+			$output .= '<li><a href="' . esc_url( get_permalink() ) . '">' . $link_text . '</a></li>';
+		}
+		$output .= '</ul>';
+		$output .= '</div>';
 		wp_reset_postdata();
 
 		return $output;
