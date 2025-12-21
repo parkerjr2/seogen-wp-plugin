@@ -4492,16 +4492,7 @@ class SEOgen_Admin {
 				}
 			}
 
-			$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
-			if ( $footer_template_id > 0 ) {
-				$footer_content = $this->get_template_content( $footer_template_id );
-				if ( '' !== $footer_content ) {
-					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
-					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
-				}
-			}
-
-			// Inject parent hub link at bottom of City Hub pages
+			// Inject parent hub link at bottom of main content (BEFORE footer template)
 			// Generate link directly instead of using shortcode to avoid rendering issues
 			$hub_post_id = $this->find_service_hub_post_id( $hub_key );
 			if ( $hub_post_id > 0 ) {
@@ -4520,6 +4511,15 @@ class SEOgen_Admin {
 				// Inject as HTML block
 				$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->';
 				$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+			}
+
+			$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+			if ( $footer_template_id > 0 ) {
+				$footer_content = $this->get_template_content( $footer_template_id );
+				if ( '' !== $footer_content ) {
+					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
+				}
 			}
 
 			$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
@@ -4889,16 +4889,7 @@ class SEOgen_Admin {
 			}
 		}
 
-		$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
-		if ( $footer_template_id > 0 ) {
-			$footer_content = $this->get_template_content( $footer_template_id );
-			if ( '' !== $footer_content ) {
-				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
-				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
-			}
-		}
-
-		// Inject parent hub link at bottom of City Hub pages
+		// Inject parent hub link at bottom of main content (BEFORE footer template)
 		// Generate link directly instead of using shortcode to avoid rendering issues
 		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
 		if ( $hub_post_id > 0 ) {
@@ -4917,6 +4908,15 @@ class SEOgen_Admin {
 			// Inject as HTML block
 			$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->';
 			$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+		}
+
+		$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+		if ( $footer_template_id > 0 ) {
+			$footer_content = $this->get_template_content( $footer_template_id );
+			if ( '' !== $footer_content ) {
+				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
+			}
 		}
 		$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
 
