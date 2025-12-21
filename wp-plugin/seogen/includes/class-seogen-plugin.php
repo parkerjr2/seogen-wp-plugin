@@ -847,83 +847,77 @@ class SEOgen_Plugin {
 
 	/**
 	 * Get intro sentence for city links section
-	 * Single natural sentence focusing on service coverage + homeowner benefit
+	 * One natural sentence - no marketing fluff, focus on what homeowners gain
 	 */
 	private function get_city_links_intro( $hub_key, $trade_name ) {
 		$trade_keyword = $this->get_trade_keyword_from_name( $trade_name );
 		
 		$intros = array(
-			'residential' => "Our {$trade_keyword} team serves homeowners across the region with panel upgrades, rewiring, and safety improvements.",
-			'commercial' => "We provide {$trade_keyword} solutions to businesses and commercial facilities throughout the area.",
-			'emergency' => "When {$trade_keyword} emergencies happen, our team responds quickly across the region.",
+			'residential' => "M Electric works with homeowners across the area, helping keep residential {$trade_keyword} systems safe, reliable, and up to date.",
+			'commercial' => "We help businesses maintain reliable {$trade_keyword} systems to minimize downtime and ensure code compliance.",
+			'emergency' => "When {$trade_keyword} emergencies happen, our team responds quickly to resolve safety hazards.",
 		);
 		
 		if ( isset( $intros[ $hub_key ] ) ) {
 			return $intros[ $hub_key ];
 		}
 		
-		return "We serve the area with professional {$trade_keyword} solutions.";
+		return "We help property owners maintain safe, reliable {$trade_keyword} systems.";
 	}
 
 	/**
-	 * Generate varied anchor text with electrical/trade keywords
-	 * 
-	 * Rules:
-	 * - At most 1 exact-match anchor (e.g., "Residential Electrical Services in City, OK")
-	 * - Others are partial/semantic anchors with trade keywords
-	 * - Always include electrical/electrician or trade-specific keyword
+	 * Generate varied anchor text - FORBIDDEN: 'services' keyword
+	 * Build around concrete electrical concepts: panel, wiring, GFCI, circuits
 	 * 
 	 * @return array ['text' => anchor text, 'pattern' => pattern ID, 'is_exact_match' => bool]
 	 */
 	private function generate_varied_city_anchor( $city_name, $state, $hub_key, $trade_name, $trade_keyword, $index, $exact_match_used, $used_patterns ) {
-		$service_label = ucfirst( $this->get_service_label_from_hub_key( $hub_key ) );
-		
-		// Define anchor patterns with trade keywords
-		$patterns = array();
-		
-		// Exact match pattern (only use once)
-		if ( ! $exact_match_used && $index === 0 ) {
-			$state_suffix = ! empty( $state ) ? ', ' . $state : '';
-			$patterns[] = array(
-				'pattern' => 'exact_match',
-				'text' => $service_label . ' ' . ucfirst( $trade_keyword ) . ' Services in ' . $city_name . $state_suffix,
-				'is_exact_match' => true,
-			);
-		}
-		
-		// Partial/semantic anchors with trade keywords
-		$trade_noun = ( 'electrical' === $trade_keyword ) ? 'electrician' : $trade_keyword;
+		$service_label = strtolower( $this->get_service_label_from_hub_key( $hub_key ) );
 		$trade_plural = ( 'electrical' === $trade_keyword ) ? 'electricians' : $trade_keyword;
 		
-		$partial_patterns = array(
+		// Concrete electrical concepts - NO 'services' keyword allowed
+		$patterns = array(
 			array(
-				'pattern' => 'trade_work_city',
-				'text' => $trade_keyword . ' work in ' . $city_name,
+				'pattern' => 'panel_upgrades',
+				'text' => $trade_keyword . ' panel upgrades in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'service_trade_city',
-				'text' => strtolower( $service_label ) . ' ' . $trade_plural . ' in ' . $city_name,
+				'pattern' => 'electricians',
+				'text' => $service_label . ' ' . $trade_plural . ' in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'specific_service_city',
-				'text' => $this->get_specific_service_anchor( $hub_key, $trade_keyword, $city_name, $index ),
+				'pattern' => 'wiring_updates',
+				'text' => 'wiring updates in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'trade_noun_city',
-				'text' => $trade_noun . ' in ' . $city_name,
+				'pattern' => 'gfci_afci',
+				'text' => 'GFCI and AFCI protection in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'city_trade_work',
-				'text' => $city_name . ' ' . $trade_keyword . ' work',
+				'pattern' => 'surge_protection',
+				'text' => 'surge protection in ' . $city_name,
+				'is_exact_match' => false,
+			),
+			array(
+				'pattern' => 'circuit_upgrades',
+				'text' => 'circuit upgrades in ' . $city_name,
+				'is_exact_match' => false,
+			),
+			array(
+				'pattern' => 'home_rewiring',
+				'text' => 'home rewiring in ' . $city_name,
+				'is_exact_match' => false,
+			),
+			array(
+				'pattern' => 'safety_inspections',
+				'text' => $trade_keyword . ' safety inspections in ' . $city_name,
 				'is_exact_match' => false,
 			),
 		);
-		
-		$patterns = array_merge( $patterns, $partial_patterns );
 		
 		// Filter out used patterns
 		$available = array_filter( $patterns, function( $p ) use ( $used_patterns ) {
@@ -931,7 +925,7 @@ class SEOgen_Plugin {
 		} );
 		
 		if ( empty( $available ) ) {
-			$available = $partial_patterns; // Reset to partials only
+			$available = $patterns; // Reset
 		}
 		
 		// Select deterministically
@@ -942,34 +936,6 @@ class SEOgen_Plugin {
 		return $selected;
 	}
 
-	/**
-	 * Get specific service anchor text based on hub type
-	 * Examples: "panel upgrades in City", "GFCI installation in City"
-	 */
-	private function get_specific_service_anchor( $hub_key, $trade_keyword, $city_name, $index ) {
-		$services = array(
-			'residential' => array(
-				$trade_keyword . ' panel upgrades in ' . $city_name,
-				'GFCI/AFCI installation in ' . $city_name,
-				'home rewiring in ' . $city_name,
-				$trade_keyword . ' surge protection in ' . $city_name,
-				'dedicated circuit installation in ' . $city_name,
-			),
-			'commercial' => array(
-				'commercial ' . $trade_keyword . ' work in ' . $city_name,
-				'business ' . $trade_keyword . ' in ' . $city_name,
-				'facility ' . $trade_keyword . ' upgrades in ' . $city_name,
-			),
-			'emergency' => array(
-				'emergency ' . $trade_keyword . ' service in ' . $city_name,
-				'24/7 ' . $trade_keyword . ' help in ' . $city_name,
-				'urgent ' . $trade_keyword . ' repairs in ' . $city_name,
-			),
-		);
-		
-		$list = isset( $services[ $hub_key ] ) ? $services[ $hub_key ] : array( $trade_keyword . ' work in ' . $city_name );
-		return $list[ $index % count( $list ) ];
-	}
 
 	/**
 	 * Generate natural city sentence with varied structures
@@ -983,41 +949,42 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Generate natural sentence with city name at end or middle
-	 * Each pattern is structurally different and includes electrical keyword naturally
+	 * Generate natural sentence - FORBIDDEN: 'services' keyword
+	 * Built around ACTION or PROBLEM, city as geographic context
+	 * Each pattern structurally different
 	 */
 	private function get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index ) {
 		if ( 'residential' === $hub_key ) {
 			$patterns = array(
-				'Homeowners in ' . $city_name . ' often contact us for ' . $link . ' and modern safety improvements.',
-				'In ' . $city_name . ', many homes benefit from ' . $link . ' to meet current electrical codes.',
-				'If you live in ' . $city_name . ', our electricians can help with ' . $link . '.',
-				'We regularly assist homeowners in ' . $city_name . ' with ' . $link . ' and circuit upgrades.',
-				'Many residential properties in ' . $city_name . ' require ' . $link . ' for safety and compliance.',
-				'Our team helps families in ' . $city_name . ' with ' . $link . ' and whole-home electrical improvements.',
-				'Older homes in ' . $city_name . ' often need ' . $link . ' to handle modern electrical demands.',
-				'Property owners in ' . $city_name . ' trust our team for ' . $link . ' and panel replacements.',
+				'Homeowners in ' . $city_name . ' often reach out for ' . $link . ' as power demands increase.',
+				'In ' . $city_name . ', many homes need ' . $link . ' to meet current {$trade_keyword} code requirements.',
+				'If you live in ' . $city_name . ', our electricians regularly help with ' . $link . '.',
+				'We assist homeowners in ' . $city_name . ' with ' . $link . ' and modern safety standards.',
+				'Many homes in ' . $city_name . ' benefit from ' . $link . ' for improved safety and reliability.',
+				'Older homes in ' . $city_name . ' often need ' . $link . ' to handle today\'s electrical loads.',
+				'Property owners in ' . $city_name . ' contact us for ' . $link . ' and code compliance updates.',
+				'We help families in ' . $city_name . ' with ' . $link . ' to keep their homes safe.',
 			);
 		} elseif ( 'commercial' === $hub_key ) {
 			$patterns = array(
-				'Businesses in ' . $city_name . ' depend on our team for ' . $link . ' and facility upgrades.',
-				'In ' . $city_name . ', we provide ' . $link . ' to minimize downtime and maintain operations.',
-				'Commercial properties in ' . $city_name . ' need ' . $link . ' for code compliance and safety.',
-				'Facility managers in ' . $city_name . ' choose us for ' . $link . ' and electrical system maintenance.',
-				'Our team serves businesses in ' . $city_name . ' with ' . $link . ' and power distribution solutions.',
+				'Businesses in ' . $city_name . ' rely on our team for ' . $link . ' and facility maintenance.',
+				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to minimize downtime.',
+				'Facility managers in ' . $city_name . ' choose us for ' . $link . ' and system upgrades.',
+				'Commercial properties in ' . $city_name . ' need ' . $link . ' for code compliance.',
+				'We work with businesses in ' . $city_name . ' on ' . $link . ' and power distribution.',
 			);
 		} elseif ( 'emergency' === $hub_key ) {
 			$patterns = array(
-				'When electrical emergencies happen in ' . $city_name . ', we provide ' . $link . ' with rapid response.',
-				'Property owners in ' . $city_name . ' call us for ' . $link . ' and urgent electrical repairs.',
-				'In ' . $city_name . ', our team responds quickly with ' . $link . ' to resolve safety hazards.',
-				'For urgent electrical issues in ' . $city_name . ', we offer ' . $link . ' around the clock.',
+				'When {$trade_keyword} emergencies happen in ' . $city_name . ', we respond with ' . $link . '.',
+				'Property owners in ' . $city_name . ' call us for ' . $link . ' and urgent repairs.',
+				'In ' . $city_name . ', our team provides ' . $link . ' to resolve safety hazards quickly.',
+				'For urgent issues in ' . $city_name . ', we offer ' . $link . ' around the clock.',
 			);
 		} else {
 			$patterns = array(
-				'In ' . $city_name . ', we provide ' . $link . ' for residential and commercial properties.',
+				'In ' . $city_name . ', we help property owners with ' . $link . '.',
 				'Property owners in ' . $city_name . ' choose our team for ' . $link . '.',
-				'Our electricians serve ' . $city_name . ' with ' . $link . ' and electrical solutions.',
+				'Our electricians work with clients in ' . $city_name . ' on ' . $link . '.',
 			);
 		}
 		
