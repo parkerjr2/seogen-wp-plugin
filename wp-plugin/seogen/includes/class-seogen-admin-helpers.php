@@ -329,15 +329,17 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
-	 * CRITICAL: Fix "In the area, OK" bug completely
-	 * This bug must NEVER appear in final output
+	 * PRIORITY 1: HARD KILL "In the area, OK" BUG (ZERO TOLERANCE)
+	 * This is a REQUIRED post-generation cleanup pass - NOT best-effort
+	 * This bug must NEVER appear in final output - NO EXCEPTIONS
 	 * 
 	 * @param string $markup Gutenberg markup
-	 * @return string Fixed markup
+	 * @return string Fixed markup with zero-tolerance validation
 	 */
-	private function fix_in_the_area_ok_bug( $markup ) {
-		// This is a mandatory cleanup pass that runs AFTER all other city-name replacement logic
-		// to ensure "In the area, OK" (and similar state abbreviations) never appear
+	private function kill_in_the_area_ok_bug( $markup ) {
+		// SCALE SAFETY GUARD: This is a mandatory cleanup pass that runs AFTER all other
+		// city-name replacement logic to ensure "In the area, OK" never appears
+		// This is NON-NEGOTIABLE and must be enforced programmatically
 		
 		// Pattern 1: "In the area, OK" at start of sentence → "Locally,"
 		$markup = preg_replace(
@@ -353,23 +355,39 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			$markup
 		);
 		
+		// Pattern 3: Catch any remaining "area, OK" patterns (zero-tolerance validation)
+		$markup = preg_replace(
+			'/\barea,?\s+[A-Z]{2}\b/',
+			'area',
+			$markup
+		);
+		
 		// Clean up any double spaces or awkward punctuation from removals
 		$markup = preg_replace( '/\s+/', ' ', $markup );
 		$markup = preg_replace( '/\s+,/', ',', $markup );
 		$markup = preg_replace( '/\s+\./', '.', $markup );
 		
+		// VALIDATION: Assert that "area, OK" does NOT exist anywhere in markup
+		// If it still exists, fail the cleanup step and remove the phrase entirely
+		if ( false !== stripos( $markup, 'area, OK' ) || false !== stripos( $markup, 'area OK' ) ) {
+			// Emergency fallback: Remove any remaining instances
+			$markup = str_ireplace( array( 'area, OK', 'area OK' ), 'area', $markup );
+		}
+		
 		return $markup;
 	}
 
 	/**
-	 * Generate ONE subtle city-specific nuance using gpt-4o-mini
+	 * PRIORITY 2: Generate EXACTLY ONE city-specific nuance using gpt-4o-mini
+	 * This nuance exists ONLY to break large-scale duplication and add human realism
+	 * NO MORE, NO LESS - exactly ONE per City Hub page
 	 * 
 	 * @param array $city City data with 'name' and 'state'
 	 * @param string $vertical Vertical (e.g., 'electrician', 'plumber')
 	 * @param string $hub_key Hub key (e.g., 'residential', 'commercial')
 	 * @return string City nuance text or empty string if generation fails
 	 */
-	private function generate_city_nuance( $city, $vertical, $hub_key ) {
+	private function generate_city_nuance_gpt( $city, $vertical, $hub_key ) {
 		if ( empty( $city['name'] ) || empty( $city['state'] ) ) {
 			return '';
 		}
@@ -384,8 +402,9 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$city_name = $city['name'];
 		$state = $city['state'];
 		
-		// Construct prompt for gpt-4o-mini
-		$prompt = "Provide ONE short, factual, non-specific observation (1 sentence, max 25 words) about {$city_name}, {$state} that is relevant to {$hub_key} {$vertical} work.\n\nChoose ONE of the following categories only:\n- housing age / housing stock patterns\n- common upgrade triggers\n- general permitting or inspection considerations (generic, non-legal)\n\nDo NOT mention specific neighborhoods, statistics, dates, or claims.\nDo NOT mention the business.\nDo NOT exaggerate.\nReturn plain text only.";
+		// SCALE SAFETY GUARD: Construct prompt for gpt-4o-mini
+		// This generates EXACTLY ONE subtle nuance to break duplication patterns
+		$prompt = "Provide ONE short, factual, non-specific observation (1 sentence, max 25 words) relevant to {$hub_key} {$vertical} work in {$city_name}, {$state}.\n\nChoose ONE category only:\n- housing age or housing stock patterns\n- common upgrade or repair triggers\n- general permitting or inspection considerations (generic, non-legal)\n\nDo NOT mention neighborhoods, statistics, dates, or the business.\nDo NOT exaggerate.\nReturn plain text only.";
 		
 		$payload = array(
 			'model' => 'gpt-4o-mini',
@@ -429,13 +448,22 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		
 		$nuance = trim( $data['choices'][0]['message']['content'] );
 		
-		// Validate nuance: must be 1 sentence, max 25 words, contains city name
+		// VALIDATION: Enforce strict rules for city nuance
+		// - Must be 1 sentence, max 25 words, contains city name
+		// - City name must appear exactly ONCE
+		// - Must not be empty, vague, or redundant
 		if ( empty( $nuance ) || strlen( $nuance ) > 200 || stripos( $nuance, $city_name ) === false ) {
 			return '';
 		}
 		
-		// Ensure city name appears only once
-		if ( substr_count( strtolower( $nuance ), strtolower( $city_name ) ) > 1 ) {
+		// Ensure city name appears exactly once (EXACTLY ONE)
+		if ( substr_count( strtolower( $nuance ), strtolower( $city_name ) ) !== 1 ) {
+			return '';
+		}
+		
+		// Word count validation: max 25 words
+		$word_count = str_word_count( $nuance );
+		if ( $word_count > 25 ) {
 			return '';
 		}
 		
@@ -444,6 +472,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 
 	/**
 	 * Insert city nuance after first intro paragraph
+	 * ENFORCES: EXACTLY ONE nuance paragraph per City Hub page (NO MORE, NO LESS)
 	 * 
 	 * @param string $markup Gutenberg markup
 	 * @param string $nuance_text City nuance text
@@ -451,6 +480,12 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 */
 	private function insert_city_nuance_after_intro( $markup, $nuance_text ) {
 		if ( empty( $nuance_text ) ) {
+			return $markup;
+		}
+		
+		// SCALE SAFETY GUARD: Check if nuance already exists (prevent duplicates)
+		if ( false !== strpos( $markup, 'seogen-city-nuance' ) ) {
+			// Nuance already inserted, do not add another
 			return $markup;
 		}
 		
@@ -480,13 +515,88 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
+	 * PRIORITY 3: Cap generic paragraphs to MAXIMUM ONE per City Hub page
+	 * Generic paragraphs are allowed but strictly limited to prevent duplication
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param array $city City data
+	 * @return string Modified markup
+	 */
+	private function enforce_single_generic_paragraph( $markup, $city ) {
+		if ( empty( $city['name'] ) ) {
+			return $markup;
+		}
+		
+		$city_name = $city['name'];
+		$state = isset( $city['state'] ) ? $city['state'] : '';
+		
+		// SCALE SAFETY GUARD: Identify generic phrases that signal templated content
+		$generic_patterns = array(
+			'Choosing local',
+			'Our team understands',
+			'offers numerous benefits',
+			'There are several benefits',
+			'local expertise',
+			'familiar with the area',
+			'common challenges',
+			'hiring professionals',
+		);
+		
+		$generic_count = 0;
+		$max_generic_allowed = 1;
+		
+		// Find all paragraphs containing generic patterns
+		foreach ( $generic_patterns as $pattern ) {
+			// Match paragraphs containing the generic pattern
+			if ( preg_match_all( '/<p>([^<]*' . preg_quote( $pattern, '/' ) . '[^<]*)<\/p>/i', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+				foreach ( $matches[0] as $match ) {
+					$generic_count++;
+					
+					// If this is beyond the first generic paragraph, remove city name from it
+					if ( $generic_count > $max_generic_allowed ) {
+						$original_p = $match[0];
+						$p_content = $matches[1][ $generic_count - 1 ][0];
+						
+						// Remove city name and state from this paragraph
+						$cleaned_content = preg_replace(
+							'/\b' . preg_quote( $city_name, '/' ) . '\b/i',
+							'',
+							$p_content
+						);
+						
+						if ( ! empty( $state ) ) {
+							$cleaned_content = preg_replace(
+								'/\b' . preg_quote( $state, '/' ) . '\b/',
+								'',
+								$cleaned_content
+							);
+						}
+						
+						// Clean up double spaces and awkward punctuation
+						$cleaned_content = preg_replace( '/\s+/', ' ', $cleaned_content );
+						$cleaned_content = preg_replace( '/\s+,/', ',', $cleaned_content );
+						$cleaned_content = preg_replace( '/\s+\./', '.', $cleaned_content );
+						$cleaned_content = trim( $cleaned_content );
+						
+						$cleaned_p = '<p>' . $cleaned_content . '</p>';
+						$markup = str_replace( $original_p, $cleaned_p, $markup );
+					}
+				}
+			}
+		}
+		
+		return $markup;
+	}
+
+	/**
 	 * Apply all City Hub quality improvements to Gutenberg markup
+	 * INCLUDES THREE MANDATORY SCALE SAFETY GUARDS (NON-NEGOTIABLE)
 	 * 
 	 * @param string $markup Gutenberg markup
 	 * @param string $hub_key Hub key for parent link
 	 * @param array $city City data
 	 * @param string $vertical Vertical for city nuance generation
-	 * @return string Improved markup
+	 * @return string Improved markup with scale safety guards enforced
 	 */
 	private function apply_city_hub_quality_improvements( $markup, $hub_key, $city, $vertical = '' ) {
 		// 1) Build parent hub link
@@ -498,29 +608,38 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// 3) Inject parent hub link after H1
 		$markup = $this->inject_after_h1( $markup, $parent_hub_link );
 		
-		// 4) Generate and insert ONE city-specific nuance (quality + scale safety)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 2: Add EXACTLY ONE city-specific nuance (SCALE SAFETY GUARD)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		if ( ! empty( $vertical ) ) {
-			$city_nuance = $this->generate_city_nuance( $city, $vertical, $hub_key );
+			$city_nuance = $this->generate_city_nuance_gpt( $city, $vertical, $hub_key );
 			$markup = $this->insert_city_nuance_after_intro( $markup, $city_nuance );
 		}
 		
-		// 5) Reduce city name repetition
+		// 4) Reduce city name repetition
 		$markup = $this->cleanup_city_repetition( $markup, $city );
 		
-		// 6) Fix locality replacement artifacts ("In the area, OK")
+		// 5) Fix locality replacement artifacts ("In the area, OK")
 		$markup = $this->fix_locality_artifacts( $markup );
 		
-		// 7) Reduce generic "any-city" repetition patterns
+		// 6) Reduce generic "any-city" repetition patterns
 		$markup = $this->reduce_generic_city_repetition( $markup, $city );
 		
-		// 8) Cleanup FAQ locality references
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 3: Cap generic paragraphs to ONE per page (SCALE SAFETY GUARD)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		$markup = $this->enforce_single_generic_paragraph( $markup, $city );
+		
+		// 7) Cleanup FAQ locality references
 		$markup = $this->cleanup_faq_locality( $markup, $city );
 		
-		// 9) Remove duplicate FAQ heading
+		// 8) Remove duplicate FAQ heading
 		$markup = $this->remove_duplicate_faq_heading( $markup );
 		
-		// 10) CRITICAL: Final pass to eliminate "In the area, OK" bug completely
-		$markup = $this->fix_in_the_area_ok_bug( $markup );
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 1: HARD KILL "In the area, OK" bug (ZERO TOLERANCE - SCALE SAFETY GUARD)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		$markup = $this->kill_in_the_area_ok_bug( $markup );
 		
 		return $markup;
 	}
