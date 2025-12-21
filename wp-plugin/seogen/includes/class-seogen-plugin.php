@@ -664,18 +664,90 @@ class SEOgen_Plugin {
 			return '<p class="seogen-placeholder"><em>Service areas will appear here once city pages are published.</em></p>' . $debug;
 		}
 
+		// Get service label for anchor text variation
+		$service_label = $this->get_service_label_from_hub_key( $hub_key );
+
 		$output = '<div class="seogen-service-hub-city-links">';
 		$output .= '<ul>';
 		while ( $query->have_posts() ) {
 			$query->the_post();
-			$city_meta = get_post_meta( get_the_ID(), '_seogen_city', true );
-			$link_text = ! empty( $city_meta ) ? esc_html( $city_meta ) : esc_html( get_the_title() );
-			$output .= '<li><a href="' . esc_url( get_permalink() ) . '">' . $link_text . '</a></li>';
+			$post_id = get_the_ID();
+			$city_meta = get_post_meta( $post_id, '_seogen_city', true );
+			
+			// Parse city and state from meta
+			$city_name = '';
+			$state = '';
+			if ( ! empty( $city_meta ) ) {
+				$parts = array_map( 'trim', explode( ',', $city_meta ) );
+				$city_name = isset( $parts[0] ) ? $parts[0] : '';
+				$state = isset( $parts[1] ) ? $parts[1] : '';
+			}
+			
+			// Fallback to title if meta not available
+			if ( empty( $city_name ) ) {
+				$city_name = get_the_title();
+			}
+			
+			// Generate varied anchor text deterministically
+			$link_text = $this->generate_varied_anchor_text( $post_id, $city_name, $state, $service_label );
+			
+			$output .= '<li><a href="' . esc_url( get_permalink() ) . '">' . esc_html( $link_text ) . '</a></li>';
 		}
 		$output .= '</ul>';
 		$output .= '</div>';
 		wp_reset_postdata();
 
 		return $output;
+	}
+
+	private function get_service_label_from_hub_key( $hub_key ) {
+		// Map hub keys to service labels
+		$hub_labels = array(
+			'residential' => 'Residential Services',
+			'commercial' => 'Commercial Services',
+			'emergency' => 'Emergency Services',
+			'repair' => 'Repair Services',
+			'installation' => 'Installation Services',
+			'maintenance' => 'Maintenance Services',
+		);
+		
+		// Check if hub_key exists in mapping
+		if ( isset( $hub_labels[ $hub_key ] ) ) {
+			return $hub_labels[ $hub_key ];
+		}
+		
+		// Fallback: humanize hub_key
+		$label = str_replace( array( '-', '_' ), ' ', $hub_key );
+		$label = ucwords( $label );
+		return $label . ' Services';
+	}
+
+	private function generate_varied_anchor_text( $post_id, $city_name, $state, $service_label ) {
+		// Deterministically select anchor template based on post_id
+		$template_index = absint( $post_id ) % 4;
+		
+		// 4 anchor text templates
+		switch ( $template_index ) {
+			case 0:
+				// Template A: "{ServiceLabel} in {City}, {State}"
+				if ( ! empty( $state ) ) {
+					return $service_label . ' in ' . $city_name . ', ' . $state;
+				} else {
+					return $service_label . ' in ' . $city_name;
+				}
+				
+			case 1:
+				// Template B: "Serving {City} homeowners"
+				return 'Serving ' . $city_name . ' homeowners';
+				
+			case 2:
+				// Template C: "{City} {ServiceLabel}"
+				return $city_name . ' ' . $service_label;
+				
+			case 3:
+			default:
+				// Template D: "{ServiceLabel} near {City}"
+				return $service_label . ' near ' . $city_name;
+		}
 	}
 }
