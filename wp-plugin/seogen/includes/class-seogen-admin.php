@@ -1291,6 +1291,7 @@ class SEOgen_Admin {
 		$this->apply_seo_plugin_meta( $post_id, $service, $title, $meta_description, true );
 
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
+		update_post_meta( $post_id, '_hl_page_type', 'service_city' );
 		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $source_json ) );
 		update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
@@ -3360,6 +3361,7 @@ class SEOgen_Admin {
 					}
 
 					update_post_meta( $post_id, '_hyper_local_managed', '1' );
+					update_post_meta( $post_id, '_hl_page_type', 'service_city' );
 					if ( '' !== $canonical_key ) {
 						update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
 					}

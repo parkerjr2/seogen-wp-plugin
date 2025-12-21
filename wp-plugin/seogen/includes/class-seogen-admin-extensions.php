@@ -623,16 +623,35 @@ trait SEOgen_Admin_Extensions {
 			exit;
 		}
 
+		// Standard meta fields (same as service+city pages)
+		update_post_meta( $post_id, '_hyper_local_managed', '1' );
+		update_post_meta( $post_id, '_hl_page_type', 'service_hub' );
 		update_post_meta( $post_id, '_seogen_page_mode', 'service_hub' );
 		update_post_meta( $post_id, '_seogen_vertical', $config['vertical'] );
 		update_post_meta( $post_id, '_seogen_hub_key', $hub['key'] );
 		update_post_meta( $post_id, '_seogen_hub_slug', $hub['slug'] );
 		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $data ) );
+		update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
 
-		if ( isset( $data['meta_description'] ) && '' !== $data['meta_description'] ) {
-			update_post_meta( $post_id, '_yoast_wpseo_metadesc', $data['meta_description'] );
-			update_post_meta( $post_id, 'rank_math_description', $data['meta_description'] );
+		// SEO meta
+		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
+		if ( '' !== $meta_description ) {
+			update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
+			update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
+			update_post_meta( $post_id, 'rank_math_description', $meta_description );
 		}
+
+		// Apply page builder settings to disable theme header/footer if configured (same as service+city)
+		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+			$this->apply_page_builder_settings( $post_id );
+		}
+
+		// Debug logging
+		error_log( sprintf(
+			'[HyperLocal] Created/updated hub page: post_id=%d, post_type=service_page, _hl_page_type=service_hub, hub_key=%s',
+			$post_id,
+			$hub['key']
+		) );
 
 		$action_text = $existing_hub_page ? 'updated' : 'created';
 		wp_redirect( add_query_arg( array(
