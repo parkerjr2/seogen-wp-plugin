@@ -4935,22 +4935,28 @@ class SEOgen_Admin {
 		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
 
+		// Apply page builder settings with template validation bypass to prevent errors
 		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+			add_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10, 2 );
 			$this->apply_page_builder_settings( $post_id );
+			remove_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10 );
 		}
 
 		// Generate focus keyword for SEO plugins: "hub_label city_name"
 		$focus_keyword = $hub['label'] . ' ' . $city['name'];
 		$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $title, $meta_description, true );
 
+		// Update slug with template validation bypass to prevent errors
 		$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', $hub_post_id );
 		if ( $unique_slug ) {
+			add_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10, 2 );
 			wp_update_post(
 				array(
 					'ID' => $post_id,
 					'post_name' => $unique_slug,
 				)
 			);
+			remove_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10 );
 		}
 
 		return array(
