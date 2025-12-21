@@ -657,7 +657,11 @@ class SEOgen_Plugin {
 		$query = new WP_Query( $args );
 
 		if ( ! $query->have_posts() ) {
-			return '<p class="seogen-placeholder"><em>Service areas will appear here once city pages are published.</em></p>';
+			$debug = '';
+			if ( current_user_can( 'manage_options' ) ) {
+				$debug = ' <!-- DEBUG: hub_key=' . esc_attr( $hub_key ) . ', found=' . $query->found_posts . ' -->';
+			}
+			return '<p class="seogen-placeholder"><em>Service areas will appear here once city pages are published.</em></p>' . $debug;
 		}
 
 		$output = '<div class="seogen-service-hub-city-links">';
