@@ -5,6 +5,55 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class SEOgen_Plugin {
+	/**
+	 * Check if a post is managed by SEOgen (service_city or service_hub page)
+	 * 
+	 * @param int $post_id Post ID to check
+	 * @return bool True if managed by SEOgen
+	 */
+	public static function seogen_is_managed_page( $post_id ) {
+		if ( ! $post_id ) {
+			return false;
+		}
+		
+		$managed = get_post_meta( $post_id, '_hyper_local_managed', true );
+		if ( '1' === $managed ) {
+			return true;
+		}
+		
+		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
+		if ( in_array( $page_mode, array( 'service_city', 'service_hub' ), true ) ) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	/**
+	 * Get the page mode for a SEOgen managed page
+	 * 
+	 * @param int $post_id Post ID to check
+	 * @return string Page mode (service_city, service_hub, or empty string)
+	 */
+	public static function seogen_get_page_mode( $post_id ) {
+		if ( ! $post_id ) {
+			return '';
+		}
+		
+		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
+		if ( in_array( $page_mode, array( 'service_city', 'service_hub' ), true ) ) {
+			return $page_mode;
+		}
+		
+		// Fallback: check _hl_page_type
+		$page_type = get_post_meta( $post_id, '_hl_page_type', true );
+		if ( in_array( $page_type, array( 'service_city', 'service_hub' ), true ) ) {
+			return $page_type;
+		}
+		
+		return '';
+	}
+	
 	public function run() {
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
@@ -28,9 +77,31 @@ class SEOgen_Plugin {
 	}
 
 	public function filter_body_class( $classes ) {
+		// Check by post_type first (fast path)
 		if ( is_singular( 'service_page' ) ) {
 			$classes[] = 'hyper-local-page';
+			$post_id = get_queried_object_id();
+			if ( $post_id && self::seogen_is_managed_page( $post_id ) ) {
+				$classes[] = 'seogen-managed';
+				$settings = get_option( 'seogen_settings', array() );
+				if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+					$classes[] = 'seogen-no-header-footer';
+				}
+			}
+			return $classes;
 		}
+		
+		// Meta-based detection (for pages that might be WP Page type but are SEOgen managed)
+		$post_id = get_queried_object_id();
+		if ( $post_id && self::seogen_is_managed_page( $post_id ) ) {
+			$classes[] = 'hyper-local-page';
+			$classes[] = 'seogen-managed';
+			$settings = get_option( 'seogen_settings', array() );
+			if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+				$classes[] = 'seogen-no-header-footer';
+			}
+		}
+		
 		return $classes;
 	}
 
@@ -39,7 +110,11 @@ class SEOgen_Plugin {
 			return $title;
 		}
 
-		if ( ! is_singular( 'service_page' ) ) {
+		// Check by post_type OR meta
+		$is_service_page = is_singular( 'service_page' );
+		$is_managed = $post_id && self::seogen_is_managed_page( $post_id );
+		
+		if ( ! $is_service_page && ! $is_managed ) {
 			return $title;
 		}
 
@@ -59,6 +134,13 @@ class SEOgen_Plugin {
 		if ( is_singular( 'service_page' ) ) {
 			return '';
 		}
+		
+		// Meta-based detection
+		$post_id = get_queried_object_id();
+		if ( $post_id && self::seogen_is_managed_page( $post_id ) ) {
+			return '';
+		}
+		
 		return $output;
 	}
 
@@ -66,11 +148,23 @@ class SEOgen_Plugin {
 		if ( is_singular( 'service_page' ) ) {
 			return '';
 		}
+		
+		// Meta-based detection
+		$post_id = get_queried_object_id();
+		if ( $post_id && self::seogen_is_managed_page( $post_id ) ) {
+			return '';
+		}
+		
 		return $html;
 	}
 
 	public function enqueue_frontend_assets() {
-		if ( ! is_singular( 'service_page' ) ) {
+		// Check by post_type OR meta
+		$is_service_page = is_singular( 'service_page' );
+		$post_id = get_queried_object_id();
+		$is_managed = $post_id && self::seogen_is_managed_page( $post_id );
+		
+		if ( ! $is_service_page && ! $is_managed ) {
 			return;
 		}
 

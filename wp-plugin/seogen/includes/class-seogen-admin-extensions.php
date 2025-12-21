@@ -340,12 +340,17 @@ trait SEOgen_Admin_Extensions {
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Service Hubs (Step 3.5)', 'seogen' ); ?></h1>
 			<p><?php esc_html_e( 'Create or update service hub pages. These are top-level pages that link to all service+city pages in that category.', 'seogen' ); ?></p>
+			
+			<div class="notice notice-info">
+				<p><strong><?php esc_html_e( 'Permalink Strategy:', 'seogen' ); ?></strong> <?php esc_html_e( 'Service Pages are created under /service-area/ by default (e.g., /service-area/residential-services/). If a WordPress Page already exists with the same slug at root level, it will take precedence and your hub page will only be accessible via the /service-area/ URL.', 'seogen' ); ?></p>
+			</div>
 
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
 					<tr>
 						<th><?php esc_html_e( 'Hub Label', 'seogen' ); ?></th>
 						<th><?php esc_html_e( 'Slug', 'seogen' ); ?></th>
+						<th><?php esc_html_e( 'URL', 'seogen' ); ?></th>
 						<th><?php esc_html_e( 'Services Count', 'seogen' ); ?></th>
 						<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
 					</tr>
@@ -359,10 +364,38 @@ trait SEOgen_Admin_Extensions {
 						$hub_services_count = count( $hub_services );
 
 						$existing_hub_page = $this->find_hub_page( $hub['key'] );
+						$hub_permalink = $existing_hub_page ? get_permalink( $existing_hub_page->ID ) : '—';
+						
+						// Check for slug conflicts
+						$has_conflict = false;
+						if ( $existing_hub_page ) {
+							$conflicting_page = get_posts( array(
+								'post_type' => 'page',
+								'name' => $hub['slug'],
+								'posts_per_page' => 1,
+								'post_status' => 'any',
+							) );
+							if ( ! empty( $conflicting_page ) && (int) $conflicting_page[0]->ID !== (int) $existing_hub_page->ID ) {
+								$is_our_page = get_post_meta( $conflicting_page[0]->ID, '_hyper_local_managed', true ) === '1';
+								if ( ! $is_our_page ) {
+									$has_conflict = true;
+								}
+							}
+						}
 						?>
-						<tr>
+						<tr<?php echo $has_conflict ? ' style="background-color: #fff3cd;"' : ''; ?>>
 							<td><strong><?php echo esc_html( $hub['label'] ); ?></strong></td>
 							<td><code><?php echo esc_html( $hub['slug'] ); ?></code></td>
+							<td>
+								<?php if ( $existing_hub_page ) : ?>
+									<a href="<?php echo esc_url( $hub_permalink ); ?>" target="_blank"><?php echo esc_html( $hub_permalink ); ?></a>
+									<?php if ( $has_conflict ) : ?>
+										<br><span style="color: #856404;">⚠️ <?php esc_html_e( 'Slug conflict detected', 'seogen' ); ?></span>
+									<?php endif; ?>
+								<?php else : ?>
+									<em><?php esc_html_e( 'Not created yet', 'seogen' ); ?></em>
+								<?php endif; ?>
+							</td>
 							<td><?php echo esc_html( $hub_services_count ); ?> services</td>
 							<td>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display: inline;">
@@ -704,14 +737,18 @@ trait SEOgen_Admin_Extensions {
 			$this->apply_page_builder_settings( $post_id );
 		}
 
-		// Debug logging with verification
+		// Get actual permalink for the created hub page
+		$actual_permalink = get_permalink( $post_id );
 		$actual_post_type = get_post_type( $post_id );
+		
+		// Debug logging with verification
 		error_log( sprintf(
-			'[HyperLocal] Created/updated hub page: post_id=%d, requested_post_type=service_page, actual_post_type=%s, _hl_page_type=service_hub, hub_key=%s, content_length=%d',
+			'[HyperLocal] Created/updated hub page: post_id=%d, requested_post_type=service_page, actual_post_type=%s, _hl_page_type=service_hub, hub_key=%s, content_length=%d, permalink=%s',
 			$post_id,
 			$actual_post_type,
 			$hub['key'],
-			$content_length
+			$content_length,
+			$actual_permalink
 		) );
 		
 		// Verify post_type is correct
@@ -721,12 +758,51 @@ trait SEOgen_Admin_Extensions {
 				$actual_post_type
 			) );
 		}
+		
+		// Check for slug conflicts with existing WP Pages
+		$slug_conflict = false;
+		$conflicting_page = get_posts( array(
+			'post_type' => 'page',
+			'name' => $hub['slug'],
+			'posts_per_page' => 1,
+			'post_status' => 'any',
+		) );
+		
+		if ( ! empty( $conflicting_page ) ) {
+			$conflict_post = $conflicting_page[0];
+			// Only a conflict if it's NOT our managed page
+			if ( (int) $conflict_post->ID !== (int) $post_id ) {
+				$is_our_page = get_post_meta( $conflict_post->ID, '_hyper_local_managed', true ) === '1';
+				if ( ! $is_our_page ) {
+					$slug_conflict = true;
+					error_log( sprintf(
+						'[HyperLocal] WARNING: Slug conflict detected! WP Page (ID=%d) exists at /%s/ which will override hub URL. Hub is actually at: %s',
+						$conflict_post->ID,
+						$hub['slug'],
+						$actual_permalink
+					) );
+				}
+			}
+		}
 
 		$action_text = $existing_hub_page ? 'updated' : 'created';
+		$notice_type = 'created';
+		$notice_msg = 'Hub page ' . $action_text . ' successfully: ' . $data['title'];
+		
+		if ( $slug_conflict ) {
+			$notice_type = 'warning';
+			$notice_msg = sprintf(
+				'Hub page %s, but a WordPress Page already exists at /%s/ which will override the hub URL. Your hub is accessible at: %s. Please delete or rename the conflicting Page, or the hub will not be accessible at the root-level URL.',
+				$action_text,
+				$hub['slug'],
+				$actual_permalink
+			);
+		}
+		
 		wp_redirect( add_query_arg( array(
 			'page' => 'hyper-local-service-hubs',
-			'hl_notice' => 'created',
-			'hl_msg' => rawurlencode( 'Hub page ' . $action_text . ' successfully: ' . $data['title'] ),
+			'hl_notice' => $notice_type,
+			'hl_msg' => rawurlencode( $notice_msg ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
 	}
