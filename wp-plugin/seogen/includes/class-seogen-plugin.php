@@ -846,70 +846,208 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Get intro sentence - exactly one, no marketing fluff
+	 * Get vertical vocabulary (actions, objects, benefits)
+	 * Returns vertical-specific vocabulary or generic fallback
 	 */
-	private function get_city_links_intro( $hub_key, $trade_name ) {
-		$intros = array(
-			'residential' => "M Electric works with homeowners across the Tulsa area to keep residential electrical systems safe and up to date.",
-			'commercial' => "We help businesses maintain reliable electrical systems to minimize downtime and ensure code compliance.",
-			'emergency' => "When electrical emergencies happen, our team responds quickly to resolve safety hazards.",
+	private function get_vertical_vocabulary() {
+		$config = get_option( 'seogen_business_config', array() );
+		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+		
+		$vocab_map = array(
+			'electrician' => array(
+				'actions' => array('inspect','upgrade','install','repair','replace','update','troubleshoot','restore'),
+				'objects' => array(
+					'electrical panel','breaker box','circuits','wiring','outlets','switches',
+					'lighting','ceiling fans','dedicated circuits','surge protection',
+					'GFCI protection','AFCI protection','grounding','service entrance','load capacity'
+				),
+				'benefits' => array('safety','code compliance','reliability','home protection','efficient power use','peace of mind'),
+			),
+			'plumber' => array(
+				'actions' => array('inspect','repair','replace','install','unclog','clear','restore','maintain','diagnose'),
+				'objects' => array(
+					'pipes','drains','water lines','shutoff valves','faucets','toilets',
+					'sinks','tubs and showers','garbage disposal','water heater',
+					'tankless water heater','sewer line','sump pump','hose bibs','leak points'
+				),
+				'benefits' => array('leak prevention','water efficiency','reliability','home protection','healthy plumbing','code compliance'),
+			),
+			'hvac' => array(
+				'actions' => array('inspect','repair','replace','install','tune','service','clean','optimize','restore'),
+				'objects' => array(
+					'air conditioner','furnace','heat pump','air handler','thermostat',
+					'ductwork','vents and returns','airflow','filters','condensate drain',
+					'refrigerant lines','blower motor','indoor air quality system','zone controls'
+				),
+				'benefits' => array('comfort','energy efficiency','reliability','consistent airflow','better air quality','seasonal readiness'),
+			),
+			'roofer' => array(
+				'actions' => array('inspect','repair','replace','install','seal','restore','reinforce','maintain'),
+				'objects' => array(
+					'shingles','roof decking','underlayment','flashing','roof vents',
+					'ridge cap','valleys','chimney flashing','skylight flashing',
+					'roof seals','drip edge','gutters and downspouts','leak areas'
+				),
+				'benefits' => array('weather protection','leak prevention','home protection','energy efficiency','longer roof life','peace of mind'),
+			),
+			'landscaper' => array(
+				'actions' => array('design','install','refresh','repair','maintain','trim','edge','restore','improve'),
+				'objects' => array(
+					'plant beds','shrubs and small trees','mulch','sod','lawn health',
+					'drainage','grading','retaining wall areas','walkways','hardscaping',
+					'garden borders','seasonal cleanup','irrigation coverage'
+				),
+				'benefits' => array('curb appeal','healthy growth','clean lines','better drainage','easy maintenance','outdoor enjoyment'),
+			),
+			'handyman' => array(
+				'actions' => array('fix','repair','install','replace','patch','adjust','restore','refresh','assemble'),
+				'objects' => array(
+					'doors and hardware','drywall repairs','trim and baseboards','caulking and sealing',
+					'minor plumbing fixtures','light fixtures','ceiling fans','TV mounting',
+					'shelving','faucets','tile repairs','fence repairs','smart home devices'
+				),
+				'benefits' => array('reliability','home upkeep','better function','clean finish','home protection','time savings'),
+			),
+			'painter' => array(
+				'actions' => array('prep','paint','prime','repair','touch up','refresh','seal','recoat'),
+				'objects' => array(
+					'interior walls','ceilings','trim and baseboards','doors','cabinets',
+					'exterior siding','fascia and soffits','decks and railings',
+					'drywall patches','stained areas','peeling paint','high-traffic areas'
+				),
+				'benefits' => array('clean finish','curb appeal','surface protection','longer-lasting paint','easy cleaning','fresh look'),
+			),
+			'concrete' => array(
+				'actions' => array('pour','install','repair','replace','level','resurface','seal','reinforce'),
+				'objects' => array(
+					'driveway','walkway','patio','steps','slab','garage floor',
+					'foundation areas','cracks','uneven sections','expansion joints',
+					'surface finish','drainage slope','approach and curb edges'
+				),
+				'benefits' => array('safety','durability','curb appeal','smooth surfaces','reduced cracking','proper drainage'),
+			),
+			'siding' => array(
+				'actions' => array('inspect','repair','replace','install','seal','restore','secure','upgrade'),
+				'objects' => array(
+					'siding panels','trim','soffits','fascia','house wrap',
+					'moisture barriers','damaged boards','wind-damaged sections',
+					'corners and seams','caulking','flashing details','vent openings'
+				),
+				'benefits' => array('weather protection','home protection','curb appeal','energy efficiency','moisture control','longer exterior life'),
+			),
+			'locksmith' => array(
+				'actions' => array('rekey','repair','replace','install','unlock','secure','upgrade','adjust'),
+				'objects' => array(
+					'deadbolts','door locks','smart locks','keypads','lock cylinders',
+					'door handles','strike plates','sliding door locks','garage entry locks',
+					'key copies','master key setup','home lockout situations'
+				),
+				'benefits' => array('security','peace of mind','reliable access','better lock performance','home protection','convenience'),
+			),
+			'cleaning' => array(
+				'actions' => array('clean','deep clean','sanitize','refresh','remove buildup','detail','deodorize'),
+				'objects' => array(
+					'kitchens','bathrooms','floors','baseboards','appliances','showers and tubs',
+					'high-touch surfaces','windows','carpeted areas','entryways','move-in cleanup','move-out cleanup'
+				),
+				'benefits' => array('hygiene','freshness','comfort','healthy home','time savings','better appearance'),
+			),
+			'garage-door' => array(
+				'actions' => array('inspect','repair','replace','install','adjust','align','lubricate','restore'),
+				'objects' => array(
+					'garage door springs','openers','rollers','tracks','cables',
+					'safety sensors','weather stripping','door panels','hinges',
+					'remote controls','keypads','noisy door issues','off-track doors'
+				),
+				'benefits' => array('safety','reliable operation','smooth movement','quieter performance','home security','convenience'),
+			),
+			'windows' => array(
+				'actions' => array('inspect','replace','repair','install','seal','upgrade','adjust','restore'),
+				'objects' => array(
+					'window glass','window frames','seals','weather stripping','locks and latches',
+					'sliding tracks','screens','drafty windows','fogged panes','caulk lines',
+					'trim around windows','energy-efficient windows'
+				),
+				'benefits' => array('energy efficiency','comfort','better insulation','noise reduction','smooth operation','home value'),
+			),
+			'pest-control' => array(
+				'actions' => array('inspect','treat','remove','seal','prevent','eliminate','monitor','protect'),
+				'objects' => array(
+					'entry points','ant trails','roach activity','spider webs','rodent signs',
+					'wasp nests','termite risk areas','crawlspace areas','attic activity',
+					'perimeter barriers','moisture attractants','nuisance pests'
+				),
+				'benefits' => array('home protection','prevention','peace of mind','healthier home','reduced recurrence','property protection'),
+			),
 		);
 		
-		if ( isset( $intros[ $hub_key ] ) ) {
-			return $intros[ $hub_key ];
-		}
+		// Generic fallback for unknown verticals
+		$fallback = array(
+			'actions' => array('inspect','repair','replace','install','upgrade','maintain'),
+			'objects' => array('key systems','common problem areas','critical components','safety items'),
+			'benefits' => array('safety','reliability','efficiency','home protection'),
+		);
 		
-		return "We help property owners maintain safe, reliable electrical systems.";
+		return isset( $vocab_map[ $vertical ] ) ? $vocab_map[ $vertical ] : $fallback;
 	}
 
 	/**
-	 * Generate anchor text - NO city name in anchor (city appears in sentence only)
-	 * Concrete electrical concepts only
+	 * Get vertical-specific intro sentence - exactly one, no marketing fluff
+	 */
+	private function get_city_links_intro( $hub_key, $trade_name ) {
+		$config = get_option( 'seogen_business_config', array() );
+		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+		
+		$intro_map = array(
+			'electrician' => "We help homeowners across the Tulsa area keep residential electrical systems safe and up to date.",
+			'plumber' => "We help homeowners across the Tulsa area resolve plumbing issues quickly and keep water systems reliable.",
+			'hvac' => "We help homeowners across the Tulsa area maintain comfortable indoor temperatures and reliable HVAC systems.",
+			'roofer' => "We help homeowners across the Tulsa area protect their homes with dependable roofing repairs and replacements.",
+			'landscaper' => "We help homeowners across the Tulsa area maintain beautiful outdoor spaces and healthy landscapes.",
+			'handyman' => "We help homeowners across the Tulsa area with reliable repairs and home improvement projects.",
+			'painter' => "We help homeowners across the Tulsa area refresh their homes with professional painting and surface preparation.",
+			'concrete' => "We help homeowners across the Tulsa area with durable concrete work for driveways, walkways, and patios.",
+			'siding' => "We help homeowners across the Tulsa area protect their homes with quality siding repairs and installations.",
+			'locksmith' => "We help homeowners across the Tulsa area secure their properties with reliable lock solutions.",
+			'cleaning' => "We help homeowners across the Tulsa area maintain clean, healthy living spaces.",
+			'garage-door' => "We help homeowners across the Tulsa area keep garage doors operating safely and smoothly.",
+			'windows' => "We help homeowners across the Tulsa area improve comfort and efficiency with quality window solutions.",
+			'pest-control' => "We help homeowners across the Tulsa area protect their properties from pests and prevent future issues.",
+		);
+		
+		if ( isset( $intro_map[ $vertical ] ) ) {
+			return $intro_map[ $vertical ];
+		}
+		
+		return "We help homeowners across the Tulsa area maintain safe, reliable home systems.";
+	}
+
+	/**
+	 * Generate anchor text using vertical vocabulary
+	 * CITY MENTION BUDGET: City appears in sentence, NOT in anchor
+	 * Format: "{action} {object}" or "{object}"
 	 */
 	private function generate_varied_city_anchor( $city_name, $state, $hub_key, $trade_name, $trade_keyword, $index, $exact_match_used, $used_patterns ) {
-		// Concrete electrical concepts - NO city name, NO 'services' keyword
-		$patterns = array(
-			array(
-				'pattern' => 'panel_upgrades',
-				'text' => 'electrical panel upgrades',
+		$vocab = $this->get_vertical_vocabulary();
+		$actions = $vocab['actions'];
+		$objects = $vocab['objects'];
+		
+		// Build anchor patterns from vertical vocabulary
+		// NO city name, NO 'services' keyword
+		$patterns = array();
+		
+		// Generate patterns: action + object
+		foreach ( $objects as $obj_index => $object ) {
+			$action_index = $obj_index % count( $actions );
+			$action = $actions[ $action_index ];
+			
+			$patterns[] = array(
+				'pattern' => 'obj_' . $obj_index,
+				'text' => $object,
+				'object' => $object, // Track object for rotation
 				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'wiring',
-				'text' => 'wiring updates',
-				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'gfci_afci',
-				'text' => 'GFCI and AFCI protection',
-				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'surge_protection',
-				'text' => 'whole-home surge protection',
-				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'circuit_upgrades',
-				'text' => 'circuit upgrades',
-				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'home_rewiring',
-				'text' => 'home rewiring',
-				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'safety_inspections',
-				'text' => 'electrical safety inspections',
-				'is_exact_match' => false,
-			),
-			array(
-				'pattern' => 'code_updates',
-				'text' => 'code compliance updates',
-				'is_exact_match' => false,
-			),
-		);
+			);
+		}
 		
 		// Filter out used patterns
 		$available = array_filter( $patterns, function( $p ) use ( $used_patterns ) {
@@ -941,41 +1079,51 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Generate sentence - MAX 1 city mention, NO forbidden words
-	 * Structure: ACTION + ELECTRICAL CONCEPT + CITY (exactly once)
+	 * Generate sentence using vertical vocabulary
+	 * CITY MENTION BUDGET: City appears EXACTLY ONCE (in sentence, not anchor)
+	 * Structure: ACTION + OBJECT + CITY + BENEFIT
 	 */
 	private function get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index ) {
+		$vocab = $this->get_vertical_vocabulary();
+		$actions = $vocab['actions'];
+		$benefits = $vocab['benefits'];
+		
+		// Select action and benefit for variety
+		$action = $actions[ $index % count( $actions ) ];
+		$benefit = $benefits[ $index % count( $benefits ) ];
+		
+		// Sentence templates - city appears in plain text, NOT in link
 		if ( 'residential' === $hub_key ) {
 			$patterns = array(
-				'Homeowners in ' . $city_name . ' often contact us for ' . $link . ' as power demands increase.',
-				'In ' . $city_name . ', many homes need ' . $link . ' to meet current electrical code requirements.',
-				'If you live in ' . $city_name . ', our electricians can help with ' . $link . '.',
-				'We regularly help homeowners in ' . $city_name . ' with ' . $link . '.',
-				'Many homes in ' . $city_name . ' benefit from ' . $link . ' for improved safety.',
-				'Older homes in ' . $city_name . ' often need ' . $link . ' to handle modern electrical loads.',
-				'Property owners in ' . $city_name . ' reach out for ' . $link . ' and safety improvements.',
-				'We help families in ' . $city_name . ' with ' . $link . ' to keep their homes safe.',
+				'Homeowners in ' . $city_name . ' often call us to ' . $action . ' ' . $link . ' to improve ' . $benefit . '.',
+				'In ' . $city_name . ', we regularly help with ' . $link . ' when it\'s time to ' . $action . ' and restore ' . $benefit . '.',
+				'If you live in ' . $city_name . ', our team can ' . $action . ' ' . $link . ' before small issues affect ' . $benefit . '.',
+				'We frequently assist homeowners in ' . $city_name . ' with ' . $link . ', including ' . $action . ' work that supports ' . $benefit . '.',
+				'Many homes in ' . $city_name . ' benefit from ' . $link . ' to improve ' . $benefit . '.',
+				'Property owners in ' . $city_name . ' reach out when they need to ' . $action . ' ' . $link . '.',
+				'We help families in ' . $city_name . ' with ' . $link . ' to maintain ' . $benefit . '.',
+				'Older homes in ' . $city_name . ' often need ' . $link . ' to restore ' . $benefit . '.',
 			);
 		} elseif ( 'commercial' === $hub_key ) {
 			$patterns = array(
-				'Businesses in ' . $city_name . ' rely on our team for ' . $link . '.',
-				'In ' . $city_name . ', we help commercial properties with ' . $link . '.',
-				'Facility managers in ' . $city_name . ' choose us for ' . $link . '.',
-				'Commercial properties in ' . $city_name . ' need ' . $link . ' for code compliance.',
-				'We work with businesses in ' . $city_name . ' on ' . $link . '.',
+				'Businesses in ' . $city_name . ' rely on our team to ' . $action . ' ' . $link . '.',
+				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to maintain ' . $benefit . '.',
+				'Facility managers in ' . $city_name . ' choose us to ' . $action . ' ' . $link . '.',
+				'Commercial properties in ' . $city_name . ' need ' . $link . ' for ' . $benefit . '.',
+				'We work with businesses in ' . $city_name . ' on ' . $link . ' and ' . $benefit . '.',
 			);
 		} elseif ( 'emergency' === $hub_key ) {
 			$patterns = array(
-				'When electrical emergencies happen in ' . $city_name . ', we respond with ' . $link . '.',
-				'Property owners in ' . $city_name . ' call us for ' . $link . '.',
-				'In ' . $city_name . ', our team provides ' . $link . ' to resolve safety hazards.',
+				'When emergencies happen in ' . $city_name . ', we respond quickly to ' . $action . ' ' . $link . '.',
+				'Property owners in ' . $city_name . ' call us to ' . $action . ' ' . $link . '.',
+				'In ' . $city_name . ', our team provides ' . $link . ' to restore ' . $benefit . '.',
 				'For urgent issues in ' . $city_name . ', we offer ' . $link . ' around the clock.',
 			);
 		} else {
 			$patterns = array(
 				'In ' . $city_name . ', we help property owners with ' . $link . '.',
-				'Property owners in ' . $city_name . ' choose our team for ' . $link . '.',
-				'Our electricians work with clients in ' . $city_name . ' on ' . $link . '.',
+				'Property owners in ' . $city_name . ' choose our team to ' . $action . ' ' . $link . '.',
+				'We work with clients in ' . $city_name . ' on ' . $link . ' for ' . $benefit . '.',
 			);
 		}
 		
