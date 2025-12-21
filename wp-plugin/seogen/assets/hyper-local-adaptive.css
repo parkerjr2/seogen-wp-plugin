@@ -68,7 +68,7 @@
 }
 
 .hyper-local-page .hyper-local-hero > *{
-	max-width:var(--wp--style--global--content-size, 900px);
+	max-width: 1060px;
 	margin-left:auto;
 	margin-right:auto;
 }
