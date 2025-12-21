@@ -581,19 +581,25 @@ trait SEOgen_Admin_Extensions {
 
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'] );
 
+		// Prepend header template if configured (same as service+city pages)
 		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
-				$gutenberg_markup = $header_content . "\n\n" . $gutenberg_markup;
+				// Add CSS to remove top spacing from content area (same as service+city)
+				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 			}
 		}
 
+		// Append footer template if configured (same as service+city pages)
 		$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
 		if ( $footer_template_id > 0 ) {
 			$footer_content = $this->get_template_content( $footer_template_id );
 			if ( '' !== $footer_content ) {
-				$gutenberg_markup = $gutenberg_markup . "\n\n" . $footer_content;
+				// Add CSS to remove bottom spacing from content area (same as service+city)
+				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 			}
 		}
 
@@ -604,7 +610,7 @@ trait SEOgen_Admin_Extensions {
 			'post_content' => $gutenberg_markup,
 			'post_status' => 'publish',
 			'post_type' => 'service_page',
-			'post_name' => $hub['slug'],
+			'post_name' => sanitize_title( $hub['slug'] ),
 		);
 
 		if ( $existing_hub_page ) {
