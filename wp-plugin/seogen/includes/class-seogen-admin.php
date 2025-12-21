@@ -4549,8 +4549,15 @@ class SEOgen_Admin {
 			);
 
 			if ( $existing_post_id > 0 ) {
+				// For updates, remove post_name to avoid slug conflicts
+				unset( $postarr['post_name'] );
 				$postarr['ID'] = $existing_post_id;
+				
+				// Temporarily disable template validation filter
+				add_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10, 2 );
 				$post_id = wp_update_post( $postarr, true );
+				remove_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10 );
+				
 				if ( ! is_wp_error( $post_id ) ) {
 					$updated_count++;
 				}
