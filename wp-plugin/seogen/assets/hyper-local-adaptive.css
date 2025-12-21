@@ -16,6 +16,13 @@
 	border-bottom:1px solid rgba(0,0,0,0.06);
 }
 
+.hyper-local-page .hyper-local-content .hyper-local-hero.alignwide{
+	margin-left: 0 !important;
+	margin-right: 0 !important;
+	width: 100% !important;
+	max-width: 100% !important;
+}
+
 .hyper-local-page .hyper-local-hero--banner{
 	border-radius:14px;
 	overflow:hidden;
