@@ -4889,8 +4889,16 @@ class SEOgen_Admin {
 
 		$action = 'created';
 		if ( $existing_post_id > 0 ) {
+			// For updates, we need to bypass template validation
+			// Remove post_name to avoid slug conflicts, we'll update it separately
+			unset( $postarr['post_name'] );
 			$postarr['ID'] = $existing_post_id;
+			
+			// Temporarily disable template validation filter
+			add_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10, 2 );
 			$post_id = wp_update_post( $postarr, true );
+			remove_filter( 'wp_insert_post_data', array( $this, 'bypass_template_validation' ), 10 );
+			
 			$action = 'updated';
 		} else {
 			$post_id = wp_insert_post( $postarr, true );
@@ -4932,5 +4940,17 @@ class SEOgen_Admin {
 			'post_id' => $post_id,
 			'city' => $city['name']
 		);
+	}
+
+	/**
+	 * Bypass template validation during post updates
+	 * Prevents "Invalid page template" error when updating existing posts
+	 */
+	public function bypass_template_validation( $data, $postarr ) {
+		// Remove page_template from validation if it's set
+		if ( isset( $data['page_template'] ) ) {
+			unset( $data['page_template'] );
+		}
+		return $data;
 	}
 }
