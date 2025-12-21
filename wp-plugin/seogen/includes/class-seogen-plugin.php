@@ -65,6 +65,7 @@ class SEOgen_Plugin {
 		add_shortcode( 'seogen_service_hub_links', array( $this, 'render_service_hub_links_shortcode' ) );
 		add_shortcode( 'seogen_city_hub_links', array( $this, 'render_city_hub_links_shortcode' ) );
 		add_shortcode( 'seogen_service_hub_city_links', array( $this, 'render_service_hub_city_links_shortcode' ) );
+		add_shortcode( 'seogen_parent_hub_link', array( $this, 'render_parent_hub_link_shortcode' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
@@ -1128,6 +1129,92 @@ class SEOgen_Plugin {
 		}
 		
 		return $patterns[ $index % count( $patterns ) ];
+	}
+
+	/**
+	 * Render parent hub link shortcode
+	 * 
+	 * INTERNAL LINKING: City Hub → Service Hub (parent)
+	 * 
+	 * Purpose:
+	 * - Improves crawlability and user orientation
+	 * - NOT a breadcrumb (simple editorial link)
+	 * - NOT doorway-style linking (clean parent-child relationship)
+	 * - Helps users navigate back to main service category
+	 * 
+	 * Safety:
+	 * - Only renders on city_hub pages
+	 * - Only links to parent Service Hub (same hub_key)
+	 * - Fails silently if context invalid
+	 * 
+	 * @return string HTML output or empty string
+	 */
+	public function render_parent_hub_link_shortcode() {
+		// Safety check: Only render on city_hub pages
+		$post_id = get_the_ID();
+		if ( ! $post_id ) {
+			return '';
+		}
+		
+		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
+		if ( 'city_hub' !== $page_mode ) {
+			return '';
+		}
+		
+		// Get hub_key from current city hub page
+		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
+		if ( empty( $hub_key ) ) {
+			return '';
+		}
+		
+		// Query for parent Service Hub page
+		$parent_hub_query = new WP_Query( array(
+			'post_type' => 'service_page',
+			'post_status' => 'publish',
+			'posts_per_page' => 1,
+			'meta_query' => array(
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'hub',
+					'compare' => '=',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+					'compare' => '=',
+				),
+			),
+		) );
+		
+		// Safety check: Exactly one parent hub should exist
+		if ( ! $parent_hub_query->have_posts() ) {
+			wp_reset_postdata();
+			return '';
+		}
+		
+		$parent_hub = $parent_hub_query->posts[0];
+		wp_reset_postdata();
+		
+		// Get parent hub URL and title
+		$parent_url = get_permalink( $parent_hub->ID );
+		$parent_title = get_the_title( $parent_hub->ID );
+		
+		// Clean title: Remove trailing city/state if present
+		// Example: "Residential Electrical Services in Tulsa, OK" → "Residential Electrical"
+		$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $parent_title );
+		$clean_title = preg_replace( '/\s+services$/i', '', $clean_title ); // Remove trailing "services"
+		$clean_title = trim( $clean_title );
+		
+		// Generate natural link text
+		// Pattern: "View all {Service Name} services"
+		$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
+		
+		// Render simple editorial link
+		$output = '<p class="seogen-parent-hub-link">';
+		$output .= '← <a href="' . esc_url( $parent_url ) . '">' . $link_text . '</a>';
+		$output .= '</p>';
+		
+		return $output;
 	}
 
 }
