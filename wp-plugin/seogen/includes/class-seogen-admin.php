@@ -4492,7 +4492,7 @@ class SEOgen_Admin {
 				}
 			}
 
-			// Inject parent hub link at bottom of main content (BEFORE footer template)
+			// Inject parent hub link BEFORE FAQ section
 			// Generate link directly instead of using shortcode to avoid rendering issues
 			$hub_post_id = $this->find_service_hub_post_id( $hub_key );
 			if ( $hub_post_id > 0 ) {
@@ -4507,10 +4507,16 @@ class SEOgen_Admin {
 				// Generate link HTML
 				$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
 				$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
+				$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->' . "\n\n";
 				
-				// Inject as HTML block
-				$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->';
-				$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+				// Insert before FAQ heading if it exists, otherwise append at end
+				$faq_heading_marker = '<h2>FAQ</h2>';
+				if ( false !== strpos( $gutenberg_markup, $faq_heading_marker ) ) {
+					$gutenberg_markup = str_replace( $faq_heading_marker, $parent_hub_link_block . $faq_heading_marker, $gutenberg_markup );
+				} else {
+					// No FAQ section found, append at end
+					$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+				}
 			}
 
 			$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
@@ -4889,7 +4895,7 @@ class SEOgen_Admin {
 			}
 		}
 
-		// Inject parent hub link at bottom of main content (BEFORE footer template)
+		// Inject parent hub link BEFORE FAQ section
 		// Generate link directly instead of using shortcode to avoid rendering issues
 		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
 		if ( $hub_post_id > 0 ) {
@@ -4904,10 +4910,16 @@ class SEOgen_Admin {
 			// Generate link HTML
 			$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
 			$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
+			$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->' . "\n\n";
 			
-			// Inject as HTML block
-			$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->';
-			$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+			// Insert before FAQ heading if it exists, otherwise append at end
+			$faq_heading_marker = '<h2>FAQ</h2>';
+			if ( false !== strpos( $gutenberg_markup, $faq_heading_marker ) ) {
+				$gutenberg_markup = str_replace( $faq_heading_marker, $parent_hub_link_block . $faq_heading_marker, $gutenberg_markup );
+			} else {
+				// No FAQ section found, append at end
+				$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+			}
 		}
 
 		$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
