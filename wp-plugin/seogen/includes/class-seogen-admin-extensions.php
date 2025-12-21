@@ -4,7 +4,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+require_once plugin_dir_path( __FILE__ ) . 'class-seogen-service-hub-helpers.php';
+
 trait SEOgen_Admin_Extensions {
+	use SEOgen_Service_Hub_Helpers;
 
 	private function get_business_config() {
 		$config = get_option( self::BUSINESS_CONFIG_OPTION, array() );
@@ -646,6 +649,9 @@ trait SEOgen_Admin_Extensions {
 		}
 
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'] );
+
+		// Apply Service Hub quality improvements (FAQ deduplication, city link rules, framing, heading variation)
+		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'] );
 
 		// Prepend header template if configured (same as service+city pages)
 		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
