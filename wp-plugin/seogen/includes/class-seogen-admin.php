@@ -4501,6 +4501,10 @@ class SEOgen_Admin {
 				}
 			}
 
+			// Inject parent hub link shortcode at bottom of City Hub pages
+			$parent_hub_link_block = "\n\n" . '<!-- wp:shortcode -->[seogen_parent_hub_link]<!-- /wp:shortcode -->';
+			$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+
 			$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
 
 			$postarr = array(
@@ -4876,6 +4880,10 @@ class SEOgen_Admin {
 				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 			}
 		}
+
+		// Inject parent hub link shortcode at bottom of City Hub pages
+		$parent_hub_link_block = "\n\n" . '<!-- wp:shortcode -->[seogen_parent_hub_link]<!-- /wp:shortcode -->';
+		$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
 
 		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
 		$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
