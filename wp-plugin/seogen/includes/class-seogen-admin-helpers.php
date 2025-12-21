@@ -170,6 +170,165 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
+	 * Polish parent hub link markup with editorial context
+	 * 
+	 * @param string $html Parent hub link HTML
+	 * @return string Polished HTML with editorial lead-in
+	 */
+	private function polish_parent_hub_link_markup( $html ) {
+		if ( empty( $html ) ) {
+			return $html;
+		}
+		
+		// Add editorial context: "Looking for an overview? ← Back to {Service}"
+		// This makes the link feel more natural and less like navigation chrome
+		$html = str_replace(
+			'<p class="seogen-parent-hub-link"><a href=',
+			'<p class="seogen-parent-hub-link">Looking for an overview? <a href=',
+			$html
+		);
+		
+		return $html;
+	}
+
+	/**
+	 * Fix locality replacement artifacts (e.g., "In the area, OK")
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @return string Fixed markup
+	 */
+	private function fix_locality_artifacts( $markup ) {
+		// Fix broken phrases like "In the area, OK" or "in the area OK"
+		// These occur when state abbreviation remains after city name replacement
+		
+		// Replace "In the area, OK" (and similar state codes) with "Locally,"
+		$markup = preg_replace(
+			'/\bIn the area,?\s+[A-Z]{2}\b/i',
+			'Locally',
+			$markup
+		);
+		
+		// Also catch lowercase variants mid-sentence
+		$markup = preg_replace(
+			'/\bin the area,?\s+[A-Z]{2}\b/',
+			'locally',
+			$markup
+		);
+		
+		return $markup;
+	}
+
+	/**
+	 * Reduce generic "any-city" repetition patterns
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param array $city City data
+	 * @return string Modified markup
+	 */
+	private function reduce_generic_city_repetition( $markup, $city ) {
+		if ( empty( $city['name'] ) ) {
+			return $markup;
+		}
+		
+		$city_name = $city['name'];
+		
+		// Identify generic phrases that signal templated content
+		$generic_patterns = array(
+			'Choosing local',
+			'Our team understands',
+			'offers numerous benefits',
+			'local expertise',
+			'familiar with the area',
+		);
+		
+		// Find ONE paragraph containing both a generic phrase AND the city name
+		// Remove city name from that paragraph only (conservative approach)
+		foreach ( $generic_patterns as $pattern ) {
+			// Match paragraph containing both the pattern and city name
+			if ( preg_match( '/<p>([^<]*' . preg_quote( $pattern, '/' ) . '[^<]*' . preg_quote( $city_name, '/' ) . '[^<]*)<\/p>/i', $markup, $matches ) ) {
+				$original_p = $matches[0];
+				$p_content = $matches[1];
+				
+				// Remove city name from this paragraph
+				$cleaned_content = preg_replace(
+					'/\b' . preg_quote( $city_name, '/' ) . '\b/i',
+					'',
+					$p_content,
+					1 // Only first occurrence
+				);
+				
+				// Clean up any double spaces or awkward punctuation
+				$cleaned_content = preg_replace( '/\s+/', ' ', $cleaned_content );
+				$cleaned_content = preg_replace( '/\s+,/', ',', $cleaned_content );
+				$cleaned_content = preg_replace( '/\s+\./', '.', $cleaned_content );
+				$cleaned_content = trim( $cleaned_content );
+				
+				$cleaned_p = '<p>' . $cleaned_content . '</p>';
+				$markup = str_replace( $original_p, $cleaned_p, $markup );
+				
+				// Only rewrite ONE paragraph per page
+				break;
+			}
+		}
+		
+		return $markup;
+	}
+
+	/**
+	 * Cleanup FAQ locality references for clarity
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param array $city City data
+	 * @return string Modified markup
+	 */
+	private function cleanup_faq_locality( $markup, $city ) {
+		if ( empty( $city['name'] ) ) {
+			return $markup;
+		}
+		
+		$city_name = $city['name'];
+		
+		// Find FAQ section (after "Frequently Asked Questions" heading)
+		$faq_start = stripos( $markup, 'Frequently Asked Questions' );
+		if ( false === $faq_start ) {
+			// Try "FAQ" heading
+			$faq_start = stripos( $markup, '<h2>FAQ</h2>' );
+		}
+		
+		if ( false === $faq_start ) {
+			// No FAQ section found
+			return $markup;
+		}
+		
+		// Extract FAQ section (from heading to end of content)
+		$before_faq = substr( $markup, 0, $faq_start );
+		$faq_section = substr( $markup, $faq_start );
+		
+		// In FAQ answers only: Remove "in {City}" when it adds no value
+		// Keep city references in questions (they're often location-specific)
+		// Only remove from answer paragraphs (not from question headings)
+		
+		// Remove "in {City}" from FAQ answer paragraphs
+		$faq_section = preg_replace(
+			'/(<p>[^<]*?)\s+in\s+' . preg_quote( $city_name, '/' ) . '\b/i',
+			'$1',
+			$faq_section
+		);
+		
+		// Remove "in the area" from FAQ answers when it's filler
+		$faq_section = preg_replace(
+			'/(<p>[^<]*?)\s+in the area\b/i',
+			'$1',
+			$faq_section
+		);
+		
+		// Clean up any double spaces
+		$faq_section = preg_replace( '/\s+/', ' ', $faq_section );
+		
+		return $before_faq . $faq_section;
+	}
+
+	/**
 	 * Apply all City Hub quality improvements to Gutenberg markup
 	 * 
 	 * @param string $markup Gutenberg markup
@@ -181,13 +340,25 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// 1) Build parent hub link
 		$parent_hub_link = $this->build_parent_hub_link_html( $hub_key );
 		
-		// 2) Inject parent hub link after H1
+		// 2) Polish parent hub link with editorial context
+		$parent_hub_link = $this->polish_parent_hub_link_markup( $parent_hub_link );
+		
+		// 3) Inject parent hub link after H1
 		$markup = $this->inject_after_h1( $markup, $parent_hub_link );
 		
-		// 3) Reduce city name repetition
+		// 4) Reduce city name repetition
 		$markup = $this->cleanup_city_repetition( $markup, $city );
 		
-		// 4) Remove duplicate FAQ heading
+		// 5) Fix locality replacement artifacts ("In the area, OK")
+		$markup = $this->fix_locality_artifacts( $markup );
+		
+		// 6) Reduce generic "any-city" repetition patterns
+		$markup = $this->reduce_generic_city_repetition( $markup, $city );
+		
+		// 7) Cleanup FAQ locality references
+		$markup = $this->cleanup_faq_locality( $markup, $city );
+		
+		// 8) Remove duplicate FAQ heading
 		$markup = $this->remove_duplicate_faq_heading( $markup );
 		
 		return $markup;
