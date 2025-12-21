@@ -623,6 +623,38 @@ trait SEOgen_Admin_Extensions {
 			exit;
 		}
 
+		// Verify post was created with content
+		$created_post = get_post( $post_id );
+		if ( ! $created_post ) {
+			error_log( sprintf(
+				'[HyperLocal] ERROR: Hub post creation failed - post_id=%d not found after insert/update',
+				$post_id
+			) );
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-service-hubs',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'Post created but could not be retrieved. Check error logs.' ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
+		$content_length = strlen( $created_post->post_content );
+		if ( $content_length < 50 ) {
+			error_log( sprintf(
+				'[HyperLocal] WARNING: Hub post has minimal content - post_id=%d, hub_slug=%s, content_length=%d, response_blocks=%d',
+				$post_id,
+				$hub['slug'],
+				$content_length,
+				isset( $data['blocks'] ) ? count( $data['blocks'] ) : 0
+			) );
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-service-hubs',
+				'hl_notice' => 'warning',
+				'hl_msg' => rawurlencode( sprintf( 'Hub page created but content is very short (%d chars). Check error logs.', $content_length ) ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
 		// Standard meta fields (same as service+city pages)
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
 		update_post_meta( $post_id, '_hl_page_type', 'service_hub' );
@@ -646,12 +678,23 @@ trait SEOgen_Admin_Extensions {
 			$this->apply_page_builder_settings( $post_id );
 		}
 
-		// Debug logging
+		// Debug logging with verification
+		$actual_post_type = get_post_type( $post_id );
 		error_log( sprintf(
-			'[HyperLocal] Created/updated hub page: post_id=%d, post_type=service_page, _hl_page_type=service_hub, hub_key=%s',
+			'[HyperLocal] Created/updated hub page: post_id=%d, requested_post_type=service_page, actual_post_type=%s, _hl_page_type=service_hub, hub_key=%s, content_length=%d',
 			$post_id,
-			$hub['key']
+			$actual_post_type,
+			$hub['key'],
+			$content_length
 		) );
+		
+		// Verify post_type is correct
+		if ( $actual_post_type !== 'service_page' ) {
+			error_log( sprintf(
+				'[HyperLocal] ERROR: Hub page has wrong post_type! Expected service_page, got %s. This will cause layout issues.',
+				$actual_post_type
+			) );
+		}
 
 		$action_text = $existing_hub_page ? 'updated' : 'created';
 		wp_redirect( add_query_arg( array(
