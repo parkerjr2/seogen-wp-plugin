@@ -37,6 +37,8 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_save_services', array( $this, 'handle_save_services' ) );
 		add_action( 'admin_post_hyper_local_hub_preview', array( $this, 'handle_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
+		add_action( 'admin_post_hyper_local_city_hub_preview', array( $this, 'handle_city_hub_preview' ) );
+		add_action( 'admin_post_hyper_local_city_hub_create', array( $this, 'handle_city_hub_create' ) );
 		
 		// Ensure bulk actions work for service_page post type
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
@@ -1448,6 +1450,15 @@ class SEOgen_Admin {
 			'manage_options',
 			'hyper-local-service-hubs',
 			array( $this, 'render_service_hubs_page' )
+		);
+
+		add_submenu_page(
+			'hyper-local',
+			__( 'City Hubs (Step 4)', 'seogen' ),
+			__( 'City Hubs', 'seogen' ),
+			'manage_options',
+			'hyper-local-city-hubs',
+			array( $this, 'render_city_hubs_page' )
 		);
 
 		add_submenu_page(
@@ -3966,5 +3977,510 @@ class SEOgen_Admin {
 			});
 		});
 		" );
+	}
+
+	public function render_city_hubs_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'seogen' ) );
+		}
+
+		$config = $this->get_business_config();
+		$hubs = $this->get_hubs();
+		$cities = $this->get_cities();
+
+		if ( empty( $config ) ) {
+			echo '<div class="wrap"><h1>' . esc_html__( 'City Hubs', 'seogen' ) . '</h1>';
+			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Please configure your business settings first.', 'seogen' ) . '</p></div>';
+			echo '</div>';
+			return;
+		}
+
+		if ( empty( $hubs ) ) {
+			echo '<div class="wrap"><h1>' . esc_html__( 'City Hubs', 'seogen' ) . '</h1>';
+			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Please configure your service hubs first.', 'seogen' ) . '</p></div>';
+			echo '</div>';
+			return;
+		}
+
+		if ( empty( $cities ) ) {
+			echo '<div class="wrap"><h1>' . esc_html__( 'City Hubs', 'seogen' ) . '</h1>';
+			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Please configure your cities first.', 'seogen' ) . '</p></div>';
+			echo '</div>';
+			return;
+		}
+
+		echo '<div class="wrap">';
+		echo '<h1>' . esc_html__( 'City Hubs (Step 4)', 'seogen' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Generate city hub pages that serve as parent pages for service+city pages. Each city hub will have the same layout as service hub pages.', 'seogen' ) . '</p>';
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( 'hyper_local_city_hub_preview', 'hyper_local_city_hub_preview_nonce' );
+		echo '<input type="hidden" name="action" value="hyper_local_city_hub_preview" />';
+
+		echo '<table class="form-table">';
+		echo '<tr>';
+		echo '<th scope="row"><label for="hub_key">' . esc_html__( 'Select Hub', 'seogen' ) . '</label></th>';
+		echo '<td>';
+		echo '<select name="hub_key" id="hub_key" required>';
+		echo '<option value="">' . esc_html__( '-- Select Hub --', 'seogen' ) . '</option>';
+		foreach ( $hubs as $hub ) {
+			$hub_key = isset( $hub['key'] ) ? esc_attr( $hub['key'] ) : '';
+			$hub_label = isset( $hub['label'] ) ? esc_html( $hub['label'] ) : '';
+			echo '<option value="' . $hub_key . '">' . $hub_label . '</option>';
+		}
+		echo '</select>';
+		echo '</td>';
+		echo '</tr>';
+
+		echo '<tr>';
+		echo '<th scope="row"><label for="city_slugs">' . esc_html__( 'Select Cities', 'seogen' ) . '</label></th>';
+		echo '<td>';
+		echo '<select name="city_slugs[]" id="city_slugs" multiple size="10" style="width: 100%; max-width: 400px;" required>';
+		foreach ( $cities as $city ) {
+			$city_name = isset( $city['name'] ) ? esc_html( $city['name'] ) : '';
+			$city_state = isset( $city['state'] ) ? esc_html( $city['state'] ) : '';
+			$city_slug = isset( $city['slug'] ) ? esc_attr( $city['slug'] ) : '';
+			$display = $city_name;
+			if ( $city_state ) {
+				$display .= ', ' . $city_state;
+			}
+			echo '<option value="' . $city_slug . '">' . $display . '</option>';
+		}
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Hold Ctrl (Cmd on Mac) to select multiple cities.', 'seogen' ) . '</p>';
+		echo '</td>';
+		echo '</tr>';
+		echo '</table>';
+
+		echo '<p class="submit">';
+		echo '<button type="submit" class="button button-secondary">' . esc_html__( 'Preview City Hub', 'seogen' ) . '</button>';
+		echo '</p>';
+		echo '</form>';
+
+		echo '<hr />';
+
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+		wp_nonce_field( 'hyper_local_city_hub_create', 'hyper_local_city_hub_create_nonce' );
+		echo '<input type="hidden" name="action" value="hyper_local_city_hub_create" />';
+		echo '<input type="hidden" name="hub_key" id="bulk_hub_key" />';
+		echo '<input type="hidden" name="city_slugs_bulk" id="city_slugs_bulk" />';
+
+		echo '<p class="submit">';
+		echo '<button type="button" class="button button-primary" id="create_city_hubs_btn">' . esc_html__( 'Create/Update City Hubs', 'seogen' ) . '</button>';
+		echo '</p>';
+		echo '</form>';
+
+		echo '<script>
+		jQuery(document).ready(function($) {
+			$("#create_city_hubs_btn").on("click", function() {
+				var hubKey = $("#hub_key").val();
+				var citySlugs = $("#city_slugs").val();
+				
+				if (!hubKey) {
+					alert("Please select a hub.");
+					return;
+				}
+				
+				if (!citySlugs || citySlugs.length === 0) {
+					alert("Please select at least one city.");
+					return;
+				}
+				
+				if (!confirm("Create/update " + citySlugs.length + " city hub page(s)?")) {
+					return;
+				}
+				
+				$("#bulk_hub_key").val(hubKey);
+				$("#city_slugs_bulk").val(citySlugs.join(","));
+				$(this).closest("form").submit();
+			});
+		});
+		</script>';
+
+		echo '</div>';
+	}
+
+	public function handle_city_hub_preview() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		check_admin_referer( 'hyper_local_city_hub_preview', 'hyper_local_city_hub_preview_nonce' );
+
+		$hub_key = isset( $_POST['hub_key'] ) ? sanitize_text_field( wp_unslash( $_POST['hub_key'] ) ) : '';
+		$city_slugs = isset( $_POST['city_slugs'] ) && is_array( $_POST['city_slugs'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['city_slugs'] ) ) : array();
+
+		if ( '' === $hub_key || empty( $city_slugs ) ) {
+			wp_die( 'Missing hub_key or city_slugs' );
+		}
+
+		$city_slug = $city_slugs[0];
+
+		$config = $this->get_business_config();
+		$hubs = $this->get_hubs();
+		$cities = $this->get_cities();
+		$services = $this->get_services();
+
+		$hub = null;
+		foreach ( $hubs as $h ) {
+			if ( isset( $h['key'] ) && $h['key'] === $hub_key ) {
+				$hub = $h;
+				break;
+			}
+		}
+
+		$city = null;
+		foreach ( $cities as $c ) {
+			if ( isset( $c['slug'] ) && $c['slug'] === $city_slug ) {
+				$city = $c;
+				break;
+			}
+		}
+
+		if ( ! $hub || ! $city ) {
+			wp_die( 'Hub or city not found' );
+		}
+
+		$services_for_hub = array();
+		foreach ( $services as $service ) {
+			if ( isset( $service['hub_key'], $service['name'], $service['slug'] ) && $service['hub_key'] === $hub_key ) {
+				$services_for_hub[] = array(
+					'name' => $service['name'],
+					'slug' => $service['slug'],
+				);
+			}
+		}
+
+		$settings = $this->get_settings();
+		$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : '';
+		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
+
+		if ( '' === $api_url || '' === $license_key ) {
+			wp_die( 'API URL or license key not configured' );
+		}
+
+		$payload = array(
+			'license_key' => $license_key,
+			'data' => array(
+				'page_mode' => 'city_hub',
+				'vertical' => $config['vertical'],
+				'business_name' => $config['business_name'],
+				'phone' => $config['phone'],
+				'cta_text' => $config['cta_text'],
+				'service_area_label' => $config['service_area_label'],
+				'hub_key' => $hub['key'],
+				'hub_label' => $hub['label'],
+				'hub_slug' => $hub['slug'],
+				'city' => $city['name'],
+				'state' => $city['state'],
+				'city_slug' => $city['slug'],
+				'services_for_hub' => $services_for_hub,
+			),
+			'preview' => true,
+		);
+
+		$url = trailingslashit( $api_url ) . 'generate-page';
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 60,
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body' => wp_json_encode( $payload ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			wp_die( 'API request failed: ' . $response->get_error_message() );
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $code ) {
+			wp_die( 'API returned error: ' . $code . ' - ' . $body );
+		}
+
+		$data = json_decode( $body, true );
+		if ( ! is_array( $data ) || ! isset( $data['blocks'] ) ) {
+			wp_die( 'Invalid API response' );
+		}
+
+		$title = isset( $data['title'] ) ? $data['title'] : '';
+		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
+		$blocks = $data['blocks'];
+
+		echo '<div style="max-width: 1200px; margin: 20px auto; padding: 20px; background: #fff; border: 1px solid #ccc;">';
+		echo '<h1>City Hub Preview</h1>';
+		echo '<p><strong>Title:</strong> ' . esc_html( $title ) . '</p>';
+		echo '<p><strong>Meta Description:</strong> ' . esc_html( $meta_description ) . '</p>';
+		echo '<hr />';
+		echo '<h2>Content Blocks:</h2>';
+		echo '<pre>' . esc_html( wp_json_encode( $blocks, JSON_PRETTY_PRINT ) ) . '</pre>';
+		echo '<hr />';
+		echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=hyper-local-city-hubs' ) ) . '" class="button">Back</a></p>';
+		echo '</div>';
+		exit;
+	}
+
+	public function handle_city_hub_create() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		check_admin_referer( 'hyper_local_city_hub_create', 'hyper_local_city_hub_create_nonce' );
+
+		$hub_key = isset( $_POST['hub_key'] ) ? sanitize_text_field( wp_unslash( $_POST['hub_key'] ) ) : '';
+		$city_slugs_raw = isset( $_POST['city_slugs_bulk'] ) ? sanitize_text_field( wp_unslash( $_POST['city_slugs_bulk'] ) ) : '';
+		$city_slugs = array_filter( array_map( 'trim', explode( ',', $city_slugs_raw ) ) );
+
+		if ( '' === $hub_key || empty( $city_slugs ) ) {
+			wp_die( 'Missing hub_key or city_slugs' );
+		}
+
+		$config = $this->get_business_config();
+		$hubs = $this->get_hubs();
+		$cities = $this->get_cities();
+		$services = $this->get_services();
+
+		$hub = null;
+		foreach ( $hubs as $h ) {
+			if ( isset( $h['key'] ) && $h['key'] === $hub_key ) {
+				$hub = $h;
+				break;
+			}
+		}
+
+		if ( ! $hub ) {
+			wp_die( 'Hub not found' );
+		}
+
+		$services_for_hub = array();
+		foreach ( $services as $service ) {
+			if ( isset( $service['hub_key'], $service['name'], $service['slug'] ) && $service['hub_key'] === $hub_key ) {
+				$services_for_hub[] = array(
+					'name' => $service['name'],
+					'slug' => $service['slug'],
+				);
+			}
+		}
+
+		$settings = $this->get_settings();
+		$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : '';
+		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
+
+		if ( '' === $api_url || '' === $license_key ) {
+			wp_die( 'API URL or license key not configured' );
+		}
+
+		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
+
+		$created_count = 0;
+		$updated_count = 0;
+		$errors = array();
+
+		foreach ( $city_slugs as $city_slug ) {
+			$city = null;
+			foreach ( $cities as $c ) {
+				if ( isset( $c['slug'] ) && $c['slug'] === $city_slug ) {
+					$city = $c;
+					break;
+				}
+			}
+
+			if ( ! $city ) {
+				$errors[] = "City not found: $city_slug";
+				continue;
+			}
+
+			$payload = array(
+				'license_key' => $license_key,
+				'data' => array(
+					'page_mode' => 'city_hub',
+					'vertical' => $config['vertical'],
+					'business_name' => $config['business_name'],
+					'phone' => $config['phone'],
+					'cta_text' => $config['cta_text'],
+					'service_area_label' => $config['service_area_label'],
+					'hub_key' => $hub['key'],
+					'hub_label' => $hub['label'],
+					'hub_slug' => $hub['slug'],
+					'city' => $city['name'],
+					'state' => $city['state'],
+					'city_slug' => $city['slug'],
+					'services_for_hub' => $services_for_hub,
+				),
+				'preview' => false,
+			);
+
+			$url = trailingslashit( $api_url ) . 'generate-page';
+			$response = wp_remote_post(
+				$url,
+				array(
+					'timeout' => 90,
+					'headers' => array( 'Content-Type' => 'application/json' ),
+					'body' => wp_json_encode( $payload ),
+				)
+			);
+
+			if ( is_wp_error( $response ) ) {
+				$errors[] = "API error for {$city['name']}: " . $response->get_error_message();
+				continue;
+			}
+
+			$code = wp_remote_retrieve_response_code( $response );
+			$body = wp_remote_retrieve_body( $response );
+
+			if ( 200 !== $code ) {
+				$errors[] = "API error for {$city['name']}: HTTP $code";
+				continue;
+			}
+
+			$data = json_decode( $body, true );
+			if ( ! is_array( $data ) || ! isset( $data['blocks'] ) ) {
+				$errors[] = "Invalid API response for {$city['name']}";
+				continue;
+			}
+
+			$title = isset( $data['title'] ) ? $data['title'] : "{$hub['label']} in {$city['name']}, {$city['state']}";
+			$slug = $city['slug'];
+			$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
+			$blocks = $data['blocks'];
+
+			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
+
+			$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
+			if ( $header_template_id > 0 ) {
+				$header_content = $this->get_template_content( $header_template_id );
+				if ( '' !== $header_content ) {
+					$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
+				}
+			}
+
+			$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+			if ( $footer_template_id > 0 ) {
+				$footer_content = $this->get_template_content( $footer_template_id );
+				if ( '' !== $footer_content ) {
+					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
+				}
+			}
+
+			$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
+
+			$postarr = array(
+				'post_type' => 'service_page',
+				'post_status' => 'draft',
+				'post_title' => $title,
+				'post_name' => sanitize_title( $slug ),
+				'post_content' => $gutenberg_markup,
+				'post_parent' => $hub_post_id,
+			);
+
+			if ( $existing_post_id > 0 ) {
+				$postarr['ID'] = $existing_post_id;
+				$post_id = wp_update_post( $postarr, true );
+				if ( ! is_wp_error( $post_id ) ) {
+					$updated_count++;
+				}
+			} else {
+				$post_id = wp_insert_post( $postarr, true );
+				if ( ! is_wp_error( $post_id ) ) {
+					$created_count++;
+				}
+			}
+
+			if ( is_wp_error( $post_id ) ) {
+				$errors[] = "Post creation error for {$city['name']}: " . $post_id->get_error_message();
+				continue;
+			}
+
+			update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $data ) );
+			update_post_meta( $post_id, '_seogen_page_mode', 'city_hub' );
+			update_post_meta( $post_id, '_seogen_vertical', $config['vertical'] );
+			update_post_meta( $post_id, '_seogen_hub_key', $hub['key'] );
+			update_post_meta( $post_id, '_seogen_hub_slug', $hub['slug'] );
+			update_post_meta( $post_id, '_seogen_city', $city['name'] . ', ' . $city['state'] );
+			update_post_meta( $post_id, '_seogen_city_slug', $city['slug'] );
+			update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
+			update_post_meta( $post_id, '_hyper_local_managed', '1' );
+
+			if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+				$this->apply_page_builder_settings( $post_id );
+			}
+
+			$this->apply_seo_plugin_meta( $post_id, '', $title, $meta_description, true );
+
+			$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', $hub_post_id );
+			if ( $unique_slug ) {
+				wp_update_post(
+					array(
+						'ID' => $post_id,
+						'post_name' => $unique_slug,
+					)
+				);
+			}
+		}
+
+		$redirect_url = admin_url( 'admin.php?page=hyper-local-city-hubs' );
+		$message = "Created: $created_count, Updated: $updated_count";
+		if ( ! empty( $errors ) ) {
+			$message .= ' | Errors: ' . implode( ', ', $errors );
+		}
+		$redirect_url = add_query_arg( 'message', urlencode( $message ), $redirect_url );
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+
+	private function find_service_hub_post_id( $hub_key ) {
+		$args = array(
+			'post_type' => 'service_page',
+			'post_status' => 'any',
+			'posts_per_page' => 1,
+			'fields' => 'ids',
+			'meta_query' => array(
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'service_hub',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+				),
+			),
+		);
+
+		$query = new WP_Query( $args );
+		if ( ! empty( $query->posts ) ) {
+			return (int) $query->posts[0];
+		}
+		return 0;
+	}
+
+	private function find_city_hub_post_id( $hub_key, $city_slug ) {
+		$args = array(
+			'post_type' => 'service_page',
+			'post_status' => 'any',
+			'posts_per_page' => 1,
+			'fields' => 'ids',
+			'meta_query' => array(
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'city_hub',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+				),
+				array(
+					'key' => '_seogen_city_slug',
+					'value' => $city_slug,
+				),
+			),
+		);
+
+		$query = new WP_Query( $args );
+		if ( ! empty( $query->posts ) ) {
+			return (int) $query->posts[0];
+		}
+		return 0;
 	}
 }

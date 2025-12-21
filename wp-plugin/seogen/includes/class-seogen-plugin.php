@@ -63,6 +63,7 @@ class SEOgen_Plugin {
 		add_filter( 'wpseo_breadcrumb_output', array( $this, 'filter_yoast_breadcrumb_output' ), 10, 1 );
 		add_filter( 'rank_math/frontend/breadcrumb/html', array( $this, 'filter_rankmath_breadcrumb_html' ), 10, 2 );
 		add_shortcode( 'seogen_service_hub_links', array( $this, 'render_service_hub_links_shortcode' ) );
+		add_shortcode( 'seogen_city_hub_links', array( $this, 'render_city_hub_links_shortcode' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
@@ -464,11 +465,13 @@ class SEOgen_Plugin {
 			'show_in_rest'       => true,
 			'show_in_menu'       => false,
 			'has_archive'        => false,
+			'hierarchical'       => true,
 			'capability_type'    => 'page',
 			'map_meta_cap'       => true,
 			'rewrite'            => array(
-				'slug'       => 'service-area',
-				'with_front' => false,
+				'slug'         => 'service-area',
+				'with_front'   => false,
+				'hierarchical' => true,
 			),
 			'supports'           => array( 'title', 'editor', 'revisions', 'page-attributes', 'custom-fields', 'thumbnail', 'excerpt' ),
 			'menu_position'      => 25,
@@ -556,6 +559,58 @@ class SEOgen_Plugin {
 			$output .= '</ul>';
 		}
 		$output .= '</div>';
+
+		return $output;
+	}
+
+	public function render_city_hub_links_shortcode( $atts ) {
+		$atts = shortcode_atts( array(
+			'hub_key' => '',
+			'city_slug' => '',
+		), $atts, 'seogen_city_hub_links' );
+
+		$hub_key = sanitize_text_field( $atts['hub_key'] );
+		$city_slug = sanitize_text_field( $atts['city_slug'] );
+		
+		if ( '' === $hub_key || '' === $city_slug ) {
+			return '<p><em>Error: hub_key and city_slug attributes are required.</em></p>';
+		}
+
+		$args = array(
+			'post_type' => 'service_page',
+			'post_status' => 'publish',
+			'posts_per_page' => 50,
+			'meta_query' => array(
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'service_city',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+				),
+				array(
+					'key' => '_seogen_city_slug',
+					'value' => $city_slug,
+				),
+			),
+			'orderby' => 'title',
+			'order' => 'ASC',
+		);
+
+		$query = new WP_Query( $args );
+
+		if ( ! $query->have_posts() ) {
+			return '<p><em>No service pages found for this city yet.</em></p>';
+		}
+
+		$output = '<div class="seogen-city-hub-links"><ul>';
+		while ( $query->have_posts() ) {
+			$query->the_post();
+			$output .= '<li><a href="' . esc_url( get_permalink() ) . '">' . esc_html( get_the_title() ) . '</a></li>';
+		}
+		$output .= '</ul></div>';
+		wp_reset_postdata();
 
 		return $output;
 	}
