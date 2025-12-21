@@ -616,6 +616,15 @@ class SEOgen_Plugin {
 		return $output;
 	}
 
+	/**
+	 * Render city hub links for service hub pages
+	 * 
+	 * Outputs natural, varied city link sentences with:
+	 * - Hub-specific context (residential vs commercial)
+	 * - Varied anchor text with electrical/trade keywords
+	 * - Local relevance clauses
+	 * - Valid HTML structure
+	 */
 	public function render_service_hub_city_links_shortcode( $atts ) {
 		$atts = shortcode_atts( array(
 			'hub_key' => '',
@@ -629,19 +638,19 @@ class SEOgen_Plugin {
 			return '<p><em>Error: hub_key attribute is required.</em></p>';
 		}
 
-		// Enforce 3-6 city limit for natural output
-		if ( $limit < 3 ) {
-			$limit = 3;
+		// Enforce 4-8 city limit for natural output
+		if ( $limit < 4 ) {
+			$limit = 4;
 		}
-		if ( $limit > 6 ) {
-			$limit = 6;
+		if ( $limit > 8 ) {
+			$limit = 8;
 		}
 
 		// Query all published city hub pages for this hub
 		$args = array(
 			'post_type' => 'service_page',
 			'post_status' => 'publish',
-			'posts_per_page' => -1, // Get all, we'll randomize selection
+			'posts_per_page' => -1,
 			'meta_query' => array(
 				array(
 					'key' => '_seogen_page_mode',
@@ -673,7 +682,6 @@ class SEOgen_Plugin {
 			$post_id = get_the_ID();
 			$city_meta = get_post_meta( $post_id, '_seogen_city', true );
 			
-			// Parse city and state from meta
 			$city_name = '';
 			$state = '';
 			if ( ! empty( $city_meta ) ) {
@@ -682,7 +690,6 @@ class SEOgen_Plugin {
 				$state = isset( $parts[1] ) ? $parts[1] : '';
 			}
 			
-			// Fallback to title if meta not available
 			if ( empty( $city_name ) ) {
 				$city_name = get_the_title();
 			}
@@ -696,42 +703,57 @@ class SEOgen_Plugin {
 		}
 		wp_reset_postdata();
 
-		// Randomize city selection if more than limit
+		// Deterministic selection based on hub_key hash for consistency
 		if ( count( $cities ) > $limit ) {
+			$seed = crc32( $hub_key );
+			mt_srand( $seed );
 			shuffle( $cities );
 			$cities = array_slice( $cities, 0, $limit );
+			mt_srand(); // Reset
 		}
 
-		// Get service label and trade name for context
-		$service_label = $this->get_service_label_from_hub_key( $hub_key );
+		// Get trade name for anchor text
 		$trade_name = $this->get_trade_name_from_hub_key( $hub_key );
+		$trade_keyword = $this->get_trade_keyword_from_name( $trade_name );
 
-		// Generate natural contextual sentences
+		// Build output with intro + city sentences
 		$output = '<div class="seogen-service-hub-city-links">';
-		$used_anchor_patterns = array();
+		
+		// Add intro sentence
+		$intro = $this->get_city_links_intro( $hub_key, $trade_name );
+		$output .= '<p>' . esc_html( $intro ) . '</p>';
+		
+		// Track used anchor patterns to ensure variety
+		$used_patterns = array();
+		$exact_match_used = false;
 		
 		foreach ( $cities as $index => $city ) {
-			// Generate varied anchor text (never repeat pattern)
-			$anchor_data = $this->generate_natural_anchor_text( 
-				$city['post_id'], 
-				$city['city_name'], 
-				$city['state'], 
-				$service_label,
-				$trade_name,
+			// Generate varied anchor text with electrical/trade keywords
+			$anchor_data = $this->generate_varied_city_anchor(
+				$city['city_name'],
+				$city['state'],
 				$hub_key,
-				$used_anchor_patterns
+				$trade_name,
+				$trade_keyword,
+				$index,
+				$exact_match_used,
+				$used_patterns
 			);
 			
 			$anchor_text = $anchor_data['text'];
-			$used_anchor_patterns[] = $anchor_data['pattern'];
+			$used_patterns[] = $anchor_data['pattern'];
+			if ( $anchor_data['is_exact_match'] ) {
+				$exact_match_used = true;
+			}
 			
-			// Generate contextual sentence with embedded link
-			$sentence = $this->generate_city_context_sentence(
+			// Generate sentence with lead-in + link + local relevance
+			$sentence = $this->generate_improved_city_sentence(
 				$city['city_name'],
 				$city['state'],
 				$anchor_text,
 				$city['permalink'],
 				$hub_key,
+				$trade_keyword,
 				$index
 			);
 			
@@ -765,11 +787,9 @@ class SEOgen_Plugin {
 	}
 
 	private function get_trade_name_from_hub_key( $hub_key ) {
-		// Get business config to retrieve vertical/trade name
 		$config = get_option( 'seogen_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
 		
-		// Map verticals to trade names
 		$trade_names = array(
 			'electrician' => 'electrical services',
 			'plumber' => 'plumbing services',
@@ -787,167 +807,268 @@ class SEOgen_Plugin {
 			'pest-control' => 'pest control services',
 		);
 		
-		// Return mapped trade name or generic fallback
 		if ( isset( $trade_names[ $vertical ] ) ) {
 			return $trade_names[ $vertical ];
 		}
 		
-		// Generic fallback
 		return 'services';
 	}
 
 	/**
-	 * Generate natural anchor text with pattern tracking to avoid repetition
-	 * 
-	 * @param int $post_id City hub post ID
-	 * @param string $city_name City name
-	 * @param string $state State abbreviation
-	 * @param string $service_label Service type (residential, commercial, etc.)
-	 * @param string $trade_name Trade name (electrical services, plumbing, etc.)
-	 * @param string $hub_key Hub key for additional context
-	 * @param array $used_patterns Already used anchor patterns
-	 * @return array ['text' => anchor text, 'pattern' => pattern identifier]
+	 * Extract trade keyword from trade name for anchor text
+	 * e.g., "electrical services" -> "electrical" or "electrician"
 	 */
-	private function generate_natural_anchor_text( $post_id, $city_name, $state, $service_label, $trade_name, $hub_key, $used_patterns ) {
-		// Define anchor text patterns (natural, varied, SEO-safe)
-		$patterns = array(
+	private function get_trade_keyword_from_name( $trade_name ) {
+		$keywords = array(
+			'electrical services' => 'electrical',
+			'plumbing services' => 'plumbing',
+			'HVAC services' => 'HVAC',
+			'roofing services' => 'roofing',
+			'landscaping services' => 'landscaping',
+			'handyman services' => 'handyman',
+			'painting services' => 'painting',
+			'concrete services' => 'concrete',
+			'siding services' => 'siding',
+			'locksmith services' => 'locksmith',
+			'cleaning services' => 'cleaning',
+			'garage door services' => 'garage door',
+			'window services' => 'window',
+			'pest control services' => 'pest control',
+		);
+		
+		if ( isset( $keywords[ $trade_name ] ) ) {
+			return $keywords[ $trade_name ];
+		}
+		
+		// Extract first word as fallback
+		$parts = explode( ' ', $trade_name );
+		return $parts[0];
+	}
+
+	/**
+	 * Get intro sentence for city links section
+	 */
+	private function get_city_links_intro( $hub_key, $trade_name ) {
+		$intros = array(
+			'residential' => "We're proud to serve homeowners throughout the area with professional {$trade_name}.",
+			'commercial' => "Our team provides reliable {$trade_name} to businesses and commercial properties across the region.",
+			'emergency' => "When you need urgent {$trade_name}, we respond quickly to properties throughout the area.",
+		);
+		
+		if ( isset( $intros[ $hub_key ] ) ) {
+			return $intros[ $hub_key ];
+		}
+		
+		return "We provide professional {$trade_name} throughout the area.";
+	}
+
+	/**
+	 * Generate varied anchor text with electrical/trade keywords
+	 * 
+	 * Rules:
+	 * - At most 1 exact-match anchor (e.g., "Residential Electrical Services in City, OK")
+	 * - Others are partial/semantic anchors with trade keywords
+	 * - Always include electrical/electrician or trade-specific keyword
+	 * 
+	 * @return array ['text' => anchor text, 'pattern' => pattern ID, 'is_exact_match' => bool]
+	 */
+	private function generate_varied_city_anchor( $city_name, $state, $hub_key, $trade_name, $trade_keyword, $index, $exact_match_used, $used_patterns ) {
+		$service_label = ucfirst( $this->get_service_label_from_hub_key( $hub_key ) );
+		
+		// Define anchor patterns with trade keywords
+		$patterns = array();
+		
+		// Exact match pattern (only use once)
+		if ( ! $exact_match_used && $index === 0 ) {
+			$state_suffix = ! empty( $state ) ? ', ' . $state : '';
+			$patterns[] = array(
+				'pattern' => 'exact_match',
+				'text' => $service_label . ' ' . ucfirst( $trade_keyword ) . ' Services in ' . $city_name . $state_suffix,
+				'is_exact_match' => true,
+			);
+		}
+		
+		// Partial/semantic anchors with trade keywords
+		$trade_noun = ( 'electrical' === $trade_keyword ) ? 'electricians' : $trade_keyword;
+		
+		$partial_patterns = array(
 			array(
-				'pattern' => 'service_in_city',
-				'text' => $service_label . ' ' . $trade_name . ' in ' . $city_name,
+				'pattern' => 'trade_in_city',
+				'text' => $trade_keyword . ' services in ' . $city_name,
+				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'trade_serving_city',
-				'text' => $trade_name . ' serving ' . $city_name,
+				'pattern' => 'service_trade_city',
+				'text' => strtolower( $service_label ) . ' ' . $trade_noun . ' in ' . $city_name,
+				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'city_service',
-				'text' => $city_name . ' ' . $service_label . ' ' . $trade_name,
+				'pattern' => 'specific_service_city',
+				'text' => $this->get_specific_service_anchor( $hub_key, $trade_keyword, $city_name, $index ),
+				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'licensed_service_city',
-				'text' => 'licensed ' . $service_label . ' ' . $trade_name . ' in ' . $city_name,
+				'pattern' => 'trade_help_city',
+				'text' => $trade_keyword . ' help in ' . $city_name,
+				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'service_near_city',
-				'text' => $service_label . ' ' . $trade_name . ' near ' . $city_name,
-			),
-			array(
-				'pattern' => 'city_trade_specialists',
-				'text' => $city_name . ' ' . $trade_name . ' specialists',
+				'pattern' => 'city_trade',
+				'text' => $city_name . ' ' . $trade_keyword . ' services',
+				'is_exact_match' => false,
 			),
 		);
-
-		// Filter out already used patterns
-		$available_patterns = array_filter( $patterns, function( $pattern ) use ( $used_patterns ) {
-			return ! in_array( $pattern['pattern'], $used_patterns, true );
+		
+		$patterns = array_merge( $patterns, $partial_patterns );
+		
+		// Filter out used patterns
+		$available = array_filter( $patterns, function( $p ) use ( $used_patterns ) {
+			return ! in_array( $p['pattern'], $used_patterns, true );
 		} );
-
-		// If all patterns used, reset (shouldn't happen with 3-6 limit)
-		if ( empty( $available_patterns ) ) {
-			$available_patterns = $patterns;
+		
+		if ( empty( $available ) ) {
+			$available = $partial_patterns; // Reset to partials only
 		}
-
-		// Select pattern deterministically based on post_id to ensure consistency
-		$pattern_index = absint( $post_id ) % count( $available_patterns );
-		$available_patterns = array_values( $available_patterns ); // Re-index
-		$selected = $available_patterns[ $pattern_index ];
-
+		
+		// Select deterministically
+		$available = array_values( $available );
+		$hash = crc32( $hub_key . $city_name . $index );
+		$selected = $available[ $hash % count( $available ) ];
+		
 		return $selected;
 	}
 
 	/**
-	 * Generate contextual sentence with embedded city link
-	 * 
-	 * @param string $city_name City name
-	 * @param string $state State abbreviation
-	 * @param string $anchor_text Anchor text for the link
-	 * @param string $permalink URL to city hub page
-	 * @param string $hub_key Hub key for context generation
-	 * @param int $index Sentence index (0-5)
-	 * @return string Complete sentence with embedded link
+	 * Get specific service anchor text based on hub type
+	 * Examples: "panel upgrades in City", "GFCI installation in City"
 	 */
-	private function generate_city_context_sentence( $city_name, $state, $anchor_text, $permalink, $hub_key, $index ) {
-		// Get service-specific context phrases (8-15 words)
-		$contexts = $this->get_city_context_phrases( $hub_key, $city_name );
-		
-		// Select context deterministically based on index
-		$context_index = $index % count( $contexts );
-		$context = $contexts[ $context_index ];
-
-		// Build the link
-		$link = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
-
-		// Generate sentence templates with embedded link
-		$templates = array(
-			'We provide ' . $link . ', where ' . $context . '.',
-			'Our team offers ' . $link . ', serving areas where ' . $context . '.',
-			'Residents and businesses in ' . $city_name . ' trust our ' . $link . ', especially where ' . $context . '.',
-			'We specialize in ' . $link . ', helping clients where ' . $context . '.',
-			'Our ' . $link . ' support local properties where ' . $context . '.',
-			'We also serve ' . $city_name . ' with ' . $link . ', particularly where ' . $context . '.',
+	private function get_specific_service_anchor( $hub_key, $trade_keyword, $city_name, $index ) {
+		$services = array(
+			'residential' => array(
+				'panel upgrades in ' . $city_name,
+				'GFCI/AFCI safety upgrades in ' . $city_name,
+				'home rewiring in ' . $city_name,
+				'surge protection in ' . $city_name,
+				'dedicated circuits in ' . $city_name,
+			),
+			'commercial' => array(
+				'commercial ' . $trade_keyword . ' in ' . $city_name,
+				'business ' . $trade_keyword . ' services in ' . $city_name,
+				'facility ' . $trade_keyword . ' in ' . $city_name,
+			),
+			'emergency' => array(
+				'emergency ' . $trade_keyword . ' in ' . $city_name,
+				'24/7 ' . $trade_keyword . ' service in ' . $city_name,
+				'urgent ' . $trade_keyword . ' repairs in ' . $city_name,
+			),
 		);
-
-		// Select template deterministically
-		$template_index = ( $index + strlen( $city_name ) ) % count( $templates );
-		return $templates[ $template_index ];
+		
+		$list = isset( $services[ $hub_key ] ) ? $services[ $hub_key ] : array( $trade_keyword . ' services in ' . $city_name );
+		return $list[ $index % count( $list ) ];
 	}
 
 	/**
-	 * Get service-specific context phrases for city mentions
-	 * 
-	 * @param string $hub_key Hub key (residential, commercial, emergency)
-	 * @param string $city_name City name for additional variation
-	 * @return array Context phrases (8-15 words each)
+	 * Generate improved city sentence with:
+	 * - Varied lead-in phrases
+	 * - Hub-specific context (no "businesses" on residential)
+	 * - Local relevance clause
 	 */
-	private function get_city_context_phrases( $hub_key, $city_name ) {
-		$contexts = array();
+	private function generate_improved_city_sentence( $city_name, $state, $anchor_text, $permalink, $hub_key, $trade_keyword, $index ) {
+		// Build link
+		$link = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
+		
+		// Get lead-in phrase (varied, hub-specific)
+		$lead_in = $this->get_varied_lead_in( $city_name, $hub_key, $index );
+		
+		// Get local relevance clause
+		$relevance = $this->get_local_relevance_clause( $hub_key, $index );
+		
+		// Assemble sentence: lead-in + link + relevance
+		return $lead_in . ' ' . $link . ' ' . $relevance . '.';
+	}
 
-		switch ( $hub_key ) {
-			case 'residential':
-				$contexts = array(
-					'many homes require panel upgrades and modern safety features',
-					'homeowners often need circuit expansions for growing families',
-					'older properties benefit from rewiring and code compliance updates',
-					'families prioritize electrical safety and energy efficiency',
-					'home additions and renovations require professional electrical work',
-					'surge protection and smart home integration are in high demand',
-				);
-				break;
-
-			case 'commercial':
-				$contexts = array(
-					'businesses require reliable power systems and minimal downtime',
-					'commercial properties need regular maintenance and compliance inspections',
-					'office buildings depend on efficient lighting and climate control systems',
-					'retail spaces require specialized electrical solutions for operations',
-					'industrial facilities need heavy-duty electrical infrastructure',
-					'commercial clients prioritize energy efficiency and cost management',
-				);
-				break;
-
-			case 'emergency':
-				$contexts = array(
-					'urgent electrical issues require immediate professional response',
-					'power outages and safety hazards need rapid resolution',
-					'emergency repairs prevent property damage and ensure safety',
-					'24/7 availability ensures critical systems stay operational',
-					'fast response times minimize business interruption and risk',
-					'emergency services protect families and properties from electrical hazards',
-				);
-				break;
-
-			default:
-				$contexts = array(
-					'properties require professional electrical services and expertise',
-					'clients need reliable solutions for their electrical systems',
-					'electrical work demands licensed professionals and quality materials',
-					'modern electrical systems require proper installation and maintenance',
-					'safety and code compliance are essential for all projects',
-					'professional service ensures long-term reliability and performance',
-				);
-				break;
+	/**
+	 * Get varied lead-in phrases (hub-specific, no "businesses" on residential)
+	 */
+	private function get_varied_lead_in( $city_name, $hub_key, $index ) {
+		$lead_ins = array();
+		
+		if ( 'residential' === $hub_key ) {
+			$lead_ins = array(
+				'Homeowners in ' . $city_name . ' often call us for',
+				'In ' . $city_name . ', we frequently help with',
+				'If you\'re in ' . $city_name . ', our team can assist with',
+				'Many homes in ' . $city_name . ' need',
+				'Families in ' . $city_name . ' rely on us for',
+				'Property owners in ' . $city_name . ' trust us for',
+			);
+		} elseif ( 'commercial' === $hub_key ) {
+			$lead_ins = array(
+				'Businesses in ' . $city_name . ' depend on us for',
+				'Commercial properties in ' . $city_name . ' need',
+				'In ' . $city_name . ', we provide',
+				'Facility managers in ' . $city_name . ' choose us for',
+				'Companies in ' . $city_name . ' rely on our',
+				'Business owners in ' . $city_name . ' trust our',
+			);
+		} elseif ( 'emergency' === $hub_key ) {
+			$lead_ins = array(
+				'When emergencies strike in ' . $city_name . ', we offer',
+				'Property owners in ' . $city_name . ' call us for',
+				'In ' . $city_name . ', we respond quickly with',
+				'For urgent issues in ' . $city_name . ', we provide',
+				'Residents and businesses in ' . $city_name . ' trust our',
+			);
+		} else {
+			$lead_ins = array(
+				'In ' . $city_name . ', we provide',
+				'Property owners in ' . $city_name . ' choose us for',
+				'Our team serves ' . $city_name . ' with',
+			);
 		}
+		
+		return $lead_ins[ $index % count( $lead_ins ) ];
+	}
 
-		return $contexts;
+	/**
+	 * Get local relevance clause (why it matters)
+	 * Topics: panel upgrades, GFCI/AFCI, rewiring, surge protection, dedicated circuits, safety inspections
+	 */
+	private function get_local_relevance_clause( $hub_key, $index ) {
+		$clauses = array();
+		
+		if ( 'residential' === $hub_key ) {
+			$clauses = array(
+				'for panel upgrades and modern safety features',
+				'when homes need GFCI and AFCI protection',
+				'to update older home wiring to current code',
+				'for surge protection and whole-home safety',
+				'when adding dedicated circuits for appliances',
+				'for comprehensive electrical safety inspections',
+			);
+		} elseif ( 'commercial' === $hub_key ) {
+			$clauses = array(
+				'to minimize downtime and maintain operations',
+				'for code compliance and safety inspections',
+				'when facilities need reliable power systems',
+				'to upgrade aging commercial infrastructure',
+				'for energy-efficient lighting and controls',
+			);
+		} elseif ( 'emergency' === $hub_key ) {
+			$clauses = array(
+				'with 24/7 rapid response',
+				'to resolve urgent safety hazards',
+				'when power outages threaten operations',
+				'for immediate electrical repairs',
+			);
+		} else {
+			$clauses = array(
+				'for professional service and quality work',
+				'when you need licensed expertise',
+				'to ensure safety and code compliance',
+			);
+		}
+		
+		return $clauses[ $index % count( $clauses ) ];
 	}
 }
