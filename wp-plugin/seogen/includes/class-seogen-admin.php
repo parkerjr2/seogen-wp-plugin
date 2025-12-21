@@ -4501,9 +4501,26 @@ class SEOgen_Admin {
 				}
 			}
 
-			// Inject parent hub link shortcode at bottom of City Hub pages
-			$parent_hub_link_block = "\n\n" . '<!-- wp:shortcode -->[seogen_parent_hub_link]<!-- /wp:shortcode -->';
-			$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+			// Inject parent hub link at bottom of City Hub pages
+			// Generate link directly instead of using shortcode to avoid rendering issues
+			$hub_post_id = $this->find_service_hub_post_id( $hub_key );
+			if ( $hub_post_id > 0 ) {
+				$parent_hub_url = get_permalink( $hub_post_id );
+				$parent_hub_title = get_the_title( $hub_post_id );
+				
+				// Clean title: Remove trailing city/state if present
+				$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $parent_hub_title );
+				$clean_title = preg_replace( '/\s+services$/i', '', $clean_title );
+				$clean_title = trim( $clean_title );
+				
+				// Generate link HTML
+				$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
+				$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
+				
+				// Inject as HTML block
+				$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->';
+				$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+			}
 
 			$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
 
@@ -4881,11 +4898,26 @@ class SEOgen_Admin {
 			}
 		}
 
-		// Inject parent hub link shortcode at bottom of City Hub pages
-		$parent_hub_link_block = "\n\n" . '<!-- wp:shortcode -->[seogen_parent_hub_link]<!-- /wp:shortcode -->';
-		$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
-
+		// Inject parent hub link at bottom of City Hub pages
+		// Generate link directly instead of using shortcode to avoid rendering issues
 		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
+		if ( $hub_post_id > 0 ) {
+			$parent_hub_url = get_permalink( $hub_post_id );
+			$parent_hub_title = get_the_title( $hub_post_id );
+			
+			// Clean title: Remove trailing city/state if present
+			$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $parent_hub_title );
+			$clean_title = preg_replace( '/\s+services$/i', '', $clean_title );
+			$clean_title = trim( $clean_title );
+			
+			// Generate link HTML
+			$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
+			$parent_hub_link_html = '<p class="seogen-parent-hub-link">← <a href="' . esc_url( $parent_hub_url ) . '">' . $link_text . '</a></p>';
+			
+			// Inject as HTML block
+			$parent_hub_link_block = "\n\n" . '<!-- wp:html -->' . $parent_hub_link_html . '<!-- /wp:html -->';
+			$gutenberg_markup = $gutenberg_markup . $parent_hub_link_block;
+		}
 		$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
 
 		$postarr = array(
