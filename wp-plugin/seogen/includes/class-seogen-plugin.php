@@ -847,22 +847,22 @@ class SEOgen_Plugin {
 
 	/**
 	 * Get intro sentence for city links section
+	 * Single natural sentence focusing on service coverage + homeowner benefit
 	 */
 	private function get_city_links_intro( $hub_key, $trade_name ) {
-		// Extract trade keyword (e.g., "electrical" from "electrical services")
 		$trade_keyword = $this->get_trade_keyword_from_name( $trade_name );
 		
 		$intros = array(
-			'residential' => "We're proud to serve homeowners throughout the area with professional {$trade_keyword} work.",
-			'commercial' => "Our team provides reliable {$trade_keyword} solutions to businesses and commercial properties across the region.",
-			'emergency' => "When you need urgent {$trade_keyword} help, we respond quickly to properties throughout the area.",
+			'residential' => "Our {$trade_keyword} team serves homeowners across the region with panel upgrades, rewiring, and safety improvements.",
+			'commercial' => "We provide {$trade_keyword} solutions to businesses and commercial facilities throughout the area.",
+			'emergency' => "When {$trade_keyword} emergencies happen, our team responds quickly across the region.",
 		);
 		
 		if ( isset( $intros[ $hub_key ] ) ) {
 			return $intros[ $hub_key ];
 		}
 		
-		return "We provide professional {$trade_keyword} service throughout the area.";
+		return "We serve the area with professional {$trade_keyword} solutions.";
 	}
 
 	/**
@@ -972,107 +972,56 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Generate improved city sentence with:
-	 * - Varied lead-in phrases
-	 * - Hub-specific context (no "businesses" on residential)
-	 * - Local relevance clause
+	 * Generate natural city sentence with varied structures
+	 * Each sentence uses different pattern and includes electrical keyword naturally
 	 */
 	private function generate_improved_city_sentence( $city_name, $state, $anchor_text, $permalink, $hub_key, $trade_keyword, $index ) {
-		// Build link
 		$link = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
 		
-		// Get lead-in phrase (varied, hub-specific)
-		$lead_in = $this->get_varied_lead_in( $city_name, $hub_key, $index );
-		
-		// Get local relevance clause
-		$relevance = $this->get_local_relevance_clause( $hub_key, $index );
-		
-		// Assemble sentence: lead-in + link + relevance
-		return $lead_in . ' ' . $link . ' ' . $relevance . '.';
+		// Get natural sentence with varied structure
+		return $this->get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index );
 	}
 
 	/**
-	 * Get varied lead-in phrases (hub-specific, no "businesses" on residential)
+	 * Generate natural sentence with city name at end or middle
+	 * Each pattern is structurally different and includes electrical keyword naturally
 	 */
-	private function get_varied_lead_in( $city_name, $hub_key, $index ) {
-		$lead_ins = array();
-		
+	private function get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index ) {
 		if ( 'residential' === $hub_key ) {
-			$lead_ins = array(
-				'Homeowners in ' . $city_name . ' often call us for',
-				'In ' . $city_name . ', we frequently help with',
-				'If you\'re in ' . $city_name . ', our team can assist with',
-				'Many homes in ' . $city_name . ' need',
-				'Families in ' . $city_name . ' rely on us for',
-				'Property owners in ' . $city_name . ' trust us for',
+			$patterns = array(
+				'Homeowners in ' . $city_name . ' often contact us for ' . $link . ' and modern safety improvements.',
+				'In ' . $city_name . ', many homes benefit from ' . $link . ' to meet current electrical codes.',
+				'If you live in ' . $city_name . ', our electricians can help with ' . $link . '.',
+				'We regularly assist homeowners in ' . $city_name . ' with ' . $link . ' and circuit upgrades.',
+				'Many residential properties in ' . $city_name . ' require ' . $link . ' for safety and compliance.',
+				'Our team helps families in ' . $city_name . ' with ' . $link . ' and whole-home electrical improvements.',
+				'Older homes in ' . $city_name . ' often need ' . $link . ' to handle modern electrical demands.',
+				'Property owners in ' . $city_name . ' trust our team for ' . $link . ' and panel replacements.',
 			);
 		} elseif ( 'commercial' === $hub_key ) {
-			$lead_ins = array(
-				'Businesses in ' . $city_name . ' depend on us for',
-				'Commercial properties in ' . $city_name . ' need',
-				'In ' . $city_name . ', we provide',
-				'Facility managers in ' . $city_name . ' choose us for',
-				'Companies in ' . $city_name . ' rely on our',
-				'Business owners in ' . $city_name . ' trust our',
+			$patterns = array(
+				'Businesses in ' . $city_name . ' depend on our team for ' . $link . ' and facility upgrades.',
+				'In ' . $city_name . ', we provide ' . $link . ' to minimize downtime and maintain operations.',
+				'Commercial properties in ' . $city_name . ' need ' . $link . ' for code compliance and safety.',
+				'Facility managers in ' . $city_name . ' choose us for ' . $link . ' and electrical system maintenance.',
+				'Our team serves businesses in ' . $city_name . ' with ' . $link . ' and power distribution solutions.',
 			);
 		} elseif ( 'emergency' === $hub_key ) {
-			$lead_ins = array(
-				'When emergencies strike in ' . $city_name . ', we offer',
-				'Property owners in ' . $city_name . ' call us for',
-				'In ' . $city_name . ', we respond quickly with',
-				'For urgent issues in ' . $city_name . ', we provide',
-				'Residents and businesses in ' . $city_name . ' trust our',
+			$patterns = array(
+				'When electrical emergencies happen in ' . $city_name . ', we provide ' . $link . ' with rapid response.',
+				'Property owners in ' . $city_name . ' call us for ' . $link . ' and urgent electrical repairs.',
+				'In ' . $city_name . ', our team responds quickly with ' . $link . ' to resolve safety hazards.',
+				'For urgent electrical issues in ' . $city_name . ', we offer ' . $link . ' around the clock.',
 			);
 		} else {
-			$lead_ins = array(
-				'In ' . $city_name . ', we provide',
-				'Property owners in ' . $city_name . ' choose us for',
-				'Our team serves ' . $city_name . ' with',
+			$patterns = array(
+				'In ' . $city_name . ', we provide ' . $link . ' for residential and commercial properties.',
+				'Property owners in ' . $city_name . ' choose our team for ' . $link . '.',
+				'Our electricians serve ' . $city_name . ' with ' . $link . ' and electrical solutions.',
 			);
 		}
 		
-		return $lead_ins[ $index % count( $lead_ins ) ];
+		return $patterns[ $index % count( $patterns ) ];
 	}
 
-	/**
-	 * Get local relevance clause (why it matters)
-	 * Topics: panel upgrades, GFCI/AFCI, rewiring, surge protection, dedicated circuits, safety inspections
-	 */
-	private function get_local_relevance_clause( $hub_key, $index ) {
-		$clauses = array();
-		
-		if ( 'residential' === $hub_key ) {
-			$clauses = array(
-				'for panel upgrades and modern safety features',
-				'when homes need GFCI and AFCI protection',
-				'to update older home wiring to current code',
-				'for surge protection and whole-home safety',
-				'when adding dedicated circuits for appliances',
-				'for comprehensive electrical safety inspections',
-			);
-		} elseif ( 'commercial' === $hub_key ) {
-			$clauses = array(
-				'to minimize downtime and maintain operations',
-				'for code compliance and safety inspections',
-				'when facilities need reliable power systems',
-				'to upgrade aging commercial infrastructure',
-				'for energy-efficient lighting and controls',
-			);
-		} elseif ( 'emergency' === $hub_key ) {
-			$clauses = array(
-				'with 24/7 rapid response',
-				'to resolve urgent safety hazards',
-				'when power outages threaten operations',
-				'for immediate electrical repairs',
-			);
-		} else {
-			$clauses = array(
-				'for professional service and quality work',
-				'when you need licensed expertise',
-				'to ensure safety and code compliance',
-			);
-		}
-		
-		return $clauses[ $index % count( $clauses ) ];
-	}
 }
