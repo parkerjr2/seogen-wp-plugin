@@ -849,17 +849,20 @@ class SEOgen_Plugin {
 	 * Get intro sentence for city links section
 	 */
 	private function get_city_links_intro( $hub_key, $trade_name ) {
+		// Extract trade keyword (e.g., "electrical" from "electrical services")
+		$trade_keyword = $this->get_trade_keyword_from_name( $trade_name );
+		
 		$intros = array(
-			'residential' => "We're proud to serve homeowners throughout the area with professional {$trade_name}.",
-			'commercial' => "Our team provides reliable {$trade_name} to businesses and commercial properties across the region.",
-			'emergency' => "When you need urgent {$trade_name}, we respond quickly to properties throughout the area.",
+			'residential' => "We're proud to serve homeowners throughout the area with professional {$trade_keyword} work.",
+			'commercial' => "Our team provides reliable {$trade_keyword} solutions to businesses and commercial properties across the region.",
+			'emergency' => "When you need urgent {$trade_keyword} help, we respond quickly to properties throughout the area.",
 		);
 		
 		if ( isset( $intros[ $hub_key ] ) ) {
 			return $intros[ $hub_key ];
 		}
 		
-		return "We provide professional {$trade_name} throughout the area.";
+		return "We provide professional {$trade_keyword} service throughout the area.";
 	}
 
 	/**
@@ -889,17 +892,18 @@ class SEOgen_Plugin {
 		}
 		
 		// Partial/semantic anchors with trade keywords
-		$trade_noun = ( 'electrical' === $trade_keyword ) ? 'electricians' : $trade_keyword;
+		$trade_noun = ( 'electrical' === $trade_keyword ) ? 'electrician' : $trade_keyword;
+		$trade_plural = ( 'electrical' === $trade_keyword ) ? 'electricians' : $trade_keyword;
 		
 		$partial_patterns = array(
 			array(
-				'pattern' => 'trade_in_city',
-				'text' => $trade_keyword . ' services in ' . $city_name,
+				'pattern' => 'trade_work_city',
+				'text' => $trade_keyword . ' work in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
 				'pattern' => 'service_trade_city',
-				'text' => strtolower( $service_label ) . ' ' . $trade_noun . ' in ' . $city_name,
+				'text' => strtolower( $service_label ) . ' ' . $trade_plural . ' in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
@@ -908,13 +912,13 @@ class SEOgen_Plugin {
 				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'trade_help_city',
-				'text' => $trade_keyword . ' help in ' . $city_name,
+				'pattern' => 'trade_noun_city',
+				'text' => $trade_noun . ' in ' . $city_name,
 				'is_exact_match' => false,
 			),
 			array(
-				'pattern' => 'city_trade',
-				'text' => $city_name . ' ' . $trade_keyword . ' services',
+				'pattern' => 'city_trade_work',
+				'text' => $city_name . ' ' . $trade_keyword . ' work',
 				'is_exact_match' => false,
 			),
 		);
@@ -945,25 +949,25 @@ class SEOgen_Plugin {
 	private function get_specific_service_anchor( $hub_key, $trade_keyword, $city_name, $index ) {
 		$services = array(
 			'residential' => array(
-				'panel upgrades in ' . $city_name,
-				'GFCI/AFCI safety upgrades in ' . $city_name,
+				$trade_keyword . ' panel upgrades in ' . $city_name,
+				'GFCI/AFCI installation in ' . $city_name,
 				'home rewiring in ' . $city_name,
-				'surge protection in ' . $city_name,
-				'dedicated circuits in ' . $city_name,
+				$trade_keyword . ' surge protection in ' . $city_name,
+				'dedicated circuit installation in ' . $city_name,
 			),
 			'commercial' => array(
-				'commercial ' . $trade_keyword . ' in ' . $city_name,
-				'business ' . $trade_keyword . ' services in ' . $city_name,
-				'facility ' . $trade_keyword . ' in ' . $city_name,
+				'commercial ' . $trade_keyword . ' work in ' . $city_name,
+				'business ' . $trade_keyword . ' in ' . $city_name,
+				'facility ' . $trade_keyword . ' upgrades in ' . $city_name,
 			),
 			'emergency' => array(
-				'emergency ' . $trade_keyword . ' in ' . $city_name,
-				'24/7 ' . $trade_keyword . ' service in ' . $city_name,
+				'emergency ' . $trade_keyword . ' service in ' . $city_name,
+				'24/7 ' . $trade_keyword . ' help in ' . $city_name,
 				'urgent ' . $trade_keyword . ' repairs in ' . $city_name,
 			),
 		);
 		
-		$list = isset( $services[ $hub_key ] ) ? $services[ $hub_key ] : array( $trade_keyword . ' services in ' . $city_name );
+		$list = isset( $services[ $hub_key ] ) ? $services[ $hub_key ] : array( $trade_keyword . ' work in ' . $city_name );
 		return $list[ $index % count( $list ) ];
 	}
 
