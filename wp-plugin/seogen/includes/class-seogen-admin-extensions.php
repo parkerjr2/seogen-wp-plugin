@@ -30,6 +30,19 @@ trait SEOgen_Admin_Extensions {
 		return $services;
 	}
 
+	private function get_hubs() {
+		$config = $this->get_business_config();
+		return isset( $config['hubs'] ) && is_array( $config['hubs'] ) ? $config['hubs'] : array();
+	}
+
+	private function get_cities() {
+		$cities = get_option( 'hyper_local_cities_cache', array() );
+		if ( ! is_array( $cities ) ) {
+			$cities = array();
+		}
+		return $cities;
+	}
+
 	private function get_available_verticals() {
 		return array(
 			'roofer' => 'Roofer',
