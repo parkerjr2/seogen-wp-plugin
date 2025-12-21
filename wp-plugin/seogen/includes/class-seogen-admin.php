@@ -554,7 +554,15 @@ class SEOgen_Admin {
 			}
 
 			if ( 'paragraph' === $type ) {
-				$text = isset( $block['text'] ) ? esc_html( (string) $block['text'] ) : '';
+				$text_raw = isset( $block['text'] ) ? (string) $block['text'] : '';
+				// Check if text contains shortcodes - if so, preserve them
+				if ( preg_match( '/\[seogen_[^\]]+\]/', $text_raw ) ) {
+					// Text contains shortcodes - escape everything except shortcodes
+					$text = wp_kses_post( $text_raw );
+				} else {
+					// No shortcodes - escape normally
+					$text = esc_html( $text_raw );
+				}
 
 				if ( ! $hero_emitted && null !== $hero_heading_text && null === $hero_paragraph_text ) {
 					$hero_paragraph_text = $text;
