@@ -4485,8 +4485,9 @@ class SEOgen_Admin {
 
 			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
 
-			// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication)
-			$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city );
+			// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication, city nuance)
+			$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+			$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city, $vertical );
 
 			$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 			if ( $header_template_id > 0 ) {
@@ -4871,8 +4872,9 @@ class SEOgen_Admin {
 
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
 
-		// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication)
-		$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city );
+		// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication, city nuance)
+		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+		$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city, $vertical );
 
 		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
 		if ( $header_template_id > 0 ) {
