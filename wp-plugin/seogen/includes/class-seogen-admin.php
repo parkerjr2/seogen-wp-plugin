@@ -4078,6 +4078,12 @@ class SEOgen_Admin {
 		echo '</p>';
 		echo '</form>';
 
+		echo '<div id="city_hub_progress" style="display:none; margin-top: 20px; padding: 15px; background: #fff; border-left: 4px solid #2271b1;">
+			<p><strong>Generating City Hub Pages...</strong></p>
+			<p>This may take 10-30 seconds per city. Please wait and do not close this page.</p>
+			<p><span class="spinner is-active" style="float: none; margin: 0;"></span> Processing...</p>
+		</div>';
+
 		echo '<script>
 		jQuery(document).ready(function($) {
 			$("#create_city_hubs_btn").on("click", function() {
@@ -4094,9 +4100,22 @@ class SEOgen_Admin {
 					return;
 				}
 				
-				if (!confirm("Create/update " + citySlugs.length + " city hub page(s)?")) {
+				var cityCount = citySlugs.length;
+				var estimatedTime = cityCount * 20; // 20 seconds average per city
+				var minutes = Math.ceil(estimatedTime / 60);
+				
+				var message = "Create/update " + cityCount + " city hub page(s)?\\n\\n";
+				message += "Estimated time: " + minutes + " minute(s)\\n";
+				message += "Each page requires AI generation (10-30 seconds per city).\\n\\n";
+				message += "The pages will be created even if you see a timeout error.";
+				
+				if (!confirm(message)) {
 					return;
 				}
+				
+				// Show progress indicator
+				$("#city_hub_progress").show();
+				$(this).prop("disabled", true).text("Generating...");
 				
 				$("#bulk_hub_key").val(hubKey);
 				$("#city_slugs_bulk").val(citySlugs.join(","));
@@ -4242,6 +4261,13 @@ class SEOgen_Admin {
 		if ( '' === $hub_key || empty( $city_slugs ) ) {
 			wp_die( 'Missing hub_key or city_slugs' );
 		}
+
+		// Increase execution time for bulk operations
+		// Each city hub takes 10-30 seconds to generate via AI
+		// Allow 60 seconds per city + 60 second buffer
+		$timeout = ( count( $city_slugs ) * 60 ) + 60;
+		set_time_limit( $timeout );
+		ini_set( 'max_execution_time', $timeout );
 
 		$config = $this->get_business_config();
 		$hubs = $this->get_hubs();
@@ -4429,9 +4455,10 @@ class SEOgen_Admin {
 		}
 
 		$redirect_url = admin_url( 'admin.php?page=hyper-local-city-hubs' );
-		$message = "Created: $created_count, Updated: $updated_count";
+		$total_processed = $created_count + $updated_count + count( $errors );
+		$message = "Processed $total_processed city hubs: Created $created_count, Updated $updated_count";
 		if ( ! empty( $errors ) ) {
-			$message .= ' | Errors: ' . implode( ', ', $errors );
+			$message .= ' | ' . count( $errors ) . ' errors occurred';
 		}
 		$redirect_url = add_query_arg( 'message', urlencode( $message ), $redirect_url );
 		wp_safe_redirect( $redirect_url );
