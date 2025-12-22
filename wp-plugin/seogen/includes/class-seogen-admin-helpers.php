@@ -295,23 +295,44 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		
 		// STEP 1: Remove ALL duplicate/redundant service sections
 	
-		// Remove "Services Available in {City}" heading (duplicate)
+		// Remove "Services Available in {City}" heading (duplicate) - Gutenberg format
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
 			$markup
 		);
 		
-		// Remove "Services Available Locally" heading (duplicate) - CRITICAL
+		// Remove "Services Available in {City}" heading (duplicate) - Plain HTML format
+		$markup = preg_replace(
+			'/<h[23][^>]*>Services Available[^<]*<\/h[23]>/i',
+			'',
+			$markup
+		);
+		
+		// Remove "Services Available Locally" heading - Gutenberg format
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available Locally<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
 			$markup
 		);
 		
-		// Remove "Services Locally" or "Services in {City}" headings (duplicates)
+		// Remove "Services Available Locally" heading - Plain HTML format (CRITICAL)
+		$markup = preg_replace(
+			'/<h[23][^>]*>Services Available Locally<\/h[23]>/i',
+			'',
+			$markup
+		);
+		
+		// Remove "Services Locally" or "Services in {City}" headings - Gutenberg format
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>\s*<!-- \/wp:heading -->/i',
+			'',
+			$markup
+		);
+		
+		// Remove "Services Locally" or "Services in {City}" headings - Plain HTML format
+		$markup = preg_replace(
+			'/<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>/i',
 			'',
 			$markup
 		);
@@ -327,6 +348,14 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// This will remove the duplicate service list that appears after FAQ
 		$markup = preg_replace_callback(
 			'/<!-- wp:list[^>]*-->\s*<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>\s*<!-- \/wp:list -->/is',
+			array( $this, 'remove_service_list_callback' ),
+			$markup
+		);
+		
+		// AGGRESSIVE: Remove any standalone <ul> lists that contain 2+ service page links
+		// This catches plain HTML lists that aren't wrapped in Gutenberg blocks
+		$markup = preg_replace_callback(
+			'/<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>/is',
 			array( $this, 'remove_service_list_callback' ),
 			$markup
 		);
