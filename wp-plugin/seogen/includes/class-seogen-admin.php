@@ -3432,6 +3432,52 @@ class SEOgen_Admin {
 					update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
 					update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
 
+					// Store _seogen meta keys for City Hub service links query compatibility
+					update_post_meta( $post_id, '_seogen_page_mode', 'service_city' );
+					
+					// Extract service, city, state from job row data
+					if ( isset( $job['rows'][ $idx ] ) ) {
+						$row = $job['rows'][ $idx ];
+						
+						// Store service name and slug
+						if ( isset( $row['service'] ) && ! empty( $row['service'] ) ) {
+							$service_name = sanitize_text_field( $row['service'] );
+							update_post_meta( $post_id, '_seogen_service_name', $service_name );
+							update_post_meta( $post_id, '_seogen_service_slug', sanitize_title( $service_name ) );
+							
+							// Try to determine hub_key from service name
+							$services = $this->get_services();
+							if ( ! empty( $services ) ) {
+								foreach ( $services as $service ) {
+									if ( isset( $service['name'], $service['hub_key'] ) && strtolower( $service['name'] ) === strtolower( $service_name ) ) {
+										update_post_meta( $post_id, '_seogen_hub_key', $service['hub_key'] );
+										break;
+									}
+								}
+							}
+						}
+						
+						// Store city and city_slug
+						if ( isset( $row['city'] ) && ! empty( $row['city'] ) ) {
+							$city = sanitize_text_field( $row['city'] );
+							$state = isset( $row['state'] ) && ! empty( $row['state'] ) ? sanitize_text_field( $row['state'] ) : '';
+							
+							if ( ! empty( $state ) ) {
+								update_post_meta( $post_id, '_seogen_city', $city . ', ' . $state );
+								update_post_meta( $post_id, '_seogen_city_slug', sanitize_title( $city . '-' . $state ) );
+							} else {
+								update_post_meta( $post_id, '_seogen_city', $city );
+								update_post_meta( $post_id, '_seogen_city_slug', sanitize_title( $city ) );
+							}
+						}
+						
+						// Store vertical from business config
+						$config = $this->get_business_config();
+						if ( isset( $config['vertical'] ) && ! empty( $config['vertical'] ) ) {
+							update_post_meta( $post_id, '_seogen_vertical', $config['vertical'] );
+						}
+					}
+
 					// Apply page builder settings to disable theme header/footer if configured
 					if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
 						$this->apply_page_builder_settings( $post_id );
