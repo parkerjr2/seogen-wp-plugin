@@ -252,6 +252,22 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
+	 * Callback for removing service list blocks
+	 * 
+	 * Only removes list blocks that contain multiple service page links.
+	 * 
+	 * @param array $matches Regex matches
+	 * @return string Empty string to remove, or original match to keep
+	 */
+	private function remove_service_list_callback( $matches ) {
+		// Only remove if it contains multiple service page links
+		if ( substr_count( $matches[0], '<a href=' ) >= 2 ) {
+			return '';
+		}
+		return $matches[0];
+	}
+
+	/**
 	 * Integrate service links section naturally into City Hub content
 	 * 
 	 * Removes redundant "Services We Offer" section and integrates service links
@@ -311,16 +327,10 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		);
 		
 		// 5. Remove any list blocks that contain service page links
-		// Pattern: list block with multiple links to service pages
-		$markup = preg_replace(
+		// Use preg_replace_callback for PHP compatibility
+		$markup = preg_replace_callback(
 			'/<!-- wp:list[^>]*-->\s*<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>\s*<!-- \/wp:list -->/is',
-			function( $matches ) {
-				// Only remove if it contains multiple service page links
-				if ( substr_count( $matches[0], '<a href=' ) >= 2 ) {
-					return '';
-				}
-				return $matches[0];
-			},
+			array( $this, 'remove_service_list_callback' ),
 			$markup
 		);
 		
