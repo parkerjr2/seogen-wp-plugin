@@ -5083,6 +5083,7 @@ class SEOgen_Admin {
 		update_post_meta( $post_id, '_seogen_city_slug', $city['slug'] );
 		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
+		update_post_meta( $post_id, '_seogen_links_integrated', '1' );
 
 		// Apply page builder settings with template validation bypass to prevent errors
 		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {

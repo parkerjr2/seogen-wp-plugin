@@ -369,6 +369,9 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	/**
 	 * Fallback: Insert service links when no "Services We Offer" heading exists
 	 * 
+	 * Inserts ONLY the canonical service links block - no extra headings, no separators.
+	 * Matches Service Hub placement strategy.
+	 * 
 	 * @param string $markup Gutenberg markup
 	 * @param string $hub_key Hub key
 	 * @param string $city_slug City slug
@@ -377,16 +380,9 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 * @return string Enhanced markup
 	 */
 	private function insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state ) {
-		// Create "Services We Offer" heading + intro + service links
-		$service_section = "<!-- wp:heading -->\n";
-		$service_section .= "<h2>Services We Offer</h2>\n";
-		$service_section .= "<!-- /wp:heading -->\n\n";
-		
-		$service_section .= "<!-- wp:paragraph -->\n";
-		$service_section .= "<p>We provide professional services throughout " . esc_html( $city_name ) . ", " . esc_html( $state ) . ".</p>\n";
-		$service_section .= "<!-- /wp:paragraph -->\n\n";
-		
-		$service_section .= $this->render_city_service_links_block( $hub_key, $city_slug, $city_name, $state );
+		// Render ONLY the canonical service links block
+		// NO extra "Services We Offer" heading, NO "Services Locally", NO separators
+		$service_links_block = $this->render_city_service_links_block( $hub_key, $city_slug, $city_name, $state );
 		
 		// Insert before FAQ or before last H2 or at end
 		$faq_patterns = array(
@@ -398,23 +394,24 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		foreach ( $faq_patterns as $pattern ) {
 			if ( preg_match( $pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
 				$insert_pos = $matches[0][1];
-				$markup = substr_replace( $markup, $service_section . "\n\n", $insert_pos, 0 );
+				$markup = substr_replace( $markup, $service_links_block . "\n\n", $insert_pos, 0 );
 				$inserted = true;
 				break;
 			}
 		}
 		
 		if ( ! $inserted ) {
-			// Find last H2 heading
+			// Find last H2 heading (usually "Why Choose Us")
 			if ( preg_match_all( '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>/i', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
 				$last_h2_pos = end( $matches[0] )[1];
-				$markup = substr_replace( $markup, $service_section . "\n\n", $last_h2_pos, 0 );
+				$markup = substr_replace( $markup, $service_links_block . "\n\n", $last_h2_pos, 0 );
 				$inserted = true;
 			}
 		}
 		
 		if ( ! $inserted ) {
-			$markup .= "\n\n" . $service_section;
+			// Append to end as last resort
+			$markup .= "\n\n" . $service_links_block;
 		}
 		
 		return $markup;

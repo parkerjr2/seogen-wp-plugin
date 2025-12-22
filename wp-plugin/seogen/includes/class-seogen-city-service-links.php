@@ -37,9 +37,8 @@ class SEOgen_City_Service_Links {
 	 * @return string Modified content
 	 */
 	public function inject_service_links_into_city_hub( $content ) {
-		// DEPRECATED: Service links are now integrated at generation time for City Hubs
-		// This function is kept for backward compatibility with older City Hub pages
-		// that were generated before the integration feature was added.
+		// BACKWARD COMPATIBILITY ONLY: Service links are now integrated at generation time
+		// This function only runs for legacy City Hub pages created before integration.
 		
 		// Only run on singular city_hub pages
 		if ( ! is_singular( 'service_page' ) ) {
@@ -57,13 +56,19 @@ class SEOgen_City_Service_Links {
 			return $content;
 		}
 
-		// Check if service links already exist in content
-		// New City Hubs have service links integrated at generation time
-		// Only inject for old City Hubs that don't have them yet
+		// CRITICAL: Check if links are already integrated at generation time
+		$links_integrated = get_post_meta( $post_id, '_seogen_links_integrated', true );
+		if ( '1' === $links_integrated ) {
+			// New City Hub with integrated links - NEVER inject
+			return $content;
+		}
+
+		// Check if service links already exist in content (legacy detection)
+		// Only inject for truly legacy City Hubs that have no links at all
 		if ( false !== strpos( $content, '[seogen_city_service_links]' ) || 
 		     false !== strpos( $content, '[seogen_city_hub_links]' ) ||
 		     false !== strpos( $content, 'seogen-hub-links' ) ) {
-			// Service links already present (either old shortcode or new integrated section)
+			// Service links already present - skip injection
 			return $content;
 		}
 
