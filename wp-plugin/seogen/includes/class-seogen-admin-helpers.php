@@ -252,6 +252,115 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
+	 * Integrate service links section naturally into City Hub content
+	 * 
+	 * Removes redundant "Services We Offer" section and integrates service links
+	 * with proper heading structure to match Service Hub navigation feel.
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $hub_key Hub key
+	 * @param string $city_slug City slug
+	 * @param array $city City data
+	 * @return string Enhanced markup with integrated service links section
+	 */
+	private function integrate_service_links_section( $markup, $hub_key, $city_slug, $city ) {
+		// Check if service links already exist in content
+		if ( false !== strpos( $markup, 'seogen-hub-links' ) || 
+		     false !== strpos( $markup, '[seogen_city_service_links]' ) ||
+		     false !== strpos( $markup, '[seogen_city_hub_links]' ) ) {
+			// Service links already present, don't add again
+			return $markup;
+		}
+		
+		$city_name = isset( $city['name'] ) ? $city['name'] : '';
+		$state = isset( $city['state'] ) ? $city['state'] : '';
+		
+		if ( empty( $city_name ) || empty( $hub_key ) || empty( $city_slug ) ) {
+			return $markup;
+		}
+		
+		// Remove redundant "Services We Offer" heading and generic intro paragraph
+		// Pattern: H2 "Services We Offer" followed by generic paragraph
+		$markup = preg_replace(
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->\s*<!-- wp:paragraph[^>]*-->\s*<p[^>]*>We provide[^<]*<\/p>\s*<!-- \/wp:paragraph -->/i',
+			'',
+			$markup
+		);
+		
+		// Also remove standalone "Services We Offer" heading
+		$markup = preg_replace(
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->/i',
+			'',
+			$markup
+		);
+		
+		// Remove "Services Available in {City}" heading if present (will be replaced)
+		$markup = preg_replace(
+			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available in[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
+			'',
+			$markup
+		);
+		
+		// Build service links section with proper heading
+		$section_heading = "Services in {$city_name}, {$state}";
+		
+		// Create intro paragraph for the services section
+		$intro_text = "Explore our services in {$city_name}. Click a service below to see details, common issues, and what to expect.";
+		
+		// Render service links HTML using the existing renderer
+		// We'll call the renderer method directly to get the HTML
+		$service_links_instance = new SEOgen_City_Service_Links();
+		$service_links_html = $service_links_instance->render_service_links_html( $hub_key, $city_slug );
+		
+		// Build the complete service links section as Gutenberg blocks
+		$service_section = "\n\n<!-- wp:heading -->\n";
+		$service_section .= "<h2>" . esc_html( $section_heading ) . "</h2>\n";
+		$service_section .= "<!-- /wp:heading -->\n\n";
+		
+		$service_section .= "<!-- wp:paragraph -->\n";
+		$service_section .= "<p>" . esc_html( $intro_text ) . "</p>\n";
+		$service_section .= "<!-- /wp:paragraph -->\n\n";
+		
+		$service_section .= "<!-- wp:html -->\n";
+		$service_section .= $service_links_html . "\n";
+		$service_section .= "<!-- /wp:html -->\n\n";
+		
+		// Insert service links section before FAQ if it exists, otherwise before last section
+		$faq_patterns = array(
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>.*?FAQ.*?<\/h2>\s*<!-- \/wp:heading -->/i',
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>.*?Frequently Asked Questions.*?<\/h2>\s*<!-- \/wp:heading -->/i',
+		);
+		
+		$inserted = false;
+		foreach ( $faq_patterns as $pattern ) {
+			if ( preg_match( $pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+				// Insert before FAQ heading
+				$insert_pos = $matches[0][1];
+				$markup = substr_replace( $markup, $service_section, $insert_pos, 0 );
+				$inserted = true;
+				break;
+			}
+		}
+		
+		// If no FAQ found, insert before the last H2 heading (usually "Why Choose Us" or similar)
+		if ( ! $inserted ) {
+			// Find last H2 heading
+			if ( preg_match_all( '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>/i', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+				$last_h2_pos = end( $matches[0] )[1];
+				$markup = substr_replace( $markup, $service_section, $last_h2_pos, 0 );
+				$inserted = true;
+			}
+		}
+		
+		// If still not inserted, append to end
+		if ( ! $inserted ) {
+			$markup .= $service_section;
+		}
+		
+		return $markup;
+	}
+
+	/**
 	 * Remove service enumeration paragraphs from City Hub content
 	 * 
 	 * Detects and removes paragraphs that enumerate specific services (doorway-style content).
@@ -976,6 +1085,14 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// Append explanatory sentence to generic intros to reduce templated feel
 		// and add local context. Does NOT replace AI-generated content.
 		$markup = $this->enhance_generic_city_hub_intro( $markup, $hub_key, $city['slug'] );
+		
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 1.7: Integrate service links section naturally (CONTENT COMPOSITION)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// Remove redundant "Services We Offer" section and integrate service links
+		// with proper heading structure at generation time (not render-time injection).
+		// This makes service links feel authored, not dropped in.
+		$markup = $this->integrate_service_links_section( $markup, $hub_key, $city['slug'], $city );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 2: Add EXACTLY ONE city-specific differentiator (LOCAL SEO + SCALE SAFETY GUARD)

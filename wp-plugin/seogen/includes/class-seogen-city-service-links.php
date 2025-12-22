@@ -37,6 +37,10 @@ class SEOgen_City_Service_Links {
 	 * @return string Modified content
 	 */
 	public function inject_service_links_into_city_hub( $content ) {
+		// DEPRECATED: Service links are now integrated at generation time for City Hubs
+		// This function is kept for backward compatibility with older City Hub pages
+		// that were generated before the integration feature was added.
+		
 		// Only run on singular city_hub pages
 		if ( ! is_singular( 'service_page' ) ) {
 			return $content;
@@ -53,20 +57,21 @@ class SEOgen_City_Service_Links {
 			return $content;
 		}
 
-		// Check if shortcode already exists in content (avoid duplicate injection)
-		// Check for both [seogen_city_service_links] and [seogen_city_hub_links] (deprecated alias)
-		// Also check for rendered output (seogen-hub-links class used by both Service Hub and City Hub)
+		// Check if service links already exist in content
+		// New City Hubs have service links integrated at generation time
+		// Only inject for old City Hubs that don't have them yet
 		if ( false !== strpos( $content, '[seogen_city_service_links]' ) || 
 		     false !== strpos( $content, '[seogen_city_hub_links]' ) ||
 		     false !== strpos( $content, 'seogen-hub-links' ) ) {
+			// Service links already present (either old shortcode or new integrated section)
 			return $content;
 		}
 
-		// Render service links section
+		// If we reach here, this is an old City Hub page without service links
+		// Inject them for backward compatibility
 		$service_links_html = $this->render_city_service_links_shortcode();
 
 		// Inject before FAQ section if it exists, otherwise append to end
-		// Look for common FAQ heading patterns
 		$faq_patterns = array(
 			'/<h2[^>]*>.*?FAQ.*?<\/h2>/i',
 			'/<h2[^>]*>.*?Frequently Asked Questions.*?<\/h2>/i',
