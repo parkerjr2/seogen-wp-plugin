@@ -3447,13 +3447,49 @@ class SEOgen_Admin {
 							
 							// Try to determine hub_key from service name
 							$services = $this->get_services();
+							$hub_key_found = false;
+							
 							if ( ! empty( $services ) ) {
+								// Try exact match first
 								foreach ( $services as $service ) {
-									if ( isset( $service['name'], $service['hub_key'] ) && strtolower( $service['name'] ) === strtolower( $service_name ) ) {
+									if ( isset( $service['name'], $service['hub_key'] ) && strtolower( trim( $service['name'] ) ) === strtolower( trim( $service_name ) ) ) {
 										update_post_meta( $post_id, '_seogen_hub_key', $service['hub_key'] );
+										$hub_key_found = true;
+										error_log( sprintf( '[SEOgen] Matched service "%s" to hub_key "%s" (exact match)', $service_name, $service['hub_key'] ) );
 										break;
 									}
 								}
+								
+								// If no exact match, try partial match (service name contains cache name or vice versa)
+								if ( ! $hub_key_found ) {
+									foreach ( $services as $service ) {
+										if ( isset( $service['name'], $service['hub_key'] ) ) {
+											$cache_name_lower = strtolower( trim( $service['name'] ) );
+											$input_name_lower = strtolower( trim( $service_name ) );
+											
+											// Check if either name contains the other
+											if ( strpos( $input_name_lower, $cache_name_lower ) !== false || strpos( $cache_name_lower, $input_name_lower ) !== false ) {
+												update_post_meta( $post_id, '_seogen_hub_key', $service['hub_key'] );
+												$hub_key_found = true;
+												error_log( sprintf( '[SEOgen] Matched service "%s" to hub_key "%s" (partial match with "%s")', $service_name, $service['hub_key'], $service['name'] ) );
+												break;
+											}
+										}
+									}
+								}
+								
+								// If still no match, use first hub as fallback
+								if ( ! $hub_key_found && ! empty( $services ) ) {
+									$first_service = reset( $services );
+									if ( isset( $first_service['hub_key'] ) ) {
+										update_post_meta( $post_id, '_seogen_hub_key', $first_service['hub_key'] );
+										error_log( sprintf( '[SEOgen] No match for service "%s", using fallback hub_key "%s"', $service_name, $first_service['hub_key'] ) );
+									}
+								}
+							}
+							
+							if ( ! $hub_key_found ) {
+								error_log( sprintf( '[SEOgen] WARNING: Could not determine hub_key for service "%s". Services cache: %s', $service_name, wp_json_encode( $services ) ) );
 							}
 						}
 						
