@@ -315,15 +315,14 @@ class SEOgen_City_Service_Links {
 	}
 
 	/**
-	 * Render service links HTML with natural inline links
+	 * Render service links HTML for City Hub pages
 	 * 
-	 * Uses shared helper from admin-helpers trait to ensure consistent output.
-	 * Renders natural prose with inline service links using service_name meta.
+	 * Uses shared canonical builder from admin-helpers trait.
 	 * 
-	 * @param array  $service_pages Array of WP_Post objects
+	 * @param array  $service_pages Array of WP_Post objects (NOT USED - builder queries directly)
 	 * @param string $city_display_name City display name (e.g., "Tulsa, OK")
-	 * @param string $hub_key Hub key for debug comment
-	 * @param string $city_slug City slug for debug comment
+	 * @param string $hub_key Hub key
+	 * @param string $city_slug City slug
 	 * @return string HTML output
 	 */
 	private function render_service_links_html( $service_pages, $city_display_name, $hub_key = '', $city_slug = '' ) {
@@ -332,164 +331,15 @@ class SEOgen_City_Service_Links {
 		$city_name = trim( $parts[0] );
 		$state = isset( $parts[1] ) ? trim( $parts[1] ) : '';
 		
-		// Check if we can use the shared helper from admin-helpers trait
-		if ( method_exists( $this, 'render_natural_city_service_links' ) ) {
-			return $this->render_natural_city_service_links( $service_pages, $city_name, $state, $hub_key, $city_slug );
+		// Use shared canonical builder (queries service pages internally)
+		if ( method_exists( $this, 'build_city_service_links_natural_html' ) ) {
+			return $this->build_city_service_links_natural_html( $hub_key, $city_slug, $city_name, $state );
 		}
 		
-		// Fallback: Render using local implementation (same logic as shared helper)
-		return $this->render_natural_service_links_fallback( $service_pages, $city_name, $state, $hub_key, $city_slug );
+		// Fallback if trait not available (should never happen)
+		return '<div class="seogen-hub-links"><p>Service links unavailable. Please contact support.</p></div>';
 	}
 	
-	/**
-	 * Fallback renderer for natural service links (inline sentences ONLY)
-	 * 
-	 * Implements same logic as shared helper in admin-helpers trait.
-	 * Renders 2-3 contextual sentences with inline service links.
-	 * NO LISTS - only natural editorial sentences.
-	 * 
-	 * @param array  $service_pages Array of WP_Post objects
-	 * @param string $city_name City name
-	 * @param string $state State abbreviation
-	 * @param string $hub_key Hub key
-	 * @param string $city_slug City slug
-	 * @return string HTML output
-	 */
-	private function render_natural_service_links_fallback( $service_pages, $city_name, $state, $hub_key = '', $city_slug = '' ) {
-		$output = '';
-		
-		// Admin-only debug comment
-		if ( current_user_can( 'manage_options' ) ) {
-			$output .= sprintf(
-				'<!-- seogen city services: hub_key=%s, city_slug=%s, count=%d -->' . "\n",
-				esc_attr( $hub_key ),
-				esc_attr( $city_slug ),
-				count( $service_pages )
-			);
-		}
-		
-		$output .= '<div class="seogen-hub-links">' . "\n";
-		
-		if ( empty( $service_pages ) ) {
-			// Empty state
-			$output .= '  <p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>' . "\n";
-			if ( current_user_can( 'manage_options' ) ) {
-				$output .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
-			}
-		} else {
-			// Get template set and select one deterministically
-			$template_sets = $this->get_service_link_sentence_templates();
-			$hash = md5( $hub_key . '_' . $city_slug );
-			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $template_sets );
-			$sentences = $template_sets[ $template_index ];
-			
-			// Build individual service links (max 3 for inline use)
-			$service_links = array();
-			$link_count = min( count( $service_pages ), 3 );
-			
-			for ( $i = 0; $i < $link_count; $i++ ) {
-				$post = $service_pages[ $i ];
-				$permalink = get_permalink( $post->ID );
-				$anchor_text = $this->get_service_anchor_text( $post->ID );
-				$service_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
-			}
-			
-			// Render each sentence in the template set as a paragraph
-			foreach ( $sentences as $sentence_template ) {
-				// Replace placeholders with actual values
-				$sentence = $sentence_template;
-				$sentence = str_replace( '{city}', esc_html( $city_name ), $sentence );
-				
-				// Replace link placeholders with actual service links
-				for ( $i = 0; $i < count( $service_links ); $i++ ) {
-					$placeholder = '{link' . ( $i + 1 ) . '}';
-					if ( strpos( $sentence, $placeholder ) !== false ) {
-						$sentence = str_replace( $placeholder, $service_links[ $i ], $sentence );
-					}
-				}
-				
-				// Only output if sentence still has content (not all placeholders)
-				if ( ! preg_match( '/{link\\d+}/', $sentence ) ) {
-					$output .= '  <p>' . $sentence . '</p>' . "\n";
-				}
-			}
-		}
-		
-		$output .= '</div>';
-		
-		return $output;
-	}
-	
-	/**
-	 * Get contextual sentence templates for inline service links
-	 * 
-	 * Each template is an array of 2-3 sentences that naturally reference services.
-	 * Uses {city}, {link1}, {link2}, {link3} placeholders.
-	 * 
-	 * @return array Array of sentence template sets
-	 */
-	private function get_service_link_sentence_templates() {
-		return array(
-			array(
-				'Homeowners in {city} often reach out for help with {link1} and {link2}.',
-				'Depending on the age and layout of local properties, services like {link3} are also commonly requested.',
-			),
-			array(
-				'Our team regularly assists residents with projects such as {link1}.',
-				'We also handle related work like {link2} when needed.',
-			),
-			array(
-				'Common service requests in {city} include {link1} and {link2}.',
-				'Many property owners also schedule {link3} to address specific needs.',
-			),
-			array(
-				'Local property owners frequently need help with {link1}.',
-				'Related services like {link2} are also part of what we handle in the area.',
-			),
-			array(
-				'If you\'re comparing options for {link1} in {city}, we can explain what to expect.',
-				'We also assist with {link2} and similar projects.',
-			),
-			array(
-				'Residents and businesses in {city} often require {link1} or {link2}.',
-				'Our team is familiar with local building codes and can handle {link3} as well.',
-			),
-			array(
-				'Many projects we handle in {city} involve {link1}.',
-				'Depending on property conditions, we also address needs like {link2}.',
-			),
-			array(
-				'For common projects in {city}, property owners often start with {link1}.',
-				'We also handle upgrades and replacements such as {link2}.',
-			),
-		);
-	}
-	
-	/**
-	 * Get clean anchor text for service link
-	 * 
-	 * @param int $post_id Service page post ID
-	 * @return string Clean anchor text
-	 */
-	private function get_service_anchor_text( $post_id ) {
-		// Try service_name meta first
-		$service_name = get_post_meta( $post_id, '_seogen_service_name', true );
-		if ( ! empty( $service_name ) ) {
-			return $service_name;
-		}
-		
-		// Fallback: Clean the title
-		$title = get_the_title( $post_id );
-		
-		// Remove " in {City}" pattern
-		$title = preg_replace( '/\s+in\s+[A-Z][^|]+/', '', $title );
-		
-		// Remove " | {Business Name}" pattern
-		$title = preg_replace( '/\s*\|\s*.+$/', '', $title );
-		
-		return trim( $title );
-	}
-
 	/**
 	 * Bust service links cache when a service_page is saved/updated
 	 * 
