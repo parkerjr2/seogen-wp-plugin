@@ -792,8 +792,18 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			// Remove any unused placeholders
 			$paragraph = preg_replace( '/{link\d+}/', '', $paragraph );
 			
-			// Output as single paragraph (templates are already 1-2 sentences)
+			// Output natural paragraph with 2-3 example links
 			$output .= '  <p>' . $paragraph . '</p>' . "\n";
+			
+			// HYBRID APPROACH: Add complete list of ALL services below natural paragraph
+			// This exposes full service breadth while keeping human prose above
+			$output .= '  <ul>' . "\n";
+			foreach ( $service_pages as $post ) {
+				$permalink = get_permalink( $post->ID );
+				$anchor_text = $this->get_service_anchor_text( $post->ID );
+				$output .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a></li>' . "\n";
+			}
+			$output .= '  </ul>' . "\n";
 		}
 		
 		$output .= '</div>';
