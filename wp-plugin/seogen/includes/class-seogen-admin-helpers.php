@@ -307,10 +307,70 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// Create intro paragraph for the services section
 		$intro_text = "Explore our services in {$city_name}. Click a service below to see details, common issues, and what to expect.";
 		
-		// Render service links HTML using the existing renderer
-		// We'll call the renderer method directly to get the HTML
-		$service_links_instance = new SEOgen_City_Service_Links();
-		$service_links_html = $service_links_instance->render_service_links_html( $hub_key, $city_slug );
+		// Query service pages for this hub + city combination
+		$service_pages_query = new WP_Query( array(
+			'post_type' => 'service_page',
+			'posts_per_page' => -1,
+			'orderby' => 'title',
+			'order' => 'ASC',
+			'meta_query' => array(
+				'relation' => 'AND',
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'service_city',
+					'compare' => '=',
+				),
+				array(
+					'key' => '_seogen_hub_key',
+					'value' => $hub_key,
+					'compare' => '=',
+				),
+				array(
+					'key' => '_seogen_city_slug',
+					'value' => $city_slug,
+					'compare' => '=',
+				),
+			),
+		) );
+		
+		$service_pages = $service_pages_query->posts;
+		wp_reset_postdata();
+		
+		// Render service links HTML using Service Hub UI style
+		$service_links_html = '';
+		
+		// Admin-only debug comment
+		if ( current_user_can( 'manage_options' ) ) {
+			$service_links_html .= sprintf(
+				'<!-- seogen city services: hub_key=%s, city_slug=%s, count=%d -->',
+				esc_attr( $hub_key ),
+				esc_attr( $city_slug ),
+				count( $service_pages )
+			) . "\n";
+		}
+		
+		// Use Service Hub UI style: <div class="seogen-hub-links">
+		$service_links_html .= '<div class="seogen-hub-links">';
+		$service_links_html .= '<h3>Services Available in ' . esc_html( $city_name ) . ', ' . esc_html( $state ) . '</h3>';
+		
+		if ( empty( $service_pages ) ) {
+			// Empty state: No services found
+			$service_links_html .= '<p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>';
+			if ( current_user_can( 'manage_options' ) ) {
+				$service_links_html .= '<!-- No service_city pages found with matching hub_key + city_slug -->';
+			}
+		} else {
+			// Render service links list
+			$service_links_html .= '<ul>';
+			foreach ( $service_pages as $post ) {
+				$permalink = get_permalink( $post->ID );
+				$title = get_the_title( $post->ID );
+				$service_links_html .= '<li><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></li>';
+			}
+			$service_links_html .= '</ul>';
+		}
+		
+		$service_links_html .= '</div>';
 		
 		// Build the complete service links section as Gutenberg blocks
 		$service_section = "\n\n<!-- wp:heading -->\n";
