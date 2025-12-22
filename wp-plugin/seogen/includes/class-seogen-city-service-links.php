@@ -164,14 +164,8 @@ class SEOgen_City_Service_Links {
 		// Query service_city pages by meta (no title parsing)
 		$service_pages = $this->query_service_city_pages( $hub_key, $city_slug );
 
-		// Admin debug output
-		$debug_output = '';
-		if ( current_user_can( 'manage_options' ) ) {
-			$debug_output = $this->render_debug_output( $hub_key, $city_slug, $service_pages );
-		}
-
 		// Render output
-		$output = $debug_output . $this->render_service_links_html( $service_pages, $city_display_name );
+		$output = $this->render_service_links_html( $service_pages, $city_display_name );
 
 		// Cache for 12 hours
 		set_transient( $cache_key, $output, 12 * HOUR_IN_SECONDS );
