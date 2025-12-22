@@ -25,7 +25,7 @@ class SEOgen_Meta_Inspector {
 	 */
 	public function add_admin_menu() {
 		add_submenu_page(
-			'hyper-local-business-setup',
+			'hyper-local',
 			__( 'Meta Inspector', 'seogen' ),
 			__( 'Meta Inspector', 'seogen' ),
 			'manage_options',
