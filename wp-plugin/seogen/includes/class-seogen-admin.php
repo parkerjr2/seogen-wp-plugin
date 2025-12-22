@@ -562,6 +562,36 @@ class SEOgen_Admin {
 
 			if ( 'paragraph' === $type ) {
 				$text_raw = isset( $block['text'] ) ? (string) $block['text'] : '';
+				
+				// CRITICAL FIX: If paragraph ends with a service links shortcode,
+				// output it as a separate HTML block to avoid invalid <p><div>...</div></p> nesting
+				$trimmed_text = trim( $text_raw );
+				if ( preg_match( '/\[seogen_(?:city_hub_links|city_service_links)[^\]]*\]\s*$/i', $trimmed_text ) ) {
+					// Paragraph ends with a service links shortcode
+					// Split into text before shortcode + shortcode itself
+					if ( preg_match( '/^(.*?)(\[seogen_(?:city_hub_links|city_service_links)[^\]]*\])\s*$/is', $trimmed_text, $matches ) ) {
+						$text_before = trim( $matches[1] );
+						$shortcode = $matches[2];
+						
+						$emit_hero_if_ready( true );
+						$open_body_group_if_needed();
+						
+						// Output text before shortcode as paragraph (if any)
+						if ( '' !== $text_before ) {
+							$output[] = '<!-- wp:paragraph -->';
+							$output[] = '<p>' . esc_html( $text_before ) . '</p>';
+							$output[] = '<!-- /wp:paragraph -->';
+						}
+						
+						// Output shortcode as separate HTML block (not wrapped in <p>)
+						// This prevents invalid <p><div>...</div></p> nesting
+						$output[] = '<!-- wp:html -->';
+						$output[] = $shortcode;
+						$output[] = '<!-- /wp:html -->';
+						continue;
+					}
+				}
+				
 				// Check if text contains shortcodes - if so, preserve them
 				if ( preg_match( '/\[seogen_[^\]]+\]/', $text_raw ) ) {
 					// Text contains shortcodes - escape everything except shortcodes
