@@ -270,8 +270,8 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	/**
 	 * Integrate service links section naturally into City Hub content
 	 * 
-	 * Removes redundant "Services We Offer" section and integrates service links
-	 * with proper heading structure to match Service Hub navigation feel.
+	 * Strategy: Find "Services We Offer" heading, keep it, remove any duplicate
+	 * service lists, and insert ONE canonical service links block right after.
 	 * 
 	 * @param string $markup Gutenberg markup
 	 * @param string $hub_key Hub key
@@ -281,9 +281,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 */
 	private function integrate_service_links_section( $markup, $hub_key, $city_slug, $city ) {
 		// Check if service links already exist in content
-		if ( false !== strpos( $markup, 'seogen-hub-links' ) || 
-		     false !== strpos( $markup, '[seogen_city_service_links]' ) ||
-		     false !== strpos( $markup, '[seogen_city_hub_links]' ) ) {
+		if ( false !== strpos( $markup, 'seogen-hub-links' ) ) {
 			// Service links already present, don't add again
 			return $markup;
 		}
@@ -295,51 +293,125 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			return $markup;
 		}
 		
-		// Remove ALL existing service-related sections from AI-generated content
-		// We'll replace them with our clean integrated section
+		// STEP 1: Remove ALL duplicate/redundant service sections
 		
-		// 1. Remove "Services We Offer" heading + paragraph
-		$markup = preg_replace(
-			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->\s*(?:<!-- wp:paragraph[^>]*-->\s*<p[^>]*>.*?<\/p>\s*<!-- \/wp:paragraph -->\s*)?/is',
-			'',
-			$markup
-		);
-		
-		// 2. Remove "Services Available in {City}" heading
+		// Remove "Services Available in {City}" heading (duplicate)
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
 			$markup
 		);
 		
-		// 3. Remove "Services Locally" or "Services in {City}" headings
+		// Remove "Services Locally" or "Services in {City}" headings (duplicates)
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
 			$markup
 		);
 		
-		// 4. Remove any paragraph that says "Explore our services..."
+		// Remove any paragraph that says "Explore our services..." (duplicate intro)
 		$markup = preg_replace(
 			'/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>Explore our services[^<]*<\/p>\s*<!-- \/wp:paragraph -->/i',
 			'',
 			$markup
 		);
 		
-		// 5. Remove any list blocks that contain service page links
-		// Use preg_replace_callback for PHP compatibility
+		// Remove any list blocks that contain multiple service page links (duplicates)
 		$markup = preg_replace_callback(
 			'/<!-- wp:list[^>]*-->\s*<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>\s*<!-- \/wp:list -->/is',
 			array( $this, 'remove_service_list_callback' ),
 			$markup
 		);
 		
-		// Build service links section with proper heading
-		$section_heading = "Services in {$city_name}, {$state}";
+		// STEP 2: Find "Services We Offer" heading and insert service links right after it
+		// Pattern: <!-- wp:heading -->...<h2>Services We Offer</h2>...<!-- /wp:heading -->
+		// followed optionally by a paragraph
+		$services_we_offer_pattern = '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->(\s*<!-- wp:paragraph[^>]*-->\s*<p[^>]*>.*?<\/p>\s*<!-- \/wp:paragraph -->)?/is';
 		
-		// Create intro paragraph for the services section
-		$intro_text = "Explore our services in {$city_name}. Click a service below to see details, common issues, and what to expect.";
+		if ( ! preg_match( $services_we_offer_pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+			// No "Services We Offer" heading found - insert service links before FAQ or at end
+			return $this->insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state );
+		}
 		
+		// Found "Services We Offer" - insert service links right after it
+		$insert_position = $matches[0][1] + strlen( $matches[0][0] );
+		
+		// Render the canonical service links block
+		$service_links_block = $this->render_city_service_links_block( $hub_key, $city_slug, $city_name, $state );
+		
+		// Insert right after "Services We Offer" heading (and optional paragraph)
+		$markup = substr_replace( $markup, "\n\n" . $service_links_block . "\n\n", $insert_position, 0 );
+		
+		return $markup;
+	}
+	
+	/**
+	 * Fallback: Insert service links when no "Services We Offer" heading exists
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $hub_key Hub key
+	 * @param string $city_slug City slug
+	 * @param string $city_name City display name
+	 * @param string $state State abbreviation
+	 * @return string Enhanced markup
+	 */
+	private function insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state ) {
+		// Create "Services We Offer" heading + intro + service links
+		$service_section = "<!-- wp:heading -->\n";
+		$service_section .= "<h2>Services We Offer</h2>\n";
+		$service_section .= "<!-- /wp:heading -->\n\n";
+		
+		$service_section .= "<!-- wp:paragraph -->\n";
+		$service_section .= "<p>We provide professional services throughout " . esc_html( $city_name ) . ", " . esc_html( $state ) . ".</p>\n";
+		$service_section .= "<!-- /wp:paragraph -->\n\n";
+		
+		$service_section .= $this->render_city_service_links_block( $hub_key, $city_slug, $city_name, $state );
+		
+		// Insert before FAQ or before last H2 or at end
+		$faq_patterns = array(
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>.*?FAQ.*?<\/h2>\s*<!-- \/wp:heading -->/i',
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>.*?Frequently Asked Questions.*?<\/h2>\s*<!-- \/wp:heading -->/i',
+		);
+		
+		$inserted = false;
+		foreach ( $faq_patterns as $pattern ) {
+			if ( preg_match( $pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+				$insert_pos = $matches[0][1];
+				$markup = substr_replace( $markup, $service_section . "\n\n", $insert_pos, 0 );
+				$inserted = true;
+				break;
+			}
+		}
+		
+		if ( ! $inserted ) {
+			// Find last H2 heading
+			if ( preg_match_all( '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>/i', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+				$last_h2_pos = end( $matches[0] )[1];
+				$markup = substr_replace( $markup, $service_section . "\n\n", $last_h2_pos, 0 );
+				$inserted = true;
+			}
+		}
+		
+		if ( ! $inserted ) {
+			$markup .= "\n\n" . $service_section;
+		}
+		
+		return $markup;
+	}
+	
+	/**
+	 * Render canonical city service links block
+	 * 
+	 * Returns EXACTLY ONE service links block using Service Hub UI style.
+	 * This is the single source of truth for City Hub service links rendering.
+	 * 
+	 * @param string $hub_key Hub key
+	 * @param string $city_slug City slug
+	 * @param string $city_name City display name
+	 * @param string $state State abbreviation
+	 * @return string Gutenberg HTML block with service links
+	 */
+	private function render_city_service_links_block( $hub_key, $city_slug, $city_name, $state ) {
 		// Query service pages for this hub + city combination
 		$service_pages_query = new WP_Query( array(
 			'post_type' => 'service_page',
@@ -369,88 +441,48 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$service_pages = $service_pages_query->posts;
 		wp_reset_postdata();
 		
-		// Render service links HTML using Service Hub UI style
+		// Build service links HTML using Service Hub UI style
 		$service_links_html = '';
 		
 		// Admin-only debug comment
 		if ( current_user_can( 'manage_options' ) ) {
 			$service_links_html .= sprintf(
-				'<!-- seogen city services: hub_key=%s, city_slug=%s, count=%d -->',
+				'<!-- seogen city services: hub_key=%s, city_slug=%s, count=%d -->' . "\n",
 				esc_attr( $hub_key ),
 				esc_attr( $city_slug ),
 				count( $service_pages )
-			) . "\n";
+			);
 		}
 		
 		// Use Service Hub UI style: <div class="seogen-hub-links">
-		$service_links_html .= '<div class="seogen-hub-links">';
-		$service_links_html .= '<h3>Services Available in ' . esc_html( $city_name ) . ', ' . esc_html( $state ) . '</h3>';
+		$service_links_html .= '<div class="seogen-hub-links">' . "\n";
+		$service_links_html .= '  <h3>Services Available in ' . esc_html( $city_name ) . ', ' . esc_html( $state ) . '</h3>' . "\n";
 		
 		if ( empty( $service_pages ) ) {
 			// Empty state: No services found
-			$service_links_html .= '<p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>';
+			$service_links_html .= '  <p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>' . "\n";
 			if ( current_user_can( 'manage_options' ) ) {
-				$service_links_html .= '<!-- No service_city pages found with matching hub_key + city_slug -->';
+				$service_links_html .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
 			}
 		} else {
 			// Render service links list
-			$service_links_html .= '<ul>';
+			$service_links_html .= '  <ul>' . "\n";
 			foreach ( $service_pages as $post ) {
 				$permalink = get_permalink( $post->ID );
 				$title = get_the_title( $post->ID );
-				$service_links_html .= '<li><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></li>';
+				$service_links_html .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></li>' . "\n";
 			}
-			$service_links_html .= '</ul>';
+			$service_links_html .= '  </ul>' . "\n";
 		}
 		
 		$service_links_html .= '</div>';
 		
-		// Build the complete service links section as Gutenberg blocks
-		$service_section = "\n\n<!-- wp:heading -->\n";
-		$service_section .= "<h2>" . esc_html( $section_heading ) . "</h2>\n";
-		$service_section .= "<!-- /wp:heading -->\n\n";
+		// Wrap in Gutenberg HTML block
+		$output = "<!-- wp:html -->\n";
+		$output .= $service_links_html . "\n";
+		$output .= "<!-- /wp:html -->";
 		
-		$service_section .= "<!-- wp:paragraph -->\n";
-		$service_section .= "<p>" . esc_html( $intro_text ) . "</p>\n";
-		$service_section .= "<!-- /wp:paragraph -->\n\n";
-		
-		$service_section .= "<!-- wp:html -->\n";
-		$service_section .= $service_links_html . "\n";
-		$service_section .= "<!-- /wp:html -->\n\n";
-		
-		// Insert service links section before FAQ if it exists, otherwise before last section
-		$faq_patterns = array(
-			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>.*?FAQ.*?<\/h2>\s*<!-- \/wp:heading -->/i',
-			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>.*?Frequently Asked Questions.*?<\/h2>\s*<!-- \/wp:heading -->/i',
-		);
-		
-		$inserted = false;
-		foreach ( $faq_patterns as $pattern ) {
-			if ( preg_match( $pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
-				// Insert before FAQ heading
-				$insert_pos = $matches[0][1];
-				$markup = substr_replace( $markup, $service_section, $insert_pos, 0 );
-				$inserted = true;
-				break;
-			}
-		}
-		
-		// If no FAQ found, insert before the last H2 heading (usually "Why Choose Us" or similar)
-		if ( ! $inserted ) {
-			// Find last H2 heading
-			if ( preg_match_all( '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>/i', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
-				$last_h2_pos = end( $matches[0] )[1];
-				$markup = substr_replace( $markup, $service_section, $last_h2_pos, 0 );
-				$inserted = true;
-			}
-		}
-		
-		// If still not inserted, append to end
-		if ( ! $inserted ) {
-			$markup .= $service_section;
-		}
-		
-		return $markup;
+		return $output;
 	}
 
 	/**
