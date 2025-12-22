@@ -96,6 +96,160 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// Replace {city} placeholder with actual city name
 		return str_replace( '{city}', $city_name, $template );
 	}
+	
+	/**
+	 * Get intro enhancement sentence templates
+	 * 
+	 * Returns pool of explanatory sentences that can be appended to generic
+	 * City Hub intro paragraphs to add local context and reduce templated feel.
+	 * 
+	 * @return array Array of enhancement sentence templates
+	 */
+	private function get_intro_enhancement_templates() {
+		return array(
+			'Many homes in the area were built decades ago, making safe electrical capacity, system updates, and code compliance especially important.',
+			'As energy usage increases with modern appliances and technology, electrical system upgrades help ensure safety and reliability.',
+			'Older properties often benefit from electrical assessments to identify potential safety concerns and capacity limitations.',
+			'Keeping electrical systems current with building codes and safety standards helps protect property and occupants.',
+			'Modern electrical demands from HVAC, kitchen equipment, and smart home devices often require system capacity evaluations.',
+			'Professional electrical service helps property owners maintain safe, code-compliant systems that meet current usage needs.',
+			'Electrical safety inspections and upgrades are increasingly common as properties age and usage patterns change.',
+			'Proper electrical maintenance and timely upgrades help prevent hazards and ensure systems can handle modern power demands.',
+			'Many properties need electrical work to support renovations, equipment additions, or to address aging infrastructure.',
+			'Electrical system reliability becomes especially important as homes and businesses depend more heavily on powered equipment.',
+			'Code-compliant electrical work ensures systems are installed safely and meet local building requirements.',
+			'As electrical technology evolves, professional service helps properties stay current with safety standards and best practices.',
+		);
+	}
+	
+	/**
+	 * Detect if intro paragraph is overly generic
+	 * 
+	 * Flags paragraph as generic if 2+ of the following criteria are met:
+	 * A) Contains generic service phrases
+	 * B) Lacks explanatory context terms
+	 * C) Is very short (≤2 sentences)
+	 * 
+	 * @param string $paragraph_text Paragraph text (HTML stripped)
+	 * @return bool True if paragraph is generic and needs enhancement
+	 */
+	private function is_generic_intro_paragraph( $paragraph_text ) {
+		$text_lower = strtolower( $paragraph_text );
+		$criteria_met = 0;
+		
+		// Criterion A: Contains generic service phrases
+		$generic_phrases = array(
+			'we provide',
+			'we offer',
+			'serving homeowners',
+			'serving residents',
+			'serving businesses',
+			'throughout',
+		);
+		
+		$has_generic_phrase = false;
+		foreach ( $generic_phrases as $phrase ) {
+			if ( false !== strpos( $text_lower, $phrase ) ) {
+				$has_generic_phrase = true;
+				break;
+			}
+		}
+		
+		if ( $has_generic_phrase ) {
+			$criteria_met++;
+		}
+		
+		// Criterion B: Lacks explanatory context terms
+		$explanatory_terms = array(
+			'safety',
+			'capacity',
+			'compliance',
+			'upgrade',
+			'modernization',
+			'demand',
+			'older',
+			'load',
+			'inspection',
+			'code',
+			'hazard',
+			'reliable',
+			'protect',
+		);
+		
+		$has_explanatory_term = false;
+		foreach ( $explanatory_terms as $term ) {
+			if ( false !== strpos( $text_lower, $term ) ) {
+				$has_explanatory_term = true;
+				break;
+			}
+		}
+		
+		if ( ! $has_explanatory_term ) {
+			$criteria_met++;
+		}
+		
+		// Criterion C: Very short (≤2 sentences)
+		$sentence_count = preg_match_all( '/[.!?]+/', $paragraph_text );
+		if ( $sentence_count <= 2 ) {
+			$criteria_met++;
+		}
+		
+		// Flag as generic if 2+ criteria met
+		return $criteria_met >= 2;
+	}
+	
+	/**
+	 * Enhance generic City Hub intro paragraph
+	 * 
+	 * Appends explanatory sentence to generic intro paragraphs to add local
+	 * context and reduce templated feel. Does NOT replace original content.
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $hub_key Hub key for deterministic selection
+	 * @param string $city_slug City slug for deterministic selection
+	 * @return string Enhanced markup
+	 */
+	private function enhance_generic_city_hub_intro( $markup, $hub_key, $city_slug ) {
+		// Find first paragraph block (the intro paragraph)
+		// Pattern: <!-- wp:paragraph --> ... <p>TEXT</p> ... <!-- /wp:paragraph -->
+		if ( ! preg_match( '/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>(.*?)<\/p>\s*<!-- \/wp:paragraph -->/s', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+			// No paragraph found, nothing to enhance
+			return $markup;
+		}
+		
+		$full_block = $matches[0][0];
+		$paragraph_text = $matches[1][0];
+		$block_position = $matches[0][1];
+		
+		// Strip HTML tags for analysis
+		$text_for_analysis = wp_strip_all_tags( $paragraph_text );
+		
+		// Check if paragraph is generic
+		if ( ! $this->is_generic_intro_paragraph( $text_for_analysis ) ) {
+			// Paragraph is already good, no enhancement needed
+			return $markup;
+		}
+		
+		// Select enhancement sentence deterministically
+		$templates = $this->get_intro_enhancement_templates();
+		$hash = md5( $hub_key . '_' . $city_slug );
+		$index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
+		$enhancement_sentence = $templates[ $index ];
+		
+		// Append enhancement sentence to paragraph content
+		// Remove closing </p> tag, add space + enhancement, then close
+		$enhanced_paragraph_text = rtrim( $paragraph_text );
+		if ( substr( $enhanced_paragraph_text, -4 ) === '</p>' ) {
+			$enhanced_paragraph_text = substr( $enhanced_paragraph_text, 0, -4 );
+		}
+		$enhanced_paragraph_text .= ' ' . esc_html( $enhancement_sentence ) . '</p>';
+		
+		// Replace original paragraph with enhanced version
+		$enhanced_block = str_replace( $paragraph_text, $enhanced_paragraph_text, $full_block );
+		$markup = substr_replace( $markup, $enhanced_block, $block_position, strlen( $full_block ) );
+		
+		return $markup;
+	}
 
 	/**
 	 * Remove service enumeration paragraphs from City Hub content
@@ -815,6 +969,13 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// PRIORITY 1.5: Remove service enumeration paragraphs (ANTI-DOORWAY GUARD)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		$markup = $this->remove_service_enumeration_paragraphs( $markup );
+		
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 1.6: Enhance generic intro paragraphs (LOCAL SEO IMPROVEMENT)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// Append explanatory sentence to generic intros to reduce templated feel
+		// and add local context. Does NOT replace AI-generated content.
+		$markup = $this->enhance_generic_city_hub_intro( $markup, $hub_key, $city['slug'] );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 2: Add EXACTLY ONE city-specific differentiator (LOCAL SEO + SCALE SAFETY GUARD)
