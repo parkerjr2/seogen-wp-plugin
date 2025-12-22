@@ -37,6 +37,7 @@ class SEOgen_Admin {
 		add_action( 'admin_notices', array( $this, 'render_hl_notice' ) );
 		add_action( 'admin_post_hyper_local_save_business_config', array( $this, 'handle_save_business_config' ) );
 		add_action( 'admin_post_hyper_local_save_services', array( $this, 'handle_save_services' ) );
+		add_action( 'admin_post_hyper_local_delete_service', array( $this, 'handle_delete_service' ) );
 		add_action( 'admin_post_hyper_local_hub_preview', array( $this, 'handle_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
 		add_action( 'admin_post_hyper_local_city_hub_preview', array( $this, 'handle_city_hub_preview' ) );

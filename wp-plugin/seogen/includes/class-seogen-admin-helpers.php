@@ -462,19 +462,20 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 * Get fallback "Why Choose Us" content
 	 * 
 	 * Returns ONE paragraph (4-6 sentences) for City Hub pages.
-	 * MUST clearly show all 3 moments: decision, explanation, expectation.
-	 * Natural, conversational tone - sounds like a real contractor.
+	 * MUST show all 4 moments: discovery, decision, explanation, expectation.
+	 * Describes ACTIONS and real job flow, not values or professionalism.
 	 * NO bullets, NO fluff, NO "locally".
 	 * 
 	 * @param string $city_name City display name
 	 * @return string Gutenberg paragraph block with fallback content
 	 */
 	private function get_why_choose_us_fallback( $city_name ) {
-		// QUALITY UPGRADE: Clearly shows decision/explanation/expectation moments
-		// Decision: "figuring out whether a problem is isolated or part of something bigger"
-		// Explanation: "walk through what we find, explain what needs attention now versus later"
-		// Expectation: "outline any code or inspection requirements before work begins"
-		$paragraph = "Most calls start with figuring out whether a problem is isolated or part of something bigger. We walk through what we find, explain what needs attention now versus later, and outline any code or inspection requirements before work begins. That way you know what to expect in terms of timing and what the work will actually involve. We also make sure to explain why we're recommending one approach over another so the decision makes sense.";
+		// JOB FLOW UPGRADE: Shows all 4 moments as real actions
+		// Discovery: "figuring out whether the issue is isolated or part of something bigger"
+		// Decision: "If it's something that can wait, that's said clearly"
+		// Explanation: "the reason is explained along with options"
+		// Expectation: "When permits or inspections are involved, that's discussed up front"
+		$paragraph = "Most jobs start by figuring out whether the issue is isolated or part of something bigger. If it's something that can wait, that's said clearly. If it's likely to cause trouble later, the reason is explained along with options. When permits or inspections are involved, that's discussed up front so there are no surprises. The goal is to leave the work done correctly and make sure the customer understands what changed.";
 		
 		$output = "<!-- wp:paragraph -->\n";
 		$output .= "<p>" . esc_html( $paragraph ) . "</p>\n";

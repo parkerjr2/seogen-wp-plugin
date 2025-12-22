@@ -256,6 +256,7 @@ trait SEOgen_Admin_Extensions {
 							<th><?php esc_html_e( 'Service Name', 'seogen' ); ?></th>
 							<th><?php esc_html_e( 'Slug', 'seogen' ); ?></th>
 							<th><?php esc_html_e( 'Hub Category', 'seogen' ); ?></th>
+							<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -275,11 +276,18 @@ trait SEOgen_Admin_Extensions {
 											<?php endforeach; ?>
 										</select>
 									</td>
+									<td>
+										<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_service&index=' . $idx ), 'hyper_local_delete_service_' . $idx, 'nonce' ) ); ?>" 
+										   class="button button-small" 
+										   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this service?', 'seogen' ); ?>');">
+											<?php esc_html_e( 'Delete', 'seogen' ); ?>
+										</a>
+									</td>
 								</tr>
 							<?php endforeach; ?>
 						<?php else : ?>
 							<tr>
-								<td colspan="3"><?php esc_html_e( 'No services configured yet. Add services using the bulk add feature below.', 'seogen' ); ?></td>
+								<td colspan="4"><?php esc_html_e( 'No services configured yet. Add services using the bulk add feature below.', 'seogen' ); ?></td>
 							</tr>
 						<?php endif; ?>
 					</tbody>
@@ -363,6 +371,53 @@ trait SEOgen_Admin_Extensions {
 			'page' => 'hyper-local-services',
 			'hl_notice' => 'created',
 			'hl_msg' => rawurlencode( 'Services saved successfully.' ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public function handle_delete_service() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		$index = isset( $_GET['index'] ) ? intval( $_GET['index'] ) : -1;
+		
+		if ( $index < 0 ) {
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-services',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'Invalid service index.' ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
+		check_admin_referer( 'hyper_local_delete_service_' . $index, 'nonce' );
+
+		$services = $this->get_services();
+		
+		if ( ! isset( $services[ $index ] ) ) {
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-services',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'Service not found.' ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
+		$deleted_service_name = $services[ $index ]['name'];
+		
+		// Remove the service at the specified index
+		array_splice( $services, $index, 1 );
+		
+		// Re-index the array to maintain sequential keys
+		$services = array_values( $services );
+		
+		update_option( self::SERVICES_CACHE_OPTION, $services );
+
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-services',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( 'Service "' . $deleted_service_name . '" deleted successfully.' ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
 	}
