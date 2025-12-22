@@ -15,6 +15,126 @@ if ( ! defined( 'ABSPATH' ) ) {
 trait SEOgen_Admin_City_Hub_Helpers {
 
 	/**
+	 * Remove service enumeration paragraphs from City Hub content
+	 * 
+	 * Detects and removes paragraphs that enumerate specific services (doorway-style content).
+	 * Looks for patterns like "Our offerings include X, Y, Z" or "We offer A, B, and C".
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @return string Cleaned markup with service enumeration removed
+	 */
+	private function remove_service_enumeration_paragraphs( $markup ) {
+		// Get services from cache to build detection patterns
+		$services = get_option( 'hyper_local_services_cache', array() );
+		if ( empty( $services ) || ! is_array( $services ) ) {
+			return $markup;
+		}
+		
+		// Build list of service names for detection (lowercase for matching)
+		$service_names = array();
+		foreach ( $services as $service ) {
+			if ( isset( $service['name'] ) ) {
+				$service_names[] = strtolower( trim( $service['name'] ) );
+			}
+		}
+		
+		if ( empty( $service_names ) ) {
+			return $markup;
+		}
+		
+		// Split markup into blocks
+		$blocks = preg_split( '/(<!-- wp:[^>]+ -->|<!-- \/wp:[^>]+ -->)/', $markup, -1, PREG_SPLIT_DELIM_CAPTURE );
+		
+		$output = '';
+		$in_paragraph = false;
+		$paragraph_content = '';
+		$paragraph_open_tag = '';
+		
+		foreach ( $blocks as $block ) {
+			// Detect paragraph block opening
+			if ( preg_match( '/^<!-- wp:paragraph/', $block ) ) {
+				$in_paragraph = true;
+				$paragraph_content = '';
+				$paragraph_open_tag = $block;
+				continue;
+			}
+			
+			// Detect paragraph block closing
+			if ( $in_paragraph && preg_match( '/^<!-- \/wp:paragraph/', $block ) ) {
+				$in_paragraph = false;
+				
+				// Check if this paragraph enumerates services
+				$is_enumeration = $this->is_service_enumeration_paragraph( $paragraph_content, $service_names );
+				
+				if ( ! $is_enumeration ) {
+					// Keep this paragraph
+					$output .= $paragraph_open_tag . $paragraph_content . $block;
+				}
+				// If it IS enumeration, skip it (don't add to output)
+				
+				continue;
+			}
+			
+			// Collect paragraph content
+			if ( $in_paragraph ) {
+				$paragraph_content .= $block;
+			} else {
+				$output .= $block;
+			}
+		}
+		
+		return $output;
+	}
+	
+	/**
+	 * Check if a paragraph contains service enumeration
+	 * 
+	 * @param string $content Paragraph content (HTML)
+	 * @param array $service_names Array of lowercase service names
+	 * @return bool True if paragraph enumerates services
+	 */
+	private function is_service_enumeration_paragraph( $content, $service_names ) {
+		// Strip HTML tags for text analysis
+		$text = wp_strip_all_tags( $content );
+		$text_lower = strtolower( $text );
+		
+		// Check for enumeration trigger phrases
+		$enumeration_triggers = array(
+			'our offerings include',
+			'we offer',
+			'services include',
+			'including',
+			'such as',
+			'from',
+			'range of',
+			'everything from',
+		);
+		
+		$has_trigger = false;
+		foreach ( $enumeration_triggers as $trigger ) {
+			if ( false !== strpos( $text_lower, $trigger ) ) {
+				$has_trigger = true;
+				break;
+			}
+		}
+		
+		if ( ! $has_trigger ) {
+			return false;
+		}
+		
+		// Count how many known service names appear in this paragraph
+		$service_matches = 0;
+		foreach ( $service_names as $service_name ) {
+			if ( false !== strpos( $text_lower, $service_name ) ) {
+				$service_matches++;
+			}
+		}
+		
+		// If paragraph has trigger phrase AND mentions 2+ services, it's enumeration
+		return $service_matches >= 2;
+	}
+
+	/**
 	 * Build parent hub link HTML with clean naming
 	 * 
 	 * @param string $hub_key Hub key to find parent Service Hub
@@ -607,6 +727,11 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		
 		// 3) Inject parent hub link after H1
 		$markup = $this->inject_after_h1( $markup, $parent_hub_link );
+		
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 1.5: Remove service enumeration paragraphs (ANTI-DOORWAY GUARD)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		$markup = $this->remove_service_enumeration_paragraphs( $markup );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 2: Add EXACTLY ONE city-specific nuance (SCALE SAFETY GUARD)
