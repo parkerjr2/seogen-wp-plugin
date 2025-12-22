@@ -302,6 +302,13 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			$markup
 		);
 		
+		// Remove "Services Available Locally" heading (duplicate) - CRITICAL
+		$markup = preg_replace(
+			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available Locally<\/h[23]>\s*<!-- \/wp:heading -->/i',
+			'',
+			$markup
+		);
+		
 		// Remove "Services Locally" or "Services in {City}" headings (duplicates)
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>\s*<!-- \/wp:heading -->/i',
@@ -317,6 +324,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		);
 		
 		// Remove any list blocks that contain multiple service page links (duplicates)
+		// This will remove the duplicate service list that appears after FAQ
 		$markup = preg_replace_callback(
 			'/<!-- wp:list[^>]*-->\s*<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>\s*<!-- \/wp:list -->/is',
 			array( $this, 'remove_service_list_callback' ),
