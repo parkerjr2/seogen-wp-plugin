@@ -218,6 +218,15 @@ trait SEOgen_Admin_Extensions {
 
 		$config = $this->get_business_config();
 		$services = $this->get_services();
+		
+		// Migrate old 'category' field to 'hub_key' when rendering
+		foreach ( $services as &$service ) {
+			if ( isset( $service['category'] ) && ! isset( $service['hub_key'] ) ) {
+				$service['hub_key'] = $service['category'];
+			}
+		}
+		unset( $service );
+		
 		$hubs = isset( $config['hubs'] ) ? $config['hubs'] : array();
 
 		if ( empty( $config['vertical'] ) || empty( $hubs ) ) {
