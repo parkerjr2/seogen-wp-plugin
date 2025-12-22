@@ -569,56 +569,23 @@ class SEOgen_Plugin {
 		return $output;
 	}
 
+	/**
+	 * Render city hub links shortcode (DEPRECATED - alias to seogen_city_service_links)
+	 * 
+	 * This shortcode is kept for backwards compatibility but now calls the canonical
+	 * seogen_city_service_links renderer to avoid duplicate service link sections.
+	 * 
+	 * @deprecated Use [seogen_city_service_links] instead
+	 */
 	public function render_city_hub_links_shortcode( $atts ) {
-		$atts = shortcode_atts( array(
-			'hub_key' => '',
-			'city_slug' => '',
-		), $atts, 'seogen_city_hub_links' );
-
-		$hub_key = sanitize_text_field( $atts['hub_key'] );
-		$city_slug = sanitize_text_field( $atts['city_slug'] );
+		// Check if SEOgen_City_Service_Links class exists and use its canonical renderer
+		if ( class_exists( 'SEOgen_City_Service_Links' ) ) {
+			$city_service_links = new SEOgen_City_Service_Links();
+			return $city_service_links->render_city_service_links_shortcode( $atts );
+		}
 		
-		if ( '' === $hub_key || '' === $city_slug ) {
-			return '<p><em>Error: hub_key and city_slug attributes are required.</em></p>';
-		}
-
-		$args = array(
-			'post_type' => 'service_page',
-			'post_status' => 'publish',
-			'posts_per_page' => 50,
-			'meta_query' => array(
-				array(
-					'key' => '_seogen_page_mode',
-					'value' => 'service_city',
-				),
-				array(
-					'key' => '_seogen_hub_key',
-					'value' => $hub_key,
-				),
-				array(
-					'key' => '_seogen_city_slug',
-					'value' => $city_slug,
-				),
-			),
-			'orderby' => 'title',
-			'order' => 'ASC',
-		);
-
-		$query = new WP_Query( $args );
-
-		if ( ! $query->have_posts() ) {
-			return '<p><em>No service pages found for this city yet.</em></p>';
-		}
-
-		$output = '<div class="seogen-city-hub-links"><ul>';
-		while ( $query->have_posts() ) {
-			$query->the_post();
-			$output .= '<li><a href="' . esc_url( get_permalink() ) . '">' . esc_html( get_the_title() ) . '</a></li>';
-		}
-		$output .= '</ul></div>';
-		wp_reset_postdata();
-
-		return $output;
+		// Fallback if class doesn't exist (shouldn't happen)
+		return '<!-- [seogen_city_hub_links] is deprecated. Use [seogen_city_service_links] instead. -->';
 	}
 
 	/**

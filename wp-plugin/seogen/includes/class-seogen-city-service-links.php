@@ -54,7 +54,11 @@ class SEOgen_City_Service_Links {
 		}
 
 		// Check if shortcode already exists in content (avoid duplicate injection)
-		if ( false !== strpos( $content, '[seogen_city_service_links]' ) || false !== strpos( $content, 'seogen-city-service-links' ) ) {
+		// Check for both [seogen_city_service_links] and [seogen_city_hub_links] (deprecated alias)
+		if ( false !== strpos( $content, '[seogen_city_service_links]' ) || 
+		     false !== strpos( $content, '[seogen_city_hub_links]' ) ||
+		     false !== strpos( $content, 'seogen-city-service-links' ) ||
+		     false !== strpos( $content, 'seogen-city-hub-links' ) ) {
 			return $content;
 		}
 
