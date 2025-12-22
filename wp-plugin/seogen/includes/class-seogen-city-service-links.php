@@ -55,10 +55,10 @@ class SEOgen_City_Service_Links {
 
 		// Check if shortcode already exists in content (avoid duplicate injection)
 		// Check for both [seogen_city_service_links] and [seogen_city_hub_links] (deprecated alias)
+		// Also check for rendered output (seogen-hub-links class used by both Service Hub and City Hub)
 		if ( false !== strpos( $content, '[seogen_city_service_links]' ) || 
 		     false !== strpos( $content, '[seogen_city_hub_links]' ) ||
-		     false !== strpos( $content, 'seogen-city-service-links' ) ||
-		     false !== strpos( $content, 'seogen-city-hub-links' ) ) {
+		     false !== strpos( $content, 'seogen-hub-links' ) ) {
 			return $content;
 		}
 
@@ -168,8 +168,8 @@ class SEOgen_City_Service_Links {
 		// Query service_city pages by meta (no title parsing)
 		$service_pages = $this->query_service_city_pages( $hub_key, $city_slug );
 
-		// Render output
-		$output = $this->render_service_links_html( $service_pages, $city_display_name );
+		// Render output with Service Hub UI style
+		$output = $this->render_service_links_html( $service_pages, $city_display_name, $hub_key, $city_slug );
 
 		// Cache for 12 hours
 		set_transient( $cache_key, $output, 12 * HOUR_IN_SECONDS );
@@ -361,22 +361,43 @@ class SEOgen_City_Service_Links {
 	}
 
 	/**
-	 * Render service links HTML
+	 * Render service links HTML using Service Hub UI style
+	 * 
+	 * Matches the markup used by Service Hub child links for consistency.
 	 * 
 	 * @param array  $service_pages Array of WP_Post objects
 	 * @param string $city_display_name City display name (e.g., "Tulsa, OK")
+	 * @param string $hub_key Hub key for debug comment
+	 * @param string $city_slug City slug for debug comment
 	 * @return string HTML output
 	 */
-	private function render_service_links_html( $service_pages, $city_display_name ) {
-		$output = '<div class="seogen-city-service-links">';
-		$output .= '<h2>Services Available in ' . esc_html( $city_display_name ) . '</h2>';
+	private function render_service_links_html( $service_pages, $city_display_name, $hub_key = '', $city_slug = '' ) {
+		$output = '';
+		
+		// Admin-only debug comment
+		if ( current_user_can( 'manage_options' ) ) {
+			$output .= sprintf(
+				'<!-- seogen city services: hub_key=%s, city_slug=%s, count=%d -->',
+				esc_attr( $hub_key ),
+				esc_attr( $city_slug ),
+				count( $service_pages )
+			) . "\n";
+		}
+		
+		// Use Service Hub UI style: <div class="seogen-hub-links">
+		$output .= '<div class="seogen-hub-links">';
+		$output .= '<h3>Services Available in ' . esc_html( $city_display_name ) . '</h3>';
 
 		if ( empty( $service_pages ) ) {
 			// Empty state: No services found
 			$output .= '<p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>';
+			// Debug comment for empty state
+			if ( current_user_can( 'manage_options' ) ) {
+				$output .= '<!-- No service_city pages found with matching hub_key + city_slug -->';
+			}
 		} else {
 			// Render service links list
-			$output .= '<ul class="seogen-service-list">';
+			$output .= '<ul>';
 			foreach ( $service_pages as $post ) {
 				$permalink = get_permalink( $post->ID );
 				$title = get_the_title( $post->ID );
@@ -393,24 +414,33 @@ class SEOgen_City_Service_Links {
 	/**
 	 * Bust service links cache when a service_page is saved/updated
 	 * 
-	 * Only bust cache if the post is a service_city page
+	 * Busts cache for both service_city pages and city_hub pages
 	 * 
 	 * @param int $post_id Post ID
 	 */
 	public function bust_service_links_cache( $post_id ) {
-		// Check if this is a service_city page
 		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
-		if ( 'service_city' !== $page_mode ) {
-			return;
+		
+		// Bust cache for service_city pages
+		if ( 'service_city' === $page_mode ) {
+			$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
+			$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
+
+			if ( ! empty( $hub_key ) && ! empty( $city_slug ) ) {
+				$cache_key = 'seogen_city_services_' . md5( $hub_key . '_' . $city_slug );
+				delete_transient( $cache_key );
+			}
 		}
+		
+		// Bust cache for city_hub pages (when hub page is updated, clear its service links cache)
+		if ( 'city_hub' === $page_mode ) {
+			$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
+			$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
 
-		// Get hub_key and city_slug to bust specific cache
-		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
-		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
-
-		if ( ! empty( $hub_key ) && ! empty( $city_slug ) ) {
-			$cache_key = 'seogen_city_services_' . md5( $hub_key . '_' . $city_slug );
-			delete_transient( $cache_key );
+			if ( ! empty( $hub_key ) && ! empty( $city_slug ) ) {
+				$cache_key = 'seogen_city_services_' . md5( $hub_key . '_' . $city_slug );
+				delete_transient( $cache_key );
+			}
 		}
 	}
 
