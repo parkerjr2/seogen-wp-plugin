@@ -15,6 +15,89 @@ if ( ! defined( 'ABSPATH' ) ) {
 trait SEOgen_Admin_City_Hub_Helpers {
 
 	/**
+	 * Get city-specific differentiator templates
+	 * 
+	 * Returns array of local differentiator sentences that add city-specific context
+	 * without referencing specific landmarks or making unverifiable claims.
+	 * 
+	 * @param string $vertical Business vertical (electrician, plumber, etc.)
+	 * @param string $hub_key Hub key (residential, commercial)
+	 * @return array Array of differentiator templates with {city} placeholder
+	 */
+	private function get_city_differentiator_templates( $vertical = '', $hub_key = '' ) {
+		// Residential electrical differentiators
+		if ( 'residential' === $hub_key ) {
+			return array(
+				'Many homes in {city} were built decades ago, so panel capacity and wiring safety are common concerns.',
+				'In {city}, upgrades to support newer HVAC, kitchen loads, and EV charging are increasingly common.',
+				'Older neighborhoods and remodels in {city} often benefit from safety checks and code corrections.',
+				'Homeowners in {city} frequently upgrade electrical systems to handle modern appliances and smart home technology.',
+				'With {city}\'s mix of older and newer construction, electrical safety inspections help prevent hazards.',
+				'Many {city} properties need panel upgrades to meet current electrical demands and building codes.',
+				'In {city}, electrical work often involves bringing older systems up to modern safety standards.',
+				'Residential electrical needs in {city} range from basic repairs to whole-home rewiring projects.',
+				'{city} homeowners often discover outdated wiring during renovations or home inspections.',
+				'Electrical service upgrades in {city} help homes keep pace with increasing power requirements.',
+			);
+		}
+		
+		// Commercial electrical differentiators
+		if ( 'commercial' === $hub_key ) {
+			return array(
+				'Commercial properties in {city} require reliable electrical systems to minimize downtime and maintain operations.',
+				'Businesses in {city} often need electrical upgrades to support new equipment and technology.',
+				'In {city}, commercial electrical work focuses on code compliance, safety, and operational efficiency.',
+				'Many {city} commercial buildings benefit from lighting retrofits and energy-efficient upgrades.',
+				'{city} businesses rely on properly maintained electrical systems to avoid costly interruptions.',
+				'Commercial electrical needs in {city} include everything from tenant improvements to facility-wide upgrades.',
+				'Retail and office spaces in {city} frequently require electrical modifications for layout changes.',
+				'In {city}, commercial electrical work must meet strict safety codes and insurance requirements.',
+				'{city} commercial properties often need electrical capacity assessments before equipment installations.',
+				'Businesses in {city} depend on professional electrical service to maintain safe, compliant facilities.',
+			);
+		}
+		
+		// Generic fallback differentiators (work for any vertical/hub)
+		return array(
+			'Properties in {city} have diverse electrical needs based on age, construction type, and usage patterns.',
+			'In {city}, electrical work often involves balancing safety requirements with practical functionality.',
+			'Many {city} properties benefit from professional electrical assessments to identify potential issues.',
+			'{city} property owners rely on licensed electricians to ensure code-compliant, safe installations.',
+			'Electrical systems in {city} must meet local building codes and safety standards.',
+			'In {city}, electrical upgrades help properties stay current with modern power demands.',
+			'{city} properties range from older buildings needing updates to new construction requiring proper installation.',
+			'Professional electrical service in {city} focuses on safety, reliability, and long-term performance.',
+			'Many {city} property owners discover electrical issues during inspections or renovation projects.',
+			'In {city}, electrical work requires knowledge of local codes, permits, and inspection processes.',
+		);
+	}
+	
+	/**
+	 * Select city differentiator deterministically
+	 * 
+	 * Uses hash of hub_key + city_slug to select a differentiator template,
+	 * ensuring the same city always gets the same differentiator.
+	 * 
+	 * @param string $hub_key Hub key
+	 * @param string $city_slug City slug
+	 * @param string $city_name City display name
+	 * @param string $vertical Business vertical
+	 * @return string City-specific differentiator sentence
+	 */
+	private function select_city_differentiator( $hub_key, $city_slug, $city_name, $vertical = '' ) {
+		$templates = $this->get_city_differentiator_templates( $vertical, $hub_key );
+		
+		// Deterministic selection using hash
+		$hash = md5( $hub_key . '_' . $city_slug );
+		$index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
+		
+		$template = $templates[ $index ];
+		
+		// Replace {city} placeholder with actual city name
+		return str_replace( '{city}', $city_name, $template );
+	}
+
+	/**
 	 * Remove service enumeration paragraphs from City Hub content
 	 * 
 	 * Detects and removes paragraphs that enumerate specific services (doorway-style content).
@@ -734,11 +817,17 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$markup = $this->remove_service_enumeration_paragraphs( $markup );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-		// PRIORITY 2: Add EXACTLY ONE city-specific nuance (SCALE SAFETY GUARD)
+		// PRIORITY 2: Add EXACTLY ONE city-specific differentiator (LOCAL SEO + SCALE SAFETY GUARD)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-		if ( ! empty( $vertical ) ) {
-			$city_nuance = $this->generate_city_nuance_gpt( $city, $vertical, $hub_key );
-			$markup = $this->insert_city_nuance_after_intro( $markup, $city_nuance );
+		// Use deterministic template selection instead of GPT to ensure:
+		// 1) Consistent output for same city (no API variance)
+		// 2) Different content across cities (reduces doorway-page similarity)
+		// 3) No API costs or latency
+		$city_name = isset( $city['name'] ) ? $city['name'] : '';
+		$city_slug = isset( $city['slug'] ) ? $city['slug'] : '';
+		if ( ! empty( $city_name ) && ! empty( $city_slug ) ) {
+			$city_differentiator = $this->select_city_differentiator( $hub_key, $city_slug, $city_name, $vertical );
+			$markup = $this->insert_city_nuance_after_intro( $markup, $city_differentiator );
 		}
 		
 		// 4) Reduce city name repetition
