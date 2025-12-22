@@ -279,25 +279,48 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			return $markup;
 		}
 		
-		// Remove redundant "Services We Offer" heading and generic intro paragraph
-		// Pattern: H2 "Services We Offer" followed by generic paragraph
+		// Remove ALL existing service-related sections from AI-generated content
+		// We'll replace them with our clean integrated section
+		
+		// 1. Remove "Services We Offer" heading + paragraph
 		$markup = preg_replace(
-			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->\s*<!-- wp:paragraph[^>]*-->\s*<p[^>]*>We provide[^<]*<\/p>\s*<!-- \/wp:paragraph -->/i',
+			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->\s*(?:<!-- wp:paragraph[^>]*-->\s*<p[^>]*>.*?<\/p>\s*<!-- \/wp:paragraph -->\s*)?/is',
 			'',
 			$markup
 		);
 		
-		// Also remove standalone "Services We Offer" heading
+		// 2. Remove "Services Available in {City}" heading
 		$markup = preg_replace(
-			'/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->/i',
+			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
 			$markup
 		);
 		
-		// Remove "Services Available in {City}" heading if present (will be replaced)
+		// 3. Remove "Services Locally" or "Services in {City}" headings
 		$markup = preg_replace(
-			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available in[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
+			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
+			$markup
+		);
+		
+		// 4. Remove any paragraph that says "Explore our services..."
+		$markup = preg_replace(
+			'/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>Explore our services[^<]*<\/p>\s*<!-- \/wp:paragraph -->/i',
+			'',
+			$markup
+		);
+		
+		// 5. Remove any list blocks that contain service page links
+		// Pattern: list block with multiple links to service pages
+		$markup = preg_replace(
+			'/<!-- wp:list[^>]*-->\s*<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>\s*<!-- \/wp:list -->/is',
+			function( $matches ) {
+				// Only remove if it contains multiple service page links
+				if ( substr_count( $matches[0], '<a href=' ) >= 2 ) {
+					return '';
+				}
+				return $matches[0];
+			},
 			$markup
 		);
 		
