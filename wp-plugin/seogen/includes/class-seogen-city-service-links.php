@@ -219,22 +219,72 @@ class SEOgen_City_Service_Links {
 			),
 		);
 
-		// Debug logging
-		error_log( sprintf( 
-			'[SEOgen City Service Links] Query args: hub_key=%s, city_slug=%s, post_status=%s',
-			$hub_key,
-			$city_slug,
-			implode( ',', $post_status )
-		) );
-
 		$query = new WP_Query( $args );
 		$posts = $query->posts;
 		
-		error_log( sprintf(
-			'[SEOgen City Service Links] Query results: found %d posts. SQL: %s',
-			count( $posts ),
-			$query->request
-		) );
+		// Output debug info to browser console
+		if ( current_user_can( 'manage_options' ) ) {
+			add_action( 'wp_footer', function() use ( $hub_key, $city_slug, $post_status, $posts, $query ) {
+				?>
+				<script>
+				console.group('🔍 SEOgen City Service Links Debug');
+				console.log('Query Parameters:', {
+					hub_key: <?php echo wp_json_encode( $hub_key ); ?>,
+					city_slug: <?php echo wp_json_encode( $city_slug ); ?>,
+					post_status: <?php echo wp_json_encode( $post_status ); ?>
+				});
+				console.log('Results Found:', <?php echo count( $posts ); ?>);
+				console.log('SQL Query:', <?php echo wp_json_encode( $query->request ); ?>);
+				<?php if ( ! empty( $posts ) ) : ?>
+				console.log('Found Posts:', <?php echo wp_json_encode( array_map( function( $p ) {
+					return array(
+						'ID' => $p->ID,
+						'title' => $p->post_title,
+						'slug' => $p->post_name,
+					);
+				}, $posts ) ); ?>);
+				<?php else : ?>
+				console.warn('No posts found! Checking for posts with partial matches...');
+				
+				// Query without city_slug to see what's available
+				<?php
+				$debug_args = array(
+					'post_type' => 'service_page',
+					'post_status' => $post_status,
+					'posts_per_page' => 10,
+					'meta_query' => array(
+						'relation' => 'AND',
+						array(
+							'key' => '_seogen_page_mode',
+							'value' => 'service_city',
+							'compare' => '=',
+						),
+						array(
+							'key' => '_seogen_hub_key',
+							'value' => $hub_key,
+							'compare' => '=',
+						),
+					),
+				);
+				$debug_query = new WP_Query( $debug_args );
+				if ( ! empty( $debug_query->posts ) ) :
+					$debug_posts = array_map( function( $p ) {
+						return array(
+							'ID' => $p->ID,
+							'title' => $p->post_title,
+							'_seogen_city_slug' => get_post_meta( $p->ID, '_seogen_city_slug', true ),
+							'_seogen_hub_key' => get_post_meta( $p->ID, '_seogen_hub_key', true ),
+						);
+					}, $debug_query->posts );
+					?>
+					console.log('Posts with hub_key=<?php echo esc_js( $hub_key ); ?> (any city):', <?php echo wp_json_encode( $debug_posts ); ?>);
+				<?php endif; ?>
+				<?php endif; ?>
+				console.groupEnd();
+				</script>
+				<?php
+			}, 999 );
+		}
 		
 		wp_reset_postdata();
 
