@@ -295,86 +295,76 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		
 		// STEP 1: Remove ALL duplicate/redundant service sections
 	
-		// Remove "Services Available in {City}" heading (duplicate) - Gutenberg format
+		// Remove "Services Available" variations - Gutenberg format
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
 			'',
 			$markup
 		);
 		
-		// Remove "Services Available in {City}" heading (duplicate) - Plain HTML format
+		// Remove "Services Available" variations - Plain HTML format
 		$markup = preg_replace(
 			'/<h[23][^>]*>Services Available[^<]*<\/h[23]>/i',
 			'',
 			$markup
 		);
 		
-		// Remove "Services Available Locally" heading - Gutenberg format
+		// Remove "Services Locally" variations - Both formats
 		$markup = preg_replace(
-			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available Locally<\/h[23]>\s*<!-- \/wp:heading -->/i',
+			'/(?:<!-- wp:heading[^>]*-->\s*)?<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>(?:\s*<!-- \/wp:heading -->)?/i',
 			'',
 			$markup
 		);
 		
-		// Remove "Services Available Locally" heading - Plain HTML format (CRITICAL)
-		$markup = preg_replace(
-			'/<h[23][^>]*>Services Available Locally<\/h[23]>/i',
-			'',
-			$markup
+		// Remove redundant bridge paragraphs that commonly duplicate
+		$redundant_phrases = array(
+			'We provide .* services throughout',
+			'We\'re expanding our service coverage',
+			'Call us and we\'ll confirm availability',
+			'Explore our services in the area',
 		);
 		
-		// Remove "Services Locally" or "Services in {City}" headings - Gutenberg format
-		$markup = preg_replace(
-			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>\s*<!-- \/wp:heading -->/i',
-			'',
-			$markup
-		);
-		
-		// Remove "Services Locally" or "Services in {City}" headings - Plain HTML format
-		$markup = preg_replace(
-			'/<h[23][^>]*>Services (?:Locally|in [^<]+)<\/h[23]>/i',
-			'',
-			$markup
-		);
-		
-		// Remove any paragraph that says "Explore our services..." (duplicate intro)
-		$markup = preg_replace(
-			'/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>Explore our services[^<]*<\/p>\s*<!-- \/wp:paragraph -->/i',
-			'',
-			$markup
-		);
+		foreach ( $redundant_phrases as $phrase ) {
+			// Gutenberg format
+			$markup = preg_replace(
+				'/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>' . $phrase . '[^<]*<\/p>\s*<!-- \/wp:paragraph -->/i',
+				'',
+				$markup
+			);
+			// Plain HTML format
+			$markup = preg_replace(
+				'/<p[^>]*>' . $phrase . '[^<]*<\/p>/i',
+				'',
+				$markup
+			);
+		}
 		
 		// Remove any list blocks that contain multiple service page links (duplicates)
-		// This will remove the duplicate service list that appears after FAQ
 		$markup = preg_replace_callback(
 			'/<!-- wp:list[^>]*-->\s*<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>\s*<!-- \/wp:list -->/is',
 			array( $this, 'remove_service_list_callback' ),
 			$markup
 		);
 		
-		// AGGRESSIVE: Remove any standalone <ul> lists that contain 2+ service page links
-		// This catches plain HTML lists that aren't wrapped in Gutenberg blocks
+		// AGGRESSIVE: Remove standalone <ul> lists with 2+ service links
 		$markup = preg_replace_callback(
 			'/<ul[^>]*>(?:\s*<li>.*?<\/li>)*\s*<\/ul>/is',
 			array( $this, 'remove_service_list_callback' ),
 			$markup
 		);
 		
-		// STEP 2: Find ALL "Services We Offer" sections and keep only the FIRST one
-		$services_we_offer_pattern = '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->(\s*<!-- wp:paragraph[^>]*-->\s*<p[^>]*>.*?<\/p>\s*<!-- \/wp:paragraph -->)?/is';
+		// STEP 2: Find "Services We Offer" heading (with or without city/state)
+		// Match both "Services We Offer" and "Services We Offer in {City}, {State}"
+		// Match H2 or H3, Gutenberg or plain HTML
+		$services_pattern = '/(?:<!-- wp:heading[^>]*-->\s*)?<h[23][^>]*>Services We Offer(?:\s+in\s+[^<]+)?<\/h[23]>(?:\s*<!-- \/wp:heading -->)?(\s*(?:<!-- wp:paragraph[^>]*-->\s*)?<p[^>]*>.*?<\/p>(?:\s*<!-- \/wp:paragraph -->)?){0,2}/is';
 		
-		// Find all matches
-		if ( ! preg_match_all( $services_we_offer_pattern, $markup, $all_matches, PREG_OFFSET_CAPTURE ) ) {
-			// No "Services We Offer" heading found - insert service links before FAQ or at end
+		// Find all service section matches
+		if ( ! preg_match_all( $services_pattern, $markup, $all_matches, PREG_OFFSET_CAPTURE ) ) {
+			// No "Services We Offer" heading found - use fallback
 			return $this->insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state );
 		}
 		
-		// Keep the FIRST "Services We Offer" section, remove all others
-		$first_match = $all_matches[0][0];
-		$first_position = $first_match[1];
-		$first_length = strlen( $first_match[0] );
-		
-		// Remove all "Services We Offer" sections AFTER the first one
+		// Keep ONLY the FIRST "Services We Offer" section, remove all others
 		if ( count( $all_matches[0] ) > 1 ) {
 			// Remove from last to first (to preserve positions)
 			for ( $i = count( $all_matches[0] ) - 1; $i > 0; $i-- ) {
@@ -385,19 +375,19 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			}
 		}
 		
-		// Now find the first "Services We Offer" section again (positions may have changed)
-		if ( ! preg_match( $services_we_offer_pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+		// Find the first "Services We Offer" section again (positions may have changed)
+		if ( ! preg_match( $services_pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
 			// Something went wrong, use fallback
 			return $this->insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state );
 		}
 		
-		// Insert service links right after the FIRST "Services We Offer" section
+		// Insert service links right after the heading and its paragraphs
 		$insert_position = $matches[0][1] + strlen( $matches[0][0] );
 		
-		// Render the canonical service links block
+		// Render the canonical service links block with natural inline links
 		$service_links_block = $this->render_city_service_links_block( $hub_key, $city_slug, $city_name, $state );
 		
-		// Insert right after "Services We Offer" heading (and optional paragraph)
+		// Insert right after "Services We Offer" section
 		$markup = substr_replace( $markup, "\n\n" . $service_links_block . "\n\n", $insert_position, 0 );
 		
 		return $markup;
@@ -455,10 +445,34 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 	
 	/**
-	 * Render canonical city service links block
+	 * Get trade-neutral sentence templates for natural inline service links
 	 * 
-	 * Returns EXACTLY ONE service links block using Service Hub UI style.
-	 * This is the single source of truth for City Hub service links rendering.
+	 * @return array Array of sentence templates with {city} and {links} placeholders
+	 */
+	private function get_service_link_sentence_templates() {
+		return array(
+			'Homeowners in {city} often reach out for help with services like {links}.',
+			'Some of the most requested services in the area include {links}.',
+			'Whether you\'re dealing with routine maintenance or a specific issue, services such as {links} are commonly needed.',
+			'Local property owners frequently schedule services like {links} to keep things running smoothly.',
+			'Many projects we handle in {city} involve {links}.',
+			'Property owners in {city} regularly need services such as {links}.',
+			'Common service requests in the area include {links}.',
+			'Residents and businesses in {city} often require {links}.',
+			'We frequently assist clients in {city} with {links}.',
+			'Popular services in the area include {links}.',
+			'Many {city} properties benefit from services like {links}.',
+			'Typical service needs in {city} include {links}.',
+		);
+	}
+	
+	/**
+	 * Render canonical city service links block with natural inline links
+	 * 
+	 * Returns EXACTLY ONE service links block with:
+	 * - Natural sentence(s) with inline service links (first 3-5 services)
+	 * - Optional clean list of all services below
+	 * - Trade-neutral and professional tone
 	 * 
 	 * @param string $hub_key Hub key
 	 * @param string $city_slug City slug
@@ -496,7 +510,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$service_pages = $service_pages_query->posts;
 		wp_reset_postdata();
 		
-		// Build service links HTML using Service Hub UI style
+		// Build service links HTML
 		$service_links_html = '';
 		
 		// Admin-only debug comment
@@ -509,9 +523,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			);
 		}
 		
-		// Use Service Hub UI style: <div class="seogen-hub-links">
 		$service_links_html .= '<div class="seogen-hub-links">' . "\n";
-		$service_links_html .= '  <h3>Services Available in ' . esc_html( $city_name ) . ', ' . esc_html( $state ) . '</h3>' . "\n";
 		
 		if ( empty( $service_pages ) ) {
 			// Empty state: No services found
@@ -520,19 +532,59 @@ trait SEOgen_Admin_City_Hub_Helpers {
 				$service_links_html .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
 			}
 		} else {
-			// Render service links list
-			$service_links_html .= '  <ul>' . "\n";
-			foreach ( $service_pages as $post ) {
+			// Render natural inline sentence with first 3-5 services
+			$templates = $this->get_service_link_sentence_templates();
+			
+			// Deterministically select template using hash
+			$hash = md5( $hub_key . '_' . $city_slug );
+			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
+			$template = $templates[ $template_index ];
+			
+			// Build inline links for first 3-5 services
+			$inline_count = min( count( $service_pages ), 5 );
+			$inline_links = array();
+			
+			for ( $i = 0; $i < $inline_count; $i++ ) {
+				$post = $service_pages[ $i ];
 				$permalink = get_permalink( $post->ID );
 				$title = get_the_title( $post->ID );
-				$service_links_html .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></li>' . "\n";
+				$inline_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a>';
 			}
-			$service_links_html .= '  </ul>' . "\n";
+			
+			// Format links naturally: "A, B, and C" or "A and B"
+			if ( count( $inline_links ) === 1 ) {
+				$links_text = $inline_links[0];
+			} elseif ( count( $inline_links ) === 2 ) {
+				$links_text = $inline_links[0] . ' and ' . $inline_links[1];
+			} else {
+				$last = array_pop( $inline_links );
+				$links_text = implode( ', ', $inline_links ) . ', and ' . $last;
+			}
+			
+			// Replace placeholders in template
+			$sentence = str_replace(
+				array( '{city}', '{links}' ),
+				array( esc_html( $city_name ), $links_text ),
+				$template
+			);
+			
+			$service_links_html .= '  <p>' . $sentence . '</p>' . "\n";
+			
+			// Optionally render complete list if there are more than 5 services
+			if ( count( $service_pages ) > 5 ) {
+				$service_links_html .= '  <ul>' . "\n";
+				foreach ( $service_pages as $post ) {
+					$permalink = get_permalink( $post->ID );
+					$title = get_the_title( $post->ID );
+					$service_links_html .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></li>' . "\n";
+				}
+				$service_links_html .= '  </ul>' . "\n";
+			}
 		}
 		
 		$service_links_html .= '</div>';
 		
-		// Wrap in Gutenberg HTML block
+		// Wrap in Gutenberg HTML block (Task D: proper block structure)
 		$output = "<!-- wp:html -->\n";
 		$output .= $service_links_html . "\n";
 		$output .= "<!-- /wp:html -->";
