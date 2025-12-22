@@ -297,6 +297,18 @@ trait SEOgen_Admin_Extensions {
 		$hubs = isset( $config['hubs'] ) ? $config['hubs'] : array();
 		$default_hub_key = ! empty( $hubs ) ? $hubs[0]['key'] : 'residential';
 
+		// Migrate old services cache from 'category' to 'hub_key'
+		$old_services = get_option( self::SERVICES_CACHE_OPTION, array() );
+		if ( ! empty( $old_services ) && is_array( $old_services ) ) {
+			foreach ( $old_services as &$service ) {
+				if ( isset( $service['category'] ) && ! isset( $service['hub_key'] ) ) {
+					$service['hub_key'] = $service['category'];
+					unset( $service['category'] );
+				}
+			}
+			update_option( self::SERVICES_CACHE_OPTION, $old_services );
+		}
+
 		$services = array();
 
 		if ( isset( $_POST['services'] ) && is_array( $_POST['services'] ) ) {
