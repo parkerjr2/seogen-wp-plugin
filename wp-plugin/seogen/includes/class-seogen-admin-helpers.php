@@ -698,14 +698,49 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		
 		$output = '';
 		
-		// Admin debug comment
+		// Admin debug comment with detailed query info
 		if ( current_user_can( 'manage_options' ) ) {
+			// Get total service_city pages for comparison
+			$all_service_city = get_posts( array(
+				'post_type' => 'service_page',
+				'posts_per_page' => -1,
+				'post_status' => 'publish',
+				'fields' => 'ids',
+				'meta_query' => array(
+					array(
+						'key' => '_seogen_page_mode',
+						'value' => 'service_city',
+						'compare' => '='
+					)
+				)
+			) );
+			
 			$output .= sprintf(
-				'<!-- seogen city service links: hub=%s, city=%s, found=%d -->' . "\n",
+				'<!-- seogen city service links DEBUG: hub_key=%s, city_slug=%s, found=%d, total_service_city_pages=%d -->' . "\n",
 				esc_attr( $hub_key ),
 				esc_attr( $city_slug ),
-				count( $service_pages )
+				count( $service_pages ),
+				count( $all_service_city )
 			);
+			
+			// Sample a few service pages to show their meta values
+			if ( ! empty( $all_service_city ) ) {
+				$sample_ids = array_slice( $all_service_city, 0, 3 );
+				$output .= '<!-- Sample service page meta values:' . "\n";
+				foreach ( $sample_ids as $sample_id ) {
+					$sample_hub = get_post_meta( $sample_id, '_seogen_hub_key', true );
+					$sample_city = get_post_meta( $sample_id, '_seogen_city_slug', true );
+					$sample_title = get_the_title( $sample_id );
+					$output .= sprintf(
+						'  - "%s" (ID:%d): hub_key=%s, city_slug=%s' . "\n",
+						esc_attr( $sample_title ),
+						$sample_id,
+						esc_attr( $sample_hub ? $sample_hub : 'MISSING' ),
+						esc_attr( $sample_city ? $sample_city : 'MISSING' )
+					);
+				}
+				$output .= '-->' . "\n";
+			}
 		}
 		
 		$output .= '<div class="seogen-hub-links">' . "\n";
