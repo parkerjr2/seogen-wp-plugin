@@ -447,14 +447,17 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	/**
 	 * Get trade-neutral sentence templates for natural inline service links
 	 * 
-	 * @return array Array of sentence templates with {city} and {links} placeholders
+	 * Templates use {city} and {links} placeholders.
+	 * Designed to work for any home service vertical without trade-specific jargon.
+	 * 
+	 * @return array Array of sentence templates
 	 */
 	private function get_service_link_sentence_templates() {
 		return array(
-			'Homeowners in {city} often reach out for help with services like {links}.',
-			'Some of the most requested services in the area include {links}.',
-			'Whether you\'re dealing with routine maintenance or a specific issue, services such as {links} are commonly needed.',
-			'Local property owners frequently schedule services like {links} to keep things running smoothly.',
+			'Homeowners in {city} often call for {links}—and we also handle related work when needed.',
+			'If you\'re comparing options for {links} in {city}, these pages explain what to expect and when to call a pro.',
+			'For common projects in {city}, start with {links}.',
+			'Local property owners frequently schedule {links} to keep things running smoothly.',
 			'Many projects we handle in {city} involve {links}.',
 			'Property owners in {city} regularly need services such as {links}.',
 			'Common service requests in the area include {links}.',
@@ -467,11 +470,40 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 	
 	/**
+	 * Get clean anchor text for a service link
+	 * 
+	 * Priority:
+	 * 1. Use _seogen_service_name meta if present
+	 * 2. Fallback: Clean the title by removing " in {City} | {Business}" patterns
+	 * 
+	 * @param int $post_id Service page post ID
+	 * @return string Clean anchor text
+	 */
+	private function get_service_anchor_text( $post_id ) {
+		// Try service_name meta first
+		$service_name = get_post_meta( $post_id, '_seogen_service_name', true );
+		if ( ! empty( $service_name ) ) {
+			return $service_name;
+		}
+		
+		// Fallback: Clean the title
+		$title = get_the_title( $post_id );
+		
+		// Remove " in {City}" pattern
+		$title = preg_replace( '/\s+in\s+[A-Z][^|]+/', '', $title );
+		
+		// Remove " | {Business Name}" pattern
+		$title = preg_replace( '/\s*\|\s*.+$/', '', $title );
+		
+		return trim( $title );
+	}
+	
+	/**
 	 * Render canonical city service links block with natural inline links
 	 * 
 	 * Returns EXACTLY ONE service links block with:
-	 * - Natural sentence(s) with inline service links (first 3-5 services)
-	 * - Optional clean list of all services below
+	 * - Natural sentence with inline service links (using service_name meta)
+	 * - Optional clean list of services (capped at 12, using service_name)
 	 * - Trade-neutral and professional tone
 	 * 
 	 * @param string $hub_key Hub key
@@ -510,12 +542,42 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$service_pages = $service_pages_query->posts;
 		wp_reset_postdata();
 		
-		// Build service links HTML
-		$service_links_html = '';
+		// Use shared helper to render natural links
+		$service_links_html = $this->render_natural_city_service_links(
+			$service_pages,
+			$city_name,
+			$state,
+			$hub_key,
+			$city_slug
+		);
+		
+		// Wrap in Gutenberg HTML block for proper structure
+		$output = "<!-- wp:html -->\n";
+		$output .= $service_links_html . "\n";
+		$output .= "<!-- /wp:html -->";
+		
+		return $output;
+	}
+	
+	/**
+	 * Render natural city service links with inline prose
+	 * 
+	 * SHARED HELPER used by both admin preview and shortcode rendering.
+	 * Ensures consistent output across all City Hub service link displays.
+	 * 
+	 * @param array  $service_pages Array of WP_Post objects
+	 * @param string $city_name City display name
+	 * @param string $state State abbreviation
+	 * @param string $hub_key Hub key (for deterministic template selection)
+	 * @param string $city_slug City slug (for deterministic template selection)
+	 * @return string HTML output with natural inline links
+	 */
+	private function render_natural_city_service_links( $service_pages, $city_name, $state, $hub_key = '', $city_slug = '' ) {
+		$output = '';
 		
 		// Admin-only debug comment
 		if ( current_user_can( 'manage_options' ) ) {
-			$service_links_html .= sprintf(
+			$output .= sprintf(
 				'<!-- seogen city services: hub_key=%s, city_slug=%s, count=%d -->' . "\n",
 				esc_attr( $hub_key ),
 				esc_attr( $city_slug ),
@@ -523,32 +585,30 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			);
 		}
 		
-		$service_links_html .= '<div class="seogen-hub-links">' . "\n";
+		$output .= '<div class="seogen-hub-links">' . "\n";
 		
 		if ( empty( $service_pages ) ) {
 			// Empty state: No services found
-			$service_links_html .= '  <p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>' . "\n";
+			$output .= '  <p>We\'re expanding our service coverage in this area. Call us and we\'ll confirm availability.</p>' . "\n";
 			if ( current_user_can( 'manage_options' ) ) {
-				$service_links_html .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
+				$output .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
 			}
 		} else {
-			// Render natural inline sentence with first 3-5 services
+			// Get templates and select one deterministically
 			$templates = $this->get_service_link_sentence_templates();
-			
-			// Deterministically select template using hash
 			$hash = md5( $hub_key . '_' . $city_slug );
 			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
 			$template = $templates[ $template_index ];
 			
-			// Build inline links for first 3-5 services
+			// Build inline links for first 3-5 services using clean anchor text
 			$inline_count = min( count( $service_pages ), 5 );
 			$inline_links = array();
 			
 			for ( $i = 0; $i < $inline_count; $i++ ) {
 				$post = $service_pages[ $i ];
 				$permalink = get_permalink( $post->ID );
-				$title = get_the_title( $post->ID );
-				$inline_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a>';
+				$anchor_text = $this->get_service_anchor_text( $post->ID );
+				$inline_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
 			}
 			
 			// Format links naturally: "A, B, and C" or "A and B"
@@ -568,26 +628,23 @@ trait SEOgen_Admin_City_Hub_Helpers {
 				$template
 			);
 			
-			$service_links_html .= '  <p>' . $sentence . '</p>' . "\n";
+			$output .= '  <p>' . $sentence . '</p>' . "\n";
 			
-			// Optionally render complete list if there are more than 5 services
-			if ( count( $service_pages ) > 5 ) {
-				$service_links_html .= '  <ul>' . "\n";
-				foreach ( $service_pages as $post ) {
+			// Optional: Render clean list (capped at 12) for scanability
+			if ( count( $service_pages ) > 3 ) {
+				$output .= '  <ul>' . "\n";
+				$list_count = min( count( $service_pages ), 12 );
+				for ( $i = 0; $i < $list_count; $i++ ) {
+					$post = $service_pages[ $i ];
 					$permalink = get_permalink( $post->ID );
-					$title = get_the_title( $post->ID );
-					$service_links_html .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $title ) . '</a></li>' . "\n";
+					$anchor_text = $this->get_service_anchor_text( $post->ID );
+					$output .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a></li>' . "\n";
 				}
-				$service_links_html .= '  </ul>' . "\n";
+				$output .= '  </ul>' . "\n";
 			}
 		}
 		
-		$service_links_html .= '</div>';
-		
-		// Wrap in Gutenberg HTML block (Task D: proper block structure)
-		$output = "<!-- wp:html -->\n";
-		$output .= $service_links_html . "\n";
-		$output .= "<!-- /wp:html -->";
+		$output .= '</div>';
 		
 		return $output;
 	}
