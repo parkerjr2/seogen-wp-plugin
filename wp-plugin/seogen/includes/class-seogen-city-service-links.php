@@ -219,8 +219,23 @@ class SEOgen_City_Service_Links {
 			),
 		);
 
+		// Debug logging
+		error_log( sprintf( 
+			'[SEOgen City Service Links] Query args: hub_key=%s, city_slug=%s, post_status=%s',
+			$hub_key,
+			$city_slug,
+			implode( ',', $post_status )
+		) );
+
 		$query = new WP_Query( $args );
 		$posts = $query->posts;
+		
+		error_log( sprintf(
+			'[SEOgen City Service Links] Query results: found %d posts. SQL: %s',
+			count( $posts ),
+			$query->request
+		) );
+		
 		wp_reset_postdata();
 
 		return $posts;
