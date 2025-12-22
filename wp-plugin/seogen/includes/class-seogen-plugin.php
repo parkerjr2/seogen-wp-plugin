@@ -69,6 +69,7 @@ class SEOgen_Plugin {
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-meta-inspector.php';
 		$admin = new SEOgen_Admin();
 		$admin->register_bulk_worker_hooks();
 		
