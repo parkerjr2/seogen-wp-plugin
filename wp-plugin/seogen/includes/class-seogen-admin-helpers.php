@@ -462,6 +462,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 * Get fallback "Why Choose Us" content
 	 * 
 	 * Returns ONE paragraph (4-6 sentences) for City Hub pages.
+	 * MUST clearly show all 3 moments: decision, explanation, expectation.
 	 * Natural, conversational tone - sounds like a real contractor.
 	 * NO bullets, NO fluff, NO "locally".
 	 * 
@@ -469,7 +470,11 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 * @return string Gutenberg paragraph block with fallback content
 	 */
 	private function get_why_choose_us_fallback( $city_name ) {
-		$paragraph = "When you call, we start by asking a few questions and checking the situation in person if needed. We'll explain what we found in plain language, walk through your options, and tell you what's worth doing now versus later. If permits or code requirements apply, we point that out up front—no surprises after work starts. We keep the job site clean, communicate about timing, and make sure you know what changed when we're done.";
+		// QUALITY UPGRADE: Clearly shows decision/explanation/expectation moments
+		// Decision: "figuring out whether a problem is isolated or part of something bigger"
+		// Explanation: "walk through what we find, explain what needs attention now versus later"
+		// Expectation: "outline any code or inspection requirements before work begins"
+		$paragraph = "Most calls start with figuring out whether a problem is isolated or part of something bigger. We walk through what we find, explain what needs attention now versus later, and outline any code or inspection requirements before work begins. That way you know what to expect in terms of timing and what the work will actually involve. We also make sure to explain why we're recommending one approach over another so the decision makes sense.";
 		
 		$output = "<!-- wp:paragraph -->\n";
 		$output .= "<p>" . esc_html( $paragraph ) . "</p>\n";
