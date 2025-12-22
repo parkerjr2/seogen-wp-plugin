@@ -294,7 +294,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		}
 		
 		// STEP 1: Remove ALL duplicate/redundant service sections
-		
+	
 		// Remove "Services Available in {City}" heading (duplicate)
 		$markup = preg_replace(
 			'/<!-- wp:heading[^>]*-->\s*<h[23][^>]*>Services Available[^<]*<\/h[23]>\s*<!-- \/wp:heading -->/i',
@@ -323,17 +323,38 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			$markup
 		);
 		
-		// STEP 2: Find "Services We Offer" heading and insert service links right after it
-		// Pattern: <!-- wp:heading -->...<h2>Services We Offer</h2>...<!-- /wp:heading -->
-		// followed optionally by a paragraph
+		// STEP 2: Find ALL "Services We Offer" sections and keep only the FIRST one
 		$services_we_offer_pattern = '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Services We Offer<\/h2>\s*<!-- \/wp:heading -->(\s*<!-- wp:paragraph[^>]*-->\s*<p[^>]*>.*?<\/p>\s*<!-- \/wp:paragraph -->)?/is';
 		
-		if ( ! preg_match( $services_we_offer_pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+		// Find all matches
+		if ( ! preg_match_all( $services_we_offer_pattern, $markup, $all_matches, PREG_OFFSET_CAPTURE ) ) {
 			// No "Services We Offer" heading found - insert service links before FAQ or at end
 			return $this->insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state );
 		}
 		
-		// Found "Services We Offer" - insert service links right after it
+		// Keep the FIRST "Services We Offer" section, remove all others
+		$first_match = $all_matches[0][0];
+		$first_position = $first_match[1];
+		$first_length = strlen( $first_match[0] );
+		
+		// Remove all "Services We Offer" sections AFTER the first one
+		if ( count( $all_matches[0] ) > 1 ) {
+			// Remove from last to first (to preserve positions)
+			for ( $i = count( $all_matches[0] ) - 1; $i > 0; $i-- ) {
+				$match_text = $all_matches[0][$i][0];
+				$match_pos = $all_matches[0][$i][1];
+				$match_len = strlen( $match_text );
+				$markup = substr_replace( $markup, '', $match_pos, $match_len );
+			}
+		}
+		
+		// Now find the first "Services We Offer" section again (positions may have changed)
+		if ( ! preg_match( $services_we_offer_pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+			// Something went wrong, use fallback
+			return $this->insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state );
+		}
+		
+		// Insert service links right after the FIRST "Services We Offer" section
 		$insert_position = $matches[0][1] + strlen( $matches[0][0] );
 		
 		// Render the canonical service links block
