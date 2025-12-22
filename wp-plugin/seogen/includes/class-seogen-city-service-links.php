@@ -31,74 +31,18 @@ class SEOgen_City_Service_Links {
 	/**
 	 * Auto-inject service links section into City Hub pages
 	 * 
-	 * Only injects on city_hub pages, near the end of content but before CTA/FAQ if possible.
+	 * DISABLED: All City Hubs now have service links integrated at generation time.
+	 * Auto-injection is no longer needed and was causing duplicate service sections.
 	 * 
 	 * @param string $content Post content
-	 * @return string Modified content
+	 * @return string Unmodified content
 	 */
 	public function inject_service_links_into_city_hub( $content ) {
-		// BACKWARD COMPATIBILITY ONLY: Service links are now integrated at generation time
-		// This function only runs for legacy City Hub pages created before integration.
+		// DISABLED: Service links are now integrated at generation time for ALL City Hubs.
+		// Auto-injection caused duplicate "Services Available" sections appearing after FAQ.
+		// All City Hub pages should be regenerated to get integrated service links.
+		// Simply return content unchanged.
 		
-		// Only run on singular city_hub pages
-		if ( ! is_singular( 'service_page' ) ) {
-			return $content;
-		}
-
-		$post_id = get_the_ID();
-		if ( ! $post_id ) {
-			return $content;
-		}
-
-		// Check if this is a city_hub page
-		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
-		if ( 'city_hub' !== $page_mode ) {
-			return $content;
-		}
-
-		// CRITICAL: Check if links are already integrated at generation time
-		$links_integrated = get_post_meta( $post_id, '_seogen_links_integrated', true );
-		if ( '1' === $links_integrated ) {
-			// New City Hub with integrated links - NEVER inject
-			return $content;
-		}
-
-		// Check if service links already exist in content (legacy detection)
-		// Only inject for truly legacy City Hubs that have no links at all
-		if ( false !== strpos( $content, '[seogen_city_service_links]' ) || 
-		     false !== strpos( $content, '[seogen_city_hub_links]' ) ||
-		     false !== strpos( $content, 'seogen-hub-links' ) ) {
-			// Service links already present - skip injection
-			return $content;
-		}
-
-		// If we reach here, this is an old City Hub page without service links
-		// Inject them for backward compatibility
-		$service_links_html = $this->render_city_service_links_shortcode();
-
-		// Inject before FAQ section if it exists, otherwise append to end
-		$faq_patterns = array(
-			'/<h2[^>]*>.*?FAQ.*?<\/h2>/i',
-			'/<h2[^>]*>.*?Frequently Asked Questions.*?<\/h2>/i',
-			'/<h3[^>]*>.*?FAQ.*?<\/h3>/i',
-		);
-
-		$injected = false;
-		foreach ( $faq_patterns as $pattern ) {
-			if ( preg_match( $pattern, $content, $matches, PREG_OFFSET_CAPTURE ) ) {
-				// Insert before FAQ heading
-				$insert_pos = $matches[0][1];
-				$content = substr_replace( $content, $service_links_html . "\n\n", $insert_pos, 0 );
-				$injected = true;
-				break;
-			}
-		}
-
-		// If no FAQ found, append to end
-		if ( ! $injected ) {
-			$content .= "\n\n" . $service_links_html;
-		}
-
 		return $content;
 	}
 
