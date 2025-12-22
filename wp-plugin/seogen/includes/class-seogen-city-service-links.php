@@ -131,7 +131,14 @@ class SEOgen_City_Service_Links {
 		// Validate required data
 		if ( empty( $hub_key ) || empty( $city_slug ) ) {
 			if ( current_user_can( 'manage_options' ) ) {
-				return '<!-- [seogen_city_service_links] Missing hub_key or city_slug -->';
+				$post_id = get_the_ID();
+				$debug = '<div style="background:#fff3cd;border:1px solid #ffc107;padding:15px;margin:20px 0;">';
+				$debug .= '<strong>DEBUG: City Service Links</strong><br>';
+				$debug .= 'Post ID: ' . $post_id . '<br>';
+				$debug .= 'Hub Key: ' . ( empty( $hub_key ) ? '<em>MISSING</em>' : esc_html( $hub_key ) ) . '<br>';
+				$debug .= 'City Slug: ' . ( empty( $city_slug ) ? '<em>MISSING</em>' : esc_html( $city_slug ) ) . '<br>';
+				$debug .= '</div>';
+				return $debug;
 			}
 			return '';
 		}
@@ -157,8 +164,14 @@ class SEOgen_City_Service_Links {
 		// Query service_city pages by meta (no title parsing)
 		$service_pages = $this->query_service_city_pages( $hub_key, $city_slug );
 
+		// Admin debug output
+		$debug_output = '';
+		if ( current_user_can( 'manage_options' ) ) {
+			$debug_output = $this->render_debug_output( $hub_key, $city_slug, $service_pages );
+		}
+
 		// Render output
-		$output = $this->render_service_links_html( $service_pages, $city_display_name );
+		$output = $debug_output . $this->render_service_links_html( $service_pages, $city_display_name );
 
 		// Cache for 12 hours
 		set_transient( $cache_key, $output, 12 * HOUR_IN_SECONDS );
@@ -211,6 +224,77 @@ class SEOgen_City_Service_Links {
 		wp_reset_postdata();
 
 		return $posts;
+	}
+
+	/**
+	 * Render debug output for administrators
+	 * 
+	 * @param string $hub_key Hub key being queried
+	 * @param string $city_slug City slug being queried
+	 * @param array  $service_pages Array of WP_Post objects found
+	 * @return string Debug HTML
+	 */
+	private function render_debug_output( $hub_key, $city_slug, $service_pages ) {
+		$debug = '<div style="background:#fff3cd;border:1px solid #ffc107;padding:15px;margin:20px 0;font-family:monospace;font-size:12px;">';
+		$debug .= '<strong style="font-size:14px;">🔍 DEBUG: City Service Links Query</strong><br><br>';
+		$debug .= '<strong>Query Parameters:</strong><br>';
+		$debug .= '• Hub Key: <code>' . esc_html( $hub_key ) . '</code><br>';
+		$debug .= '• City Slug: <code>' . esc_html( $city_slug ) . '</code><br>';
+		$debug .= '• Results Found: <strong>' . count( $service_pages ) . '</strong><br><br>';
+
+		if ( empty( $service_pages ) ) {
+			// Show first 5 service_city posts in this hub with their city_slug values
+			$debug .= '<strong style="color:#d63638;">No matches found. Showing first 5 service_city pages in this hub:</strong><br>';
+			
+			$args = array(
+				'post_type'      => 'service_page',
+				'post_status'    => array( 'publish', 'draft' ),
+				'posts_per_page' => 5,
+				'orderby'        => 'date',
+				'order'          => 'DESC',
+				'meta_query'     => array(
+					'relation' => 'AND',
+					array(
+						'key'     => '_seogen_page_mode',
+						'value'   => 'service_city',
+						'compare' => '=',
+					),
+					array(
+						'key'     => '_seogen_hub_key',
+						'value'   => $hub_key,
+						'compare' => '=',
+					),
+				),
+			);
+
+			$sample_query = new WP_Query( $args );
+			if ( $sample_query->have_posts() ) {
+				$debug .= '<table style="width:100%;border-collapse:collapse;margin-top:10px;">';
+				$debug .= '<tr style="background:#f0f0f0;"><th style="text-align:left;padding:5px;">Post Title</th><th style="text-align:left;padding:5px;">_seogen_city_slug</th><th style="text-align:left;padding:5px;">Permalink</th></tr>';
+				while ( $sample_query->have_posts() ) {
+					$sample_query->the_post();
+					$post_id = get_the_ID();
+					$stored_city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
+					$permalink = get_permalink( $post_id );
+					$debug .= '<tr style="border-bottom:1px solid #ddd;">';
+					$debug .= '<td style="padding:5px;">' . esc_html( get_the_title() ) . '</td>';
+					$debug .= '<td style="padding:5px;"><code>' . ( $stored_city_slug ? esc_html( $stored_city_slug ) : '<em style="color:#d63638;">MISSING</em>' ) . '</code></td>';
+					$debug .= '<td style="padding:5px;font-size:10px;">' . esc_html( basename( $permalink ) ) . '</td>';
+					$debug .= '</tr>';
+				}
+				$debug .= '</table>';
+				wp_reset_postdata();
+			} else {
+				$debug .= '<em>No service_city pages found in this hub at all.</em>';
+			}
+
+			$debug .= '<br><br><strong>💡 Likely Issue:</strong> City slug mismatch. Expected <code>' . esc_html( $city_slug ) . '</code> but pages have different values.';
+		} else {
+			$debug .= '<strong style="color:#46b450;">✓ Query successful</strong>';
+		}
+
+		$debug .= '</div>';
+		return $debug;
 	}
 
 	/**
