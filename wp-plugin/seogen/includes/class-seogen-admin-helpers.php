@@ -272,17 +272,20 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 * 
 	 * Strategy: Find "Services We Offer" heading, keep it, remove any duplicate
 	 * service lists, and insert ONE canonical service links block right after.
+	 * Also ensures "Why Choose Us" section is populated with fallback if empty.
 	 * 
 	 * @param string $markup Gutenberg markup
 	 * @param string $hub_key Hub key
 	 * @param string $city_slug City slug
-	 * @param array $city City data
+	 * @param array $city City data array with 'name' and 'state' keys
 	 * @return string Enhanced markup with integrated service links section
 	 */
 	private function integrate_service_links_section( $markup, $hub_key, $city_slug, $city ) {
 		// Check if service links already exist in content
 		if ( false !== strpos( $markup, 'seogen-hub-links' ) ) {
 			// Service links already present, don't add again
+			// But still check for empty Why Choose Us section
+			$markup = $this->ensure_why_choose_us_populated( $markup, $city['name'] );
 			return $markup;
 		}
 		
@@ -390,7 +393,72 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// Insert right after "Services We Offer" section
 		$markup = substr_replace( $markup, "\n\n" . $service_links_block . "\n\n", $insert_position, 0 );
 		
+		// Ensure "Why Choose Us" section is populated
+		$markup = $this->ensure_why_choose_us_populated( $markup, $city_name );
+		
 		return $markup;
+	}
+	
+	/**
+	 * Ensure "Why Choose Us" section is populated with content
+	 * 
+	 * Checks if "Why Choose Us" heading exists with empty or missing content below it.
+	 * If empty, injects fallback bullet points with trade-neutral benefits.
+	 * ONLY applies to city_hub pages.
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $city_name City display name
+	 * @return string Enhanced markup with populated Why Choose Us section
+	 */
+	private function ensure_why_choose_us_populated( $markup, $city_name ) {
+		// Find "Why Choose Us" heading
+		$pattern = '/<!-- wp:heading[^>]*-->\s*<h2[^>]*>Why Choose Us<\/h2>\s*<!-- \/wp:heading -->/i';
+		
+		if ( ! preg_match( $pattern, $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+			// No "Why Choose Us" heading found, nothing to fix
+			return $markup;
+		}
+		
+		$heading_end_pos = $matches[0][1] + strlen( $matches[0][0] );
+		
+		// Check what comes after the heading
+		// Look for the next heading or block
+		$next_content = substr( $markup, $heading_end_pos, 500 );
+		
+		// If the next block is immediately another heading (no content between), inject fallback
+		if ( preg_match( '/^\s*<!-- wp:heading/', $next_content ) ) {
+			// Empty section detected - inject fallback bullet points
+			$fallback_content = $this->get_why_choose_us_fallback( $city_name );
+			$markup = substr_replace( $markup, "\n\n" . $fallback_content . "\n\n", $heading_end_pos, 0 );
+		}
+		
+		return $markup;
+	}
+	
+	/**
+	 * Get fallback "Why Choose Us" content
+	 * 
+	 * Returns trade-neutral bullet points for City Hub pages.
+	 * 
+	 * @param string $city_name City display name
+	 * @return string Gutenberg list block with fallback content
+	 */
+	private function get_why_choose_us_fallback( $city_name ) {
+		$items = array(
+			"Local experience with homes and properties in {$city_name}",
+			"Clear communication and upfront expectations",
+			"Work that meets current safety and code standards"
+		);
+		
+		$output = "<!-- wp:list -->\n";
+		$output .= "<ul>\n";
+		foreach ( $items as $item ) {
+			$output .= "  <li>" . esc_html( $item ) . "</li>\n";
+		}
+		$output .= "</ul>\n";
+		$output .= "<!-- /wp:list -->";
+		
+		return $output;
 	}
 	
 	/**
@@ -445,27 +513,48 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 	
 	/**
-	 * Get trade-neutral sentence templates for natural inline service links
+	 * Get contextual sentence templates for inline service links
 	 * 
-	 * Templates use {city} and {links} placeholders.
-	 * Designed to work for any home service vertical without trade-specific jargon.
+	 * Each template is an array of 2-3 sentences that naturally reference services.
+	 * Uses {city}, {link1}, {link2}, {link3} placeholders.
+	 * Trade-neutral and contextual (references property age, local factors, etc.).
 	 * 
-	 * @return array Array of sentence templates
+	 * @return array Array of sentence template sets
 	 */
 	private function get_service_link_sentence_templates() {
 		return array(
-			'Homeowners in {city} often call for {links}—and we also handle related work when needed.',
-			'If you\'re comparing options for {links} in {city}, these pages explain what to expect and when to call a pro.',
-			'For common projects in {city}, start with {links}.',
-			'Local property owners frequently schedule {links} to keep things running smoothly.',
-			'Many projects we handle in {city} involve {links}.',
-			'Property owners in {city} regularly need services such as {links}.',
-			'Common service requests in the area include {links}.',
-			'Residents and businesses in {city} often require {links}.',
-			'We frequently assist clients in {city} with {links}.',
-			'Popular services in the area include {links}.',
-			'Many {city} properties benefit from services like {links}.',
-			'Typical service needs in {city} include {links}.',
+			array(
+				'Homeowners in {city} often reach out for help with {link1} and {link2}.',
+				'Depending on the age and layout of local properties, services like {link3} are also commonly requested.',
+			),
+			array(
+				'Our team regularly assists residents with projects such as {link1}.',
+				'We also handle related work like {link2} when needed.',
+			),
+			array(
+				'Common service requests in {city} include {link1} and {link2}.',
+				'Many property owners also schedule {link3} to address specific needs.',
+			),
+			array(
+				'Local property owners frequently need help with {link1}.',
+				'Related services like {link2} are also part of what we handle in the area.',
+			),
+			array(
+				'If you\'re comparing options for {link1} in {city}, we can explain what to expect.',
+				'We also assist with {link2} and similar projects.',
+			),
+			array(
+				'Residents and businesses in {city} often require {link1} or {link2}.',
+				'Our team is familiar with local building codes and can handle {link3} as well.',
+			),
+			array(
+				'Many projects we handle in {city} involve {link1}.',
+				'Depending on property conditions, we also address needs like {link2}.',
+			),
+			array(
+				'For common projects in {city}, property owners often start with {link1}.',
+				'We also handle upgrades and replacements such as {link2}.',
+			),
 		);
 	}
 	
@@ -560,10 +649,11 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 	
 	/**
-	 * Render natural city service links with inline prose
+	 * Render natural city service links with inline prose ONLY
 	 * 
 	 * SHARED HELPER used by both admin preview and shortcode rendering.
-	 * Ensures consistent output across all City Hub service link displays.
+	 * Renders 2-3 contextual sentences with inline service links.
+	 * NO LISTS - only natural editorial sentences.
 	 * 
 	 * @param array  $service_pages Array of WP_Post objects
 	 * @param string $city_name City display name
@@ -594,53 +684,41 @@ trait SEOgen_Admin_City_Hub_Helpers {
 				$output .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
 			}
 		} else {
-			// Get templates and select one deterministically
-			$templates = $this->get_service_link_sentence_templates();
+			// Get template set and select one deterministically
+			$template_sets = $this->get_service_link_sentence_templates();
 			$hash = md5( $hub_key . '_' . $city_slug );
-			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
-			$template = $templates[ $template_index ];
+			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $template_sets );
+			$sentences = $template_sets[ $template_index ];
 			
-			// Build inline links for first 3-5 services using clean anchor text
-			$inline_count = min( count( $service_pages ), 5 );
-			$inline_links = array();
+			// Build individual service links (max 3 for inline use)
+			$service_links = array();
+			$link_count = min( count( $service_pages ), 3 );
 			
-			for ( $i = 0; $i < $inline_count; $i++ ) {
+			for ( $i = 0; $i < $link_count; $i++ ) {
 				$post = $service_pages[ $i ];
 				$permalink = get_permalink( $post->ID );
 				$anchor_text = $this->get_service_anchor_text( $post->ID );
-				$inline_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
+				$service_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
 			}
 			
-			// Format links naturally: "A, B, and C" or "A and B"
-			if ( count( $inline_links ) === 1 ) {
-				$links_text = $inline_links[0];
-			} elseif ( count( $inline_links ) === 2 ) {
-				$links_text = $inline_links[0] . ' and ' . $inline_links[1];
-			} else {
-				$last = array_pop( $inline_links );
-				$links_text = implode( ', ', $inline_links ) . ', and ' . $last;
-			}
-			
-			// Replace placeholders in template
-			$sentence = str_replace(
-				array( '{city}', '{links}' ),
-				array( esc_html( $city_name ), $links_text ),
-				$template
-			);
-			
-			$output .= '  <p>' . $sentence . '</p>' . "\n";
-			
-			// Optional: Render clean list (capped at 12) for scanability
-			if ( count( $service_pages ) > 3 ) {
-				$output .= '  <ul>' . "\n";
-				$list_count = min( count( $service_pages ), 12 );
-				for ( $i = 0; $i < $list_count; $i++ ) {
-					$post = $service_pages[ $i ];
-					$permalink = get_permalink( $post->ID );
-					$anchor_text = $this->get_service_anchor_text( $post->ID );
-					$output .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a></li>' . "\n";
+			// Render each sentence in the template set as a paragraph
+			foreach ( $sentences as $sentence_template ) {
+				// Replace placeholders with actual values
+				$sentence = $sentence_template;
+				$sentence = str_replace( '{city}', esc_html( $city_name ), $sentence );
+				
+				// Replace link placeholders with actual service links
+				for ( $i = 0; $i < count( $service_links ); $i++ ) {
+					$placeholder = '{link' . ( $i + 1 ) . '}';
+					if ( strpos( $sentence, $placeholder ) !== false ) {
+						$sentence = str_replace( $placeholder, $service_links[ $i ], $sentence );
+					}
 				}
-				$output .= '  </ul>' . "\n";
+				
+				// Only output if sentence still has content (not all placeholders)
+				if ( ! preg_match( '/{link\d+}/', $sentence ) ) {
+					$output .= '  <p>' . $sentence . '</p>' . "\n";
+				}
 			}
 		}
 		

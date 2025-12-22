@@ -342,10 +342,11 @@ class SEOgen_City_Service_Links {
 	}
 	
 	/**
-	 * Fallback renderer for natural service links
+	 * Fallback renderer for natural service links (inline sentences ONLY)
 	 * 
 	 * Implements same logic as shared helper in admin-helpers trait.
-	 * Used when trait method is not available.
+	 * Renders 2-3 contextual sentences with inline service links.
+	 * NO LISTS - only natural editorial sentences.
 	 * 
 	 * @param array  $service_pages Array of WP_Post objects
 	 * @param string $city_name City name
@@ -376,53 +377,41 @@ class SEOgen_City_Service_Links {
 				$output .= '  <!-- No service_city pages found with matching hub_key + city_slug -->' . "\n";
 			}
 		} else {
-			// Get templates
-			$templates = $this->get_service_link_sentence_templates();
+			// Get template set and select one deterministically
+			$template_sets = $this->get_service_link_sentence_templates();
 			$hash = md5( $hub_key . '_' . $city_slug );
-			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
-			$template = $templates[ $template_index ];
+			$template_index = hexdec( substr( $hash, 0, 8 ) ) % count( $template_sets );
+			$sentences = $template_sets[ $template_index ];
 			
-			// Build inline links using clean anchor text
-			$inline_count = min( count( $service_pages ), 5 );
-			$inline_links = array();
+			// Build individual service links (max 3 for inline use)
+			$service_links = array();
+			$link_count = min( count( $service_pages ), 3 );
 			
-			for ( $i = 0; $i < $inline_count; $i++ ) {
+			for ( $i = 0; $i < $link_count; $i++ ) {
 				$post = $service_pages[ $i ];
 				$permalink = get_permalink( $post->ID );
 				$anchor_text = $this->get_service_anchor_text( $post->ID );
-				$inline_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
+				$service_links[] = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
 			}
 			
-			// Format links naturally
-			if ( count( $inline_links ) === 1 ) {
-				$links_text = $inline_links[0];
-			} elseif ( count( $inline_links ) === 2 ) {
-				$links_text = $inline_links[0] . ' and ' . $inline_links[1];
-			} else {
-				$last = array_pop( $inline_links );
-				$links_text = implode( ', ', $inline_links ) . ', and ' . $last;
-			}
-			
-			// Replace placeholders
-			$sentence = str_replace(
-				array( '{city}', '{links}' ),
-				array( esc_html( $city_name ), $links_text ),
-				$template
-			);
-			
-			$output .= '  <p>' . $sentence . '</p>' . "\n";
-			
-			// Optional list (capped at 12)
-			if ( count( $service_pages ) > 3 ) {
-				$output .= '  <ul>' . "\n";
-				$list_count = min( count( $service_pages ), 12 );
-				for ( $i = 0; $i < $list_count; $i++ ) {
-					$post = $service_pages[ $i ];
-					$permalink = get_permalink( $post->ID );
-					$anchor_text = $this->get_service_anchor_text( $post->ID );
-					$output .= '    <li><a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a></li>' . "\n";
+			// Render each sentence in the template set as a paragraph
+			foreach ( $sentences as $sentence_template ) {
+				// Replace placeholders with actual values
+				$sentence = $sentence_template;
+				$sentence = str_replace( '{city}', esc_html( $city_name ), $sentence );
+				
+				// Replace link placeholders with actual service links
+				for ( $i = 0; $i < count( $service_links ); $i++ ) {
+					$placeholder = '{link' . ( $i + 1 ) . '}';
+					if ( strpos( $sentence, $placeholder ) !== false ) {
+						$sentence = str_replace( $placeholder, $service_links[ $i ], $sentence );
+					}
 				}
-				$output .= '  </ul>' . "\n";
+				
+				// Only output if sentence still has content (not all placeholders)
+				if ( ! preg_match( '/{link\\d+}/', $sentence ) ) {
+					$output .= '  <p>' . $sentence . '</p>' . "\n";
+				}
 			}
 		}
 		
@@ -432,24 +421,47 @@ class SEOgen_City_Service_Links {
 	}
 	
 	/**
-	 * Get trade-neutral sentence templates
+	 * Get contextual sentence templates for inline service links
 	 * 
-	 * @return array Array of sentence templates
+	 * Each template is an array of 2-3 sentences that naturally reference services.
+	 * Uses {city}, {link1}, {link2}, {link3} placeholders.
+	 * 
+	 * @return array Array of sentence template sets
 	 */
 	private function get_service_link_sentence_templates() {
 		return array(
-			'Homeowners in {city} often call for {links}—and we also handle related work when needed.',
-			'If you\'re comparing options for {links} in {city}, these pages explain what to expect and when to call a pro.',
-			'For common projects in {city}, start with {links}.',
-			'Local property owners frequently schedule {links} to keep things running smoothly.',
-			'Many projects we handle in {city} involve {links}.',
-			'Property owners in {city} regularly need services such as {links}.',
-			'Common service requests in the area include {links}.',
-			'Residents and businesses in {city} often require {links}.',
-			'We frequently assist clients in {city} with {links}.',
-			'Popular services in the area include {links}.',
-			'Many {city} properties benefit from services like {links}.',
-			'Typical service needs in {city} include {links}.',
+			array(
+				'Homeowners in {city} often reach out for help with {link1} and {link2}.',
+				'Depending on the age and layout of local properties, services like {link3} are also commonly requested.',
+			),
+			array(
+				'Our team regularly assists residents with projects such as {link1}.',
+				'We also handle related work like {link2} when needed.',
+			),
+			array(
+				'Common service requests in {city} include {link1} and {link2}.',
+				'Many property owners also schedule {link3} to address specific needs.',
+			),
+			array(
+				'Local property owners frequently need help with {link1}.',
+				'Related services like {link2} are also part of what we handle in the area.',
+			),
+			array(
+				'If you\'re comparing options for {link1} in {city}, we can explain what to expect.',
+				'We also assist with {link2} and similar projects.',
+			),
+			array(
+				'Residents and businesses in {city} often require {link1} or {link2}.',
+				'Our team is familiar with local building codes and can handle {link3} as well.',
+			),
+			array(
+				'Many projects we handle in {city} involve {link1}.',
+				'Depending on property conditions, we also address needs like {link2}.',
+			),
+			array(
+				'For common projects in {city}, property owners often start with {link1}.',
+				'We also handle upgrades and replacements such as {link2}.',
+			),
 		);
 	}
 	
