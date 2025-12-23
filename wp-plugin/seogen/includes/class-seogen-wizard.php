@@ -487,23 +487,25 @@ class SEOgen_Wizard {
 	 * AJAX: Start automated generation (3-phase process)
 	 */
 	public function ajax_start_generation() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
 		}
 		
-		// DUPLICATE PREVENTION: Check if generation already running
+		error_log( '[WIZARD] ajax_start_generation called' );
+		
+		// Check if generation is already running
 		$state = $this->get_wizard_state();
-		if ( isset( $state['generation']['current_phase'] ) && $state['generation']['current_phase'] !== null ) {
-			wp_send_json_error( array( 
-				'message' => 'Generation already in progress. Please wait for it to complete or refresh the page.' 
-			) );
+		if ( ! empty( $state['generation']['current_phase'] ) ) {
+			wp_send_json_error( array( 'message' => 'Generation is already running' ) );
 		}
 		
 		// Get services and cities from cache
 		$services = get_option( 'hyper_local_services_cache', array() );
 		$cities = get_option( 'hyper_local_cities_cache', array() );
+		
+		error_log( '[WIZARD] Services: ' . count( $services ) . ', Cities: ' . count( $cities ) );
 		
 		if ( empty( $services ) || empty( $cities ) ) {
 			wp_send_json_error( array( 'message' => 'No services or cities configured' ) );

@@ -2004,6 +2004,8 @@ class SEOgen_Admin {
 			'job_name'    => (string) $job_name,
 			'items'       => $items,
 		);
+		error_log( '[ADMIN] api_create_bulk_job called with ' . count( $items ) . ' items' );
+		error_log( '[ADMIN] First item in api_create_bulk_job: ' . wp_json_encode( $items[0] ) );
 		return $this->api_json_request( 'POST', $url, $payload, 60 );
 	}
 
