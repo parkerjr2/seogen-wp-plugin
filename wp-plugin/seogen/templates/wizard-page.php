@@ -51,13 +51,13 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 		
 		<!-- Step 1: Settings -->
 		<div class="seogen-wizard-step-content" data-step="1" style="<?php echo 1 === $current_step ? '' : 'display:none;'; ?>">
-			<h2><?php esc_html_e( 'Step 1: API Settings', 'seogen' ); ?></h2>
-			<p><?php esc_html_e( 'Connect to the Hyper Local API to enable page generation.', 'seogen' ); ?></p>
+			<h2><?php esc_html_e( 'Step 1: License Key', 'seogen' ); ?></h2>
+			<p><?php esc_html_e( 'Enter your Hyper Local license key to enable page generation.', 'seogen' ); ?></p>
 			
 			<div class="seogen-wizard-form">
 				<?php
 				$settings = get_option( 'seogen_settings', array() );
-				$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : 'https://seogen-production.up.railway.app';
+				$api_url = isset( $settings['api_url'] ) && ! empty( $settings['api_url'] ) ? $settings['api_url'] : 'https://seogen-production.up.railway.app';
 				$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
 				?>
 				
@@ -65,16 +65,10 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 					<input type="hidden" name="action" value="seogen_save_settings">
 					<?php wp_nonce_field( 'seogen_save_settings' ); ?>
 					
+					<!-- Hidden field with default API URL -->
+					<input type="hidden" name="seogen_settings[api_url]" value="<?php echo esc_attr( $api_url ); ?>">
+					
 					<table class="form-table">
-						<tr>
-							<th scope="row">
-								<label for="api_url"><?php esc_html_e( 'API Base URL', 'seogen' ); ?></label>
-							</th>
-							<td>
-								<input type="url" name="seogen_settings[api_url]" id="api_url" value="<?php echo esc_attr( $api_url ); ?>" class="regular-text" required>
-								<p class="description"><?php esc_html_e( 'The base URL for the Hyper Local API.', 'seogen' ); ?></p>
-							</td>
-						</tr>
 						<tr>
 							<th scope="row">
 								<label for="license_key"><?php esc_html_e( 'License Key', 'seogen' ); ?></label>
