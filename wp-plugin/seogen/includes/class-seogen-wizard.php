@@ -1083,22 +1083,34 @@ class SEOgen_Wizard {
 		
 		$title = isset( $result_json['title'] ) ? $result_json['title'] : '';
 		$slug = isset( $result_json['slug'] ) ? $result_json['slug'] : '';
+		$meta_description = isset( $result_json['meta_description'] ) ? $result_json['meta_description'] : '';
 		$blocks = isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ? $result_json['blocks'] : array();
 		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
+		$canonical_key = isset( $item['canonical_key'] ) ? $item['canonical_key'] : '';
 		
-		// Use admin's method to build Gutenberg content
+		// Use admin's method to build Gutenberg content - EXACT same as bulk generation
 		$method = new ReflectionMethod( $admin, 'build_gutenberg_content_from_blocks' );
 		$method->setAccessible( true );
 		$content = $method->invoke( $admin, $blocks, $page_mode );
 		
-		// Create WordPress post
+		// Get settings to check header/footer configuration - EXACT same as bulk generation
+		$settings_method = new ReflectionMethod( $admin, 'get_settings' );
+		$settings_method->setAccessible( true );
+		$settings = $settings_method->invoke( $admin );
+		
+		// Create WordPress post - EXACT same as bulk generation
 		$post_data = array(
 			'post_title' => $title,
-			'post_name' => $slug,
+			'post_name' => sanitize_title( $slug ),
 			'post_content' => $content,
 			'post_status' => 'publish',
 			'post_type' => 'service_page',
 		);
+		
+		// Apply template setting if header/footer should be disabled - EXACT same as bulk generation
+		if ( ! empty( $settings['disable_theme_header_footer'] ) && class_exists( '\Elementor\Plugin' ) ) {
+			$post_data['page_template'] = 'elementor_header_footer';
+		}
 		
 		$post_id = wp_insert_post( $post_data );
 		
@@ -1109,7 +1121,12 @@ class SEOgen_Wizard {
 			);
 		}
 		
-		// Save metadata
+		$post_id = (int) $post_id;
+		
+		// Save ALL metadata - EXACT same as bulk generation
+		update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
+		update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
+		
 		if ( isset( $item['service'] ) ) {
 			update_post_meta( $post_id, '_hyper_local_service_name', $item['service'] );
 		}
@@ -1118,6 +1135,13 @@ class SEOgen_Wizard {
 		}
 		if ( isset( $item['state'] ) && ! empty( $item['state'] ) ) {
 			update_post_meta( $post_id, '_hyper_local_state', $item['state'] );
+		}
+		
+		// Apply page builder settings - EXACT same as bulk generation
+		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+			$apply_method = new ReflectionMethod( $admin, 'apply_page_builder_settings' );
+			$apply_method->setAccessible( true );
+			$apply_method->invoke( $admin, $post_id );
 		}
 		
 		return array(
