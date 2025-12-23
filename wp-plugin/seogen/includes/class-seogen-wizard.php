@@ -559,7 +559,10 @@ class SEOgen_Wizard {
 					'current_phase' => null,
 				),
 			) );
-			wp_send_json_error( array( 'message' => $result['error'] ) );
+			wp_send_json_error( array( 
+				'message' => $result['error'],
+				'debug_info' => 'Phase 1 failed to start'
+			) );
 		}
 		
 		$total_pages = count( $hub_categories ) + ( count( $services ) * count( $cities ) ) + count( $cities );
@@ -571,6 +574,9 @@ class SEOgen_Wizard {
 			'total_phases' => 3,
 			'total_pages' => $total_pages,
 			'job_id' => $result['job_id'],
+			'debug_hub_categories' => $hub_categories,
+			'debug_services_count' => count( $services ),
+			'debug_cities_count' => count( $cities ),
 		) );
 	}
 	
@@ -646,6 +652,9 @@ class SEOgen_Wizard {
 			$state['generation']['phases']['service_hubs']['status'] = 'running';
 			$state['generation']['phases']['service_hubs']['job_id'] = $result['job_id'];
 			$this->update_wizard_state( $state );
+		} else {
+			// Add debug info to error
+			$result['debug_items_sent'] = $api_items;
 		}
 		
 		return $result;
