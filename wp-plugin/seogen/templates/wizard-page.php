@@ -377,49 +377,39 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 			<p><?php esc_html_e( 'Setup complete! Now we can automatically generate all your pages.', 'seogen' ); ?></p>
 			
 			<div class="seogen-wizard-generation-plan">
-				<h3><?php esc_html_e( 'Generation Plan', 'seogen' ); ?></h3>
+				<h3><?php esc_html_e( 'What Will Be Generated', 'seogen' ); ?></h3>
 				
 				<?php
 				$services = get_option( 'hyper_local_services_cache', array() );
 				$cities = get_option( 'hyper_local_cities_cache', array() );
-				$config = get_option( 'seogen_business_config', array() );
 				
 				$service_count = is_array( $services ) ? count( $services ) : 0;
 				$city_count = is_array( $cities ) ? count( $cities ) : 0;
 				$service_city_count = $service_count * $city_count;
-				
-				// Estimate hub counts (simplified)
-				$service_hub_count = 2; // residential, commercial
-				$city_hub_count = $city_count * 2; // residential + commercial per city
 				?>
 				
 				<ul class="seogen-wizard-generation-list">
 					<li>
 						<span class="dashicons dashicons-yes-alt"></span>
-						<strong><?php esc_html_e( 'Service Hub Pages', 'seogen' ); ?></strong>
-						<span class="count">(~<?php echo esc_html( $service_hub_count ); ?> pages)</span>
-						<p class="description"><?php esc_html_e( 'Category pages for your service types', 'seogen' ); ?></p>
-					</li>
-					<li>
-						<span class="dashicons dashicons-yes-alt"></span>
 						<strong><?php esc_html_e( 'Service + City Pages', 'seogen' ); ?></strong>
-						<span class="count">(~<?php echo esc_html( $service_city_count ); ?> pages)</span>
-						<p class="description"><?php esc_html_e( 'Location-specific service pages', 'seogen' ); ?></p>
-					</li>
-					<li>
-						<span class="dashicons dashicons-yes-alt"></span>
-						<strong><?php esc_html_e( 'City Hub Pages', 'seogen' ); ?></strong>
-						<span class="count">(~<?php echo esc_html( $city_hub_count ); ?> pages)</span>
-						<p class="description"><?php esc_html_e( 'City-specific service category pages', 'seogen' ); ?></p>
+						<span class="count">(<?php echo esc_html( $service_city_count ); ?> pages)</span>
+						<p class="description"><?php esc_html_e( 'Location-specific service pages for each service in each city', 'seogen' ); ?></p>
 					</li>
 				</ul>
 				
 				<p class="seogen-wizard-total">
 					<strong><?php esc_html_e( 'Total:', 'seogen' ); ?></strong>
-					<?php echo esc_html( sprintf( __( '~%d pages', 'seogen' ), $service_hub_count + $service_city_count + $city_hub_count ) ); ?>
+					<?php echo esc_html( sprintf( __( '%d pages', 'seogen' ), $service_city_count ) ); ?>
 				</p>
 				
-				<p class="description">
+				<div style="margin-top: 15px; padding: 12px; background: #f0f6fc; border-left: 4px solid #2271b1; border-radius: 4px;">
+					<p style="margin: 0; font-size: 13px;">
+						<strong><?php esc_html_e( 'Note:', 'seogen' ); ?></strong>
+						<?php esc_html_e( 'Service Hub and City Hub pages can be generated separately from the Extensions menu after completing this wizard.', 'seogen' ); ?>
+					</p>
+				</div>
+				
+				<p class="description" style="margin-top: 15px;">
 					<?php esc_html_e( 'Pages will be generated in batches. Please keep this page open until generation completes.', 'seogen' ); ?>
 				</p>
 			</div>
