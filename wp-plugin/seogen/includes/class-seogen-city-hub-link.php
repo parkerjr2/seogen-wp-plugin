@@ -91,7 +91,12 @@ class SEOgen_City_Hub_Link {
 	 * 
 	 * Uses transient caching to avoid repeated queries.
 	 * Cache key: seogen_city_hub_{hub_key}_{city_slug}
-	 * Cache duration: 12 hours
+	 * Cache duration: 
+	 *   - 12 hours for positive matches (city hub found)
+	 *   - 5 minutes for negative matches (no city hub found)
+	 * 
+	 * This ensures newly created city hubs appear on service+city pages
+	 * within minutes, while still caching successful lookups long-term.
 	 * 
 	 * @param string $hub_key Hub key (e.g., 'residential')
 	 * @param string $city_slug City slug (e.g., 'tulsa-ok')
@@ -137,7 +142,12 @@ class SEOgen_City_Hub_Link {
 		
 		wp_reset_postdata();
 		
-		set_transient( $cache_key, $result, 12 * HOUR_IN_SECONDS );
+		// Cache positive matches for 12 hours, negative matches for only 5 minutes
+		if ( $result ) {
+			set_transient( $cache_key, $result, 12 * HOUR_IN_SECONDS );
+		} else {
+			set_transient( $cache_key, false, 5 * MINUTE_IN_SECONDS );
+		}
 		
 		return $result;
 	}
