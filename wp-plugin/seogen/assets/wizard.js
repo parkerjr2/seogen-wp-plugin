@@ -480,6 +480,9 @@
 			$button.addClass('loading').prop('disabled', true);
 			$('.seogen-wizard-skip-generation').prop('disabled', true);
 			
+			// Show progress container
+			$('.seogen-wizard-generation-progress').show();
+			
 			$.ajax({
 				url: seogenWizard.ajaxurl,
 				method: 'POST',
@@ -489,12 +492,14 @@
 				},
 				success: function(response) {
 					if (response.success) {
-						// Show progress UI
-						$('.seogen-wizard-generation-plan').hide();
-						$('.seogen-wizard-generation-progress').show();
+						self.jobId = response.data.job_id;
+						self.totalPages = response.data.total;
 						
-						// Start polling for progress
-						self.pollGenerationProgress();
+						// Update initial progress
+						self.updateProgress(0, self.totalPages, 0, 0);
+						
+						// Start processing batches
+						self.processBatch();
 					} else {
 						$button.removeClass('loading').prop('disabled', false);
 						$('.seogen-wizard-skip-generation').prop('disabled', false);
@@ -507,6 +512,90 @@
 					alert('An error occurred. Please try again.');
 				}
 			});
+		},
+		
+		processBatch: function() {
+			var self = this;
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_process_batch',
+					nonce: seogenWizard.nonce,
+					job_id: self.jobId
+				},
+				success: function(response) {
+					if (response.success) {
+						var data = response.data;
+						
+						// Update progress
+						self.updateProgress(data.processed, data.total, data.successful, data.failed);
+						
+						// Show batch results
+						if (data.batch_results && data.batch_results.length > 0) {
+							self.showBatchResults(data.batch_results);
+						}
+						
+						// Check if complete
+						if (data.complete) {
+							self.onGenerationComplete(data);
+						} else {
+							// Process next batch
+							setTimeout(function() {
+								self.processBatch();
+							}, 500);
+						}
+					} else {
+						alert(response.data.message || 'Generation failed');
+						$('.seogen-wizard-start-generation').removeClass('loading').prop('disabled', false);
+						$('.seogen-wizard-skip-generation').prop('disabled', false);
+					}
+				},
+				error: function(xhr) {
+					alert('An error occurred during generation. Please try again.');
+					$('.seogen-wizard-start-generation').removeClass('loading').prop('disabled', false);
+					$('.seogen-wizard-skip-generation').prop('disabled', false);
+				}
+			});
+		},
+		
+		updateProgress: function(processed, total, successful, failed) {
+			var percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+			
+			$('.seogen-wizard-progress-bar').css('width', percentage + '%');
+			$('.seogen-wizard-progress-text').text(processed + ' / ' + total + ' pages');
+			$('.seogen-wizard-progress-percentage').text(percentage + '%');
+			
+			if (successful > 0 || failed > 0) {
+				$('.seogen-wizard-progress-stats').html(
+					'<span style="color: #46b450;">✓ ' + successful + ' successful</span> ' +
+					(failed > 0 ? '<span style="color: #dc3232;">✗ ' + failed + ' failed</span>' : '')
+				);
+			}
+		},
+		
+		showBatchResults: function(results) {
+			var $log = $('.seogen-wizard-generation-log');
+			
+			results.forEach(function(result) {
+				var icon = result.success ? '✓' : '✗';
+				var color = result.success ? '#46b450' : '#dc3232';
+				var text = result.service + ' in ' + result.city;
+				
+				if (!result.success && result.error) {
+					text += ' - ' + result.error;
+				}
+				
+				$log.prepend(
+					'<div style="color: ' + color + '; padding: 4px 0;">' +
+					icon + ' ' + text +
+					'</div>'
+				);
+			});
+			
+			// Keep log scrolled to top to show latest
+			$log.scrollTop(0);
 		},
 		
 		pollGenerationProgress: function() {
@@ -581,14 +670,24 @@
 			$('.seogen-wizard-progress-details').html(html);
 		},
 		
-		onGenerationComplete: function() {
-			$('.seogen-wizard-progress-details').html(
-				'<p style="color: #46b450; font-weight: 600;">✓ All pages generated successfully!</p>' +
-				'<p><a href="' + seogenWizard.adminUrl + 'edit.php?post_type=service_page" class="button button-primary">View Generated Pages</a></p>'
-			);
+		onGenerationComplete: function(data) {
+			var self = this;
 			
-			$('.seogen-wizard-start-generation').hide();
-			$('.seogen-wizard-skip-generation').text('Complete Wizard').removeClass('button-secondary').addClass('button-primary').prop('disabled', false);
+			$('.seogen-wizard-start-generation').removeClass('loading').prop('disabled', false);
+			$('.seogen-wizard-skip-generation').prop('disabled', false);
+			
+			// Show completion message
+			var message = 'Generation complete!\n\n';
+			message += 'Successfully generated: ' + data.successful + ' pages\n';
+			if (data.failed > 0) {
+				message += 'Failed: ' + data.failed + ' pages\n';
+			}
+			message += '\nRedirecting to your pages...';
+			
+			alert(message);
+			
+			// Redirect to service pages
+			window.location.href = seogenWizard.adminurl + 'edit.php?post_type=service_page';
 		},
 		
 		skipGeneration: function() {

@@ -28,6 +28,7 @@ class SEOgen_Wizard {
 		add_action( 'wp_ajax_seogen_wizard_validate_step', array( $this, 'ajax_validate_step' ) );
 		add_action( 'wp_ajax_seogen_wizard_advance_step', array( $this, 'ajax_advance_step' ) );
 		add_action( 'wp_ajax_seogen_wizard_start_generation', array( $this, 'ajax_start_generation' ) );
+		add_action( 'wp_ajax_seogen_wizard_process_batch', array( $this, 'ajax_process_batch' ) );
 		add_action( 'wp_ajax_seogen_wizard_generation_progress', array( $this, 'ajax_generation_progress' ) );
 		add_action( 'wp_ajax_seogen_wizard_skip_generation', array( $this, 'ajax_skip_generation' ) );
 		add_action( 'wp_ajax_seogen_wizard_dismiss', array( $this, 'ajax_dismiss_wizard' ) );
@@ -472,16 +473,257 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
 		}
 		
-		// Mark generation as started
+		// Get services and cities from cache
+		$services = get_option( 'hyper_local_services_cache', array() );
+		$cities = get_option( 'hyper_local_cities_cache', array() );
+		
+		if ( empty( $services ) || empty( $cities ) ) {
+			wp_send_json_error( array( 'message' => 'No services or cities configured' ) );
+		}
+		
+		// Get settings
+		$settings = get_option( 'seogen_settings', array() );
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			wp_send_json_error( array( 'message' => 'API settings not configured' ) );
+		}
+		
+		// Create job ID
+		$job_id = sanitize_key( 'wizard_job_' . wp_generate_password( 12, false, false ) );
+		
+		// Build rows for generation
+		$rows = array();
+		foreach ( $services as $service ) {
+			$service_name = is_array( $service ) ? $service['name'] : $service;
+			foreach ( $cities as $city ) {
+				$city_name = is_array( $city ) ? $city['city'] : $city;
+				$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
+				
+				$rows[] = array(
+					'service' => $service_name,
+					'city' => $city_name,
+					'state' => $state,
+				);
+			}
+		}
+		
+		// Store job data
+		$job_data = array(
+			'job_id' => $job_id,
+			'status' => 'pending',
+			'total' => count( $rows ),
+			'processed' => 0,
+			'successful' => 0,
+			'failed' => 0,
+			'rows' => $rows,
+			'settings' => $settings,
+			'started_at' => current_time( 'mysql' ),
+		);
+		
+		set_transient( 'seogen_wizard_job_' . $job_id, $job_data, 12 * HOUR_IN_SECONDS );
+		
+		// Update wizard state
 		$this->update_wizard_state( array(
-			'auto_generation' => array(
-				'service_hubs' => 'running',
-			),
+			'generation_job_id' => $job_id,
+			'generation_status' => 'running',
 		) );
 		
 		wp_send_json_success( array(
 			'message' => 'Generation started',
+			'job_id' => $job_id,
+			'total' => count( $rows ),
 		) );
+	}
+	
+	/**
+	 * AJAX: Process generation batch
+	 */
+	public function ajax_process_batch() {
+		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( $_POST['job_id'] ) : '';
+		if ( empty( $job_id ) ) {
+			wp_send_json_error( array( 'message' => 'Job ID required' ) );
+		}
+		
+		// Get job data
+		$job_data = get_transient( 'seogen_wizard_job_' . $job_id );
+		if ( ! $job_data ) {
+			wp_send_json_error( array( 'message' => 'Job not found or expired' ) );
+		}
+		
+		// Update status to running
+		if ( $job_data['status'] === 'pending' ) {
+			$job_data['status'] = 'running';
+		}
+		
+		// Process batch (5 pages at a time)
+		$batch_size = 5;
+		$processed = $job_data['processed'];
+		$rows = $job_data['rows'];
+		$settings = $job_data['settings'];
+		
+		$batch_end = min( $processed + $batch_size, count( $rows ) );
+		$results = array();
+		
+		// Get admin instance for page generation
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
+		$admin = new SEOgen_Admin();
+		
+		for ( $i = $processed; $i < $batch_end; $i++ ) {
+			$row = $rows[ $i ];
+			
+			try {
+				// Generate page using existing admin method
+				$result = $this->generate_service_city_page( $row, $settings, $admin );
+				
+				if ( $result['success'] ) {
+					$job_data['successful']++;
+					$results[] = array(
+						'success' => true,
+						'service' => $row['service'],
+						'city' => $row['city'],
+						'post_id' => $result['post_id'],
+					);
+				} else {
+					$job_data['failed']++;
+					$results[] = array(
+						'success' => false,
+						'service' => $row['service'],
+						'city' => $row['city'],
+						'error' => $result['error'],
+					);
+				}
+			} catch ( Exception $e ) {
+				$job_data['failed']++;
+				$results[] = array(
+					'success' => false,
+					'service' => $row['service'],
+					'city' => $row['city'],
+					'error' => $e->getMessage(),
+				);
+			}
+			
+			$job_data['processed']++;
+		}
+		
+		// Check if complete
+		if ( $job_data['processed'] >= count( $rows ) ) {
+			$job_data['status'] = 'completed';
+			$job_data['completed_at'] = current_time( 'mysql' );
+			
+			// Mark wizard as complete
+			$this->update_wizard_state( array(
+				'completed' => true,
+				'completed_at' => current_time( 'mysql' ),
+				'generation_status' => 'completed',
+			) );
+		}
+		
+		// Update job data
+		set_transient( 'seogen_wizard_job_' . $job_id, $job_data, 12 * HOUR_IN_SECONDS );
+		
+		wp_send_json_success( array(
+			'status' => $job_data['status'],
+			'total' => $job_data['total'],
+			'processed' => $job_data['processed'],
+			'successful' => $job_data['successful'],
+			'failed' => $job_data['failed'],
+			'batch_results' => $results,
+			'complete' => $job_data['status'] === 'completed',
+		) );
+	}
+	
+	/**
+	 * Generate a single service+city page
+	 */
+	private function generate_service_city_page( $row, $settings, $admin ) {
+		$service = $row['service'];
+		$city = $row['city'];
+		$state = isset( $row['state'] ) ? $row['state'] : '';
+		
+		// Build API payload
+		$business_config = get_option( 'seogen_business_config', array() );
+		
+		$payload = array(
+			'service_name' => $service,
+			'city_name' => $city,
+			'state' => $state,
+			'business_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
+			'service_area_label' => isset( $business_config['service_area_label'] ) ? $business_config['service_area_label'] : '',
+		);
+		
+		// Call API
+		$api_url = $settings['api_url'];
+		$license_key = $settings['license_key'];
+		
+		$response = wp_remote_post(
+			trailingslashit( $api_url ) . 'generate',
+			array(
+				'timeout' => 60,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'X-License-Key' => $license_key,
+				),
+				'body' => wp_json_encode( $payload ),
+			)
+		);
+		
+		if ( is_wp_error( $response ) ) {
+			return array(
+				'success' => false,
+				'error' => $response->get_error_message(),
+			);
+		}
+		
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+		
+		if ( ! $data || ! isset( $data['content'] ) ) {
+			return array(
+				'success' => false,
+				'error' => 'Invalid API response',
+			);
+		}
+		
+		// Create WordPress post
+		$title = $service . ' in ' . $city . ( $state ? ', ' . $state : '' );
+		$slug = sanitize_title( $title );
+		
+		$post_data = array(
+			'post_title' => $title,
+			'post_name' => $slug,
+			'post_content' => $data['content'],
+			'post_status' => 'publish',
+			'post_type' => 'service_page',
+		);
+		
+		$post_id = wp_insert_post( $post_data );
+		
+		if ( is_wp_error( $post_id ) ) {
+			return array(
+				'success' => false,
+				'error' => $post_id->get_error_message(),
+			);
+		}
+		
+		// Save metadata
+		update_post_meta( $post_id, '_hyper_local_service_name', $service );
+		update_post_meta( $post_id, '_hyper_local_city_name', $city );
+		if ( $state ) {
+			update_post_meta( $post_id, '_hyper_local_state', $state );
+		}
+		
+		return array(
+			'success' => true,
+			'post_id' => $post_id,
+		);
 	}
 	
 	/**
@@ -494,10 +736,23 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
 		}
 		
-		$state = $this->get_wizard_state();
+		$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( $_POST['job_id'] ) : '';
+		if ( empty( $job_id ) ) {
+			wp_send_json_error( array( 'message' => 'Job ID required' ) );
+		}
+		
+		$job_data = get_transient( 'seogen_wizard_job_' . $job_id );
+		if ( ! $job_data ) {
+			wp_send_json_error( array( 'message' => 'Job not found' ) );
+		}
 		
 		wp_send_json_success( array(
-			'generation' => $state['auto_generation'],
+			'status' => $job_data['status'],
+			'total' => $job_data['total'],
+			'processed' => $job_data['processed'],
+			'successful' => $job_data['successful'],
+			'failed' => $job_data['failed'],
+			'complete' => $job_data['status'] === 'completed',
 		) );
 	}
 	

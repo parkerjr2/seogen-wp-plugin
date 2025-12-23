@@ -420,14 +420,29 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 				</p>
 				
 				<p class="description">
-					<?php esc_html_e( 'Generation will happen in the background. You can close this page and check progress later.', 'seogen' ); ?>
+					<?php esc_html_e( 'Pages will be generated in batches. Please keep this page open until generation completes.', 'seogen' ); ?>
 				</p>
 			</div>
 			
-			<div class="seogen-wizard-generation-progress" style="display:none;">
+			<div class="seogen-wizard-generation-progress" style="display:none; margin-top: 30px; padding: 20px; background: #f0f0f1; border-radius: 4px;">
 				<h3><?php esc_html_e( 'Generation Progress', 'seogen' ); ?></h3>
-				<div class="seogen-wizard-progress-details">
-					<p><?php esc_html_e( 'Generating pages...', 'seogen' ); ?></p>
+				
+				<div style="margin: 20px 0;">
+					<div style="background: #fff; border-radius: 4px; height: 30px; position: relative; overflow: hidden;">
+						<div class="seogen-wizard-progress-bar" style="background: #2271b1; height: 100%; width: 0%; transition: width 0.3s;"></div>
+						<div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 600;">
+							<span class="seogen-wizard-progress-percentage">0%</span>
+						</div>
+					</div>
+					<p style="margin: 10px 0 0; text-align: center;">
+						<span class="seogen-wizard-progress-text">0 / 0 pages</span>
+					</p>
+					<p class="seogen-wizard-progress-stats" style="margin: 5px 0 0; text-align: center;"></p>
+				</div>
+				
+				<div style="margin-top: 20px;">
+					<h4><?php esc_html_e( 'Recent Activity', 'seogen' ); ?></h4>
+					<div class="seogen-wizard-generation-log" style="max-height: 200px; overflow-y: auto; background: #fff; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px;"></div>
 				</div>
 			</div>
 			
