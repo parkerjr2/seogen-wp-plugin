@@ -55,6 +55,11 @@ class SEOgen_Plugin {
 	}
 	
 	public function run() {
+		// Include class files BEFORE registering shortcodes that use them
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-link.php';
+		
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 		add_action( 'wp_head', array( $this, 'maybe_output_service_schema' ) );
@@ -68,9 +73,6 @@ class SEOgen_Plugin {
 		add_shortcode( 'seogen_parent_hub_link', array( $this, 'render_parent_hub_link_shortcode' ) );
 		add_shortcode( 'seogen_city_hub_link', array( $this, 'render_city_hub_link_shortcode' ) );
 
-		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
-		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
-		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-link.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-meta-inspector.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-services-diagnostic.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-diagnostics.php';

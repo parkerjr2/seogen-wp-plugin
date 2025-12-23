@@ -26,6 +26,11 @@ class SEOgen_City_Hub_Link {
 	 * @return string HTML output or empty string
 	 */
 	public static function render() {
+		// Always output something when WP_DEBUG is on to confirm shortcode is being called
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( 'SEOgen: seogen_city_hub_link shortcode called' );
+		}
+		
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
