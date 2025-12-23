@@ -139,6 +139,24 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 						</tr>
 						<tr>
 							<th scope="row">
+								<label for="email"><?php esc_html_e( 'Email', 'seogen' ); ?></label>
+							</th>
+							<td>
+								<input type="email" name="seogen_business_config[email]" id="email" value="<?php echo esc_attr( isset( $config['email'] ) ? $config['email'] : '' ); ?>" class="regular-text">
+								<p class="description"><?php esc_html_e( 'Optional - used in generated pages', 'seogen' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="address"><?php esc_html_e( 'Address', 'seogen' ); ?></label>
+							</th>
+							<td>
+								<input type="text" name="seogen_business_config[address]" id="address" value="<?php echo esc_attr( isset( $config['address'] ) ? $config['address'] : '' ); ?>" class="regular-text">
+								<p class="description"><?php esc_html_e( 'Optional - full business address', 'seogen' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
 								<label for="cta_text"><?php esc_html_e( 'CTA Text', 'seogen' ); ?></label>
 							</th>
 							<td>
@@ -151,7 +169,39 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 							</th>
 							<td>
 								<input type="text" name="seogen_business_config[service_area_label]" id="service_area_label" value="<?php echo esc_attr( isset( $config['service_area_label'] ) ? $config['service_area_label'] : '' ); ?>" class="regular-text">
-								<p class="description"><?php esc_html_e( 'e.g., "Tulsa Metro" or "Greater Austin Area"', 'seogen' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Optional - e.g., "Tulsa Metro" or "Greater Austin Area"', 'seogen' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label><?php esc_html_e( 'Hub Categories', 'seogen' ); ?></label>
+							</th>
+							<td>
+								<?php
+								$hub_categories = isset( $config['hub_categories'] ) ? $config['hub_categories'] : array( 'residential', 'commercial' );
+								if ( ! is_array( $hub_categories ) ) {
+									$hub_categories = array( 'residential', 'commercial' );
+								}
+								?>
+								<fieldset>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="residential" <?php checked( in_array( 'residential', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Residential', 'seogen' ); ?>
+									</label><br>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="commercial" <?php checked( in_array( 'commercial', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Commercial', 'seogen' ); ?>
+									</label><br>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="industrial" <?php checked( in_array( 'industrial', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Industrial', 'seogen' ); ?>
+									</label><br>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="emergency" <?php checked( in_array( 'emergency', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Emergency', 'seogen' ); ?>
+									</label>
+								</fieldset>
+								<p class="description"><?php esc_html_e( 'Select the hub categories for your business', 'seogen' ); ?></p>
 							</td>
 						</tr>
 					</table>

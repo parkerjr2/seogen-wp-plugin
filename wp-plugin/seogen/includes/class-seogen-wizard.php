@@ -551,13 +551,21 @@ class SEOgen_Wizard {
 		// Get posted data
 		$config = isset( $_POST['seogen_business_config'] ) ? $_POST['seogen_business_config'] : array();
 		
+		// Sanitize hub categories
+		$hub_categories = isset( $config['hub_categories'] ) && is_array( $config['hub_categories'] ) 
+			? array_map( 'sanitize_text_field', $config['hub_categories'] ) 
+			: array( 'residential', 'commercial' );
+		
 		// Sanitize config
 		$sanitized = array(
 			'vertical' => isset( $config['vertical'] ) ? sanitize_text_field( $config['vertical'] ) : '',
 			'business_name' => isset( $config['business_name'] ) ? sanitize_text_field( $config['business_name'] ) : '',
 			'phone' => isset( $config['phone'] ) ? sanitize_text_field( $config['phone'] ) : '',
+			'email' => isset( $config['email'] ) ? sanitize_email( $config['email'] ) : '',
+			'address' => isset( $config['address'] ) ? sanitize_text_field( $config['address'] ) : '',
 			'cta_text' => isset( $config['cta_text'] ) ? sanitize_text_field( $config['cta_text'] ) : 'Request a Free Estimate',
 			'service_area_label' => isset( $config['service_area_label'] ) ? sanitize_text_field( $config['service_area_label'] ) : '',
+			'hub_categories' => $hub_categories,
 		);
 		
 		// Save config
