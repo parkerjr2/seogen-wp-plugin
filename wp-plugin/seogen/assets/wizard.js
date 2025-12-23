@@ -477,6 +477,8 @@
 			var self = this;
 			var $button = $('.seogen-wizard-start-generation');
 			
+			console.log('[WIZARD] Starting generation...');
+			
 			$button.addClass('loading').prop('disabled', true);
 			$('.seogen-wizard-skip-generation').prop('disabled', true);
 			
@@ -491,9 +493,17 @@
 					nonce: seogenWizard.nonce
 				},
 				success: function(response) {
+					console.log('[WIZARD] Start generation response:', response);
+					
 					if (response.success) {
 						self.jobId = response.data.job_id;
 						self.totalPages = response.data.total;
+						
+						console.log('[WIZARD] Job started:', {
+							job_id: self.jobId,
+							total_pages: self.totalPages,
+							phase: response.data.phase
+						});
 						
 						// Update initial progress
 						self.updateProgress(0, self.totalPages, 0, 0);
@@ -501,15 +511,22 @@
 						// Start processing batches
 						self.processBatch();
 					} else {
+						console.error('[WIZARD] Start generation failed:', response.data);
 						$button.removeClass('loading').prop('disabled', false);
 						$('.seogen-wizard-skip-generation').prop('disabled', false);
 						alert(response.data.message || 'Failed to start generation');
 					}
 				},
-				error: function(xhr) {
+				error: function(xhr, status, error) {
+					console.error('[WIZARD] AJAX error:', {
+						status: xhr.status,
+						statusText: xhr.statusText,
+						responseText: xhr.responseText,
+						error: error
+					});
 					$button.removeClass('loading').prop('disabled', false);
 					$('.seogen-wizard-skip-generation').prop('disabled', false);
-					alert('An error occurred. Please try again.');
+					alert('An error occurred. Please check the browser console for details.');
 				}
 			});
 		},

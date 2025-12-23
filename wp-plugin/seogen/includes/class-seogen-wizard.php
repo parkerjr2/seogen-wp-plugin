@@ -624,7 +624,15 @@ class SEOgen_Wizard {
 		$admin = new SEOgen_Admin();
 		
 		$job_name = 'Wizard - Phase 1: Service Hubs - ' . current_time( 'Y-m-d H:i:s' );
+		
+		// Debug logging
+		error_log( '[WIZARD] Creating Service Hub job with ' . count( $api_items ) . ' items' );
+		error_log( '[WIZARD] First item payload: ' . wp_json_encode( $api_items[0] ) );
+		
 		$result = $this->call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $api_items );
+		
+		// Log result
+		error_log( '[WIZARD] API result: ' . wp_json_encode( $result ) );
 		
 		if ( $result['success'] ) {
 			// Update phase state
