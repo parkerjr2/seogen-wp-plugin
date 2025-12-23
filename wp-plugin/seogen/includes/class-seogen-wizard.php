@@ -495,10 +495,28 @@ class SEOgen_Wizard {
 		
 		error_log( '[WIZARD] ajax_start_generation called' );
 		
-		// Check if generation is already running
+		// Check if generation is already running - but allow restart if it's been stuck for >5 minutes
 		$state = $this->get_wizard_state();
 		if ( ! empty( $state['generation']['current_phase'] ) ) {
-			wp_send_json_error( array( 'message' => 'Generation is already running' ) );
+			$last_update = isset( $state['generation']['last_update'] ) ? $state['generation']['last_update'] : 0;
+			$time_since_update = time() - $last_update;
+			
+			// If stuck for more than 5 minutes, allow restart
+			if ( $time_since_update < 300 ) {
+				wp_send_json_error( array( 
+					'message' => 'Generation is already running',
+					'stuck' => false
+				) );
+			}
+			
+			// Clear stuck state
+			error_log( '[WIZARD] Clearing stuck generation state (last update: ' . $time_since_update . 's ago)' );
+			$this->update_wizard_state( array(
+				'generation' => array(
+					'current_phase' => null,
+					'phases' => array(),
+				),
+			) );
 		}
 		
 		// Get services and cities from cache
@@ -521,6 +539,7 @@ class SEOgen_Wizard {
 		$this->update_wizard_state( array(
 			'generation' => array(
 				'current_phase' => 'service_hubs',
+				'last_update' => time(),
 				'phases' => array(
 					'service_hubs' => array(
 						'status' => 'pending',
