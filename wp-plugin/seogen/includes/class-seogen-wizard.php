@@ -122,23 +122,22 @@ class SEOgen_Wizard {
 	 * Add wizard menu item
 	 */
 	public function add_wizard_menu() {
-		// Only show wizard menu if not completed or if user can manage options
+		// Only show wizard menu if user can manage options
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 		
-		// Show wizard menu if not completed and not dismissed
-		if ( ! $this->is_wizard_complete() && ! $this->is_wizard_dismissed() ) {
-			add_menu_page(
-				__( 'Setup Wizard', 'seogen' ),
-				__( 'Setup Wizard', 'seogen' ),
-				'manage_options',
-				'seogen-wizard',
-				array( $this, 'render_wizard_page' ),
-				'dashicons-admin-generic',
-				3
-			);
-		}
+		// Always show wizard menu for administrators
+		// This allows re-running the wizard or accessing it even if completed/dismissed
+		add_menu_page(
+			__( 'Setup Wizard', 'seogen' ),
+			__( 'Setup Wizard', 'seogen' ),
+			'manage_options',
+			'seogen-wizard',
+			array( $this, 'render_wizard_page' ),
+			'dashicons-admin-generic',
+			3
+		);
 	}
 	
 	/**
