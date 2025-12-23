@@ -617,6 +617,9 @@ class SEOgen_Wizard {
 				'address' => $address,
 				'cta_text' => $cta_text,
 				'service_area_label' => $service_area_label,
+				'service' => '',
+				'city' => '',
+				'state' => '',
 			);
 		}
 		
@@ -971,6 +974,7 @@ class SEOgen_Wizard {
 				'address' => $address,
 				'cta_text' => $cta_text,
 				'service_area_label' => $service_area_label,
+				'service' => '',
 			);
 		}
 		
