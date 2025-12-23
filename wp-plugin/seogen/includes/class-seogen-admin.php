@@ -6,10 +6,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
 	use SEOgen_Admin_City_Hub_Helpers;
+	use SEOgen_Admin_Cities;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
@@ -42,6 +44,8 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
 		add_action( 'admin_post_hyper_local_city_hub_preview', array( $this, 'handle_city_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_city_hub_create', array( $this, 'handle_city_hub_create' ) );
+		add_action( 'admin_post_hyper_local_save_cities', array( $this, 'handle_save_cities' ) );
+		add_action( 'admin_post_hyper_local_delete_city', array( $this, 'handle_delete_city' ) );
 		
 		// AJAX handlers for async city hub generation
 		add_action( 'wp_ajax_seogen_start_city_hub_batch', array( $this, 'ajax_start_city_hub_batch' ) );
@@ -4194,6 +4198,59 @@ class SEOgen_Admin {
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'City Hubs (Step 4)', 'seogen' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Generate city hub pages that serve as parent pages for service+city pages. Each city hub will have the same layout as service hub pages.', 'seogen' ) . '</p>';
+
+		// Cities Management Section
+		echo '<h2>' . esc_html__( 'Manage Cities', 'seogen' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Add or remove cities that will be available for city hub page generation.', 'seogen' ) . '</p>';
+		
+		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="margin-bottom: 30px;">';
+		wp_nonce_field( 'hyper_local_save_cities', 'hyper_local_cities_nonce' );
+		echo '<input type="hidden" name="action" value="hyper_local_save_cities" />';
+		
+		echo '<h3>' . esc_html__( 'Current Cities', 'seogen' ) . '</h3>';
+		echo '<table class="wp-list-table widefat fixed striped">';
+		echo '<thead><tr>';
+		echo '<th>' . esc_html__( 'City Name', 'seogen' ) . '</th>';
+		echo '<th>' . esc_html__( 'State', 'seogen' ) . '</th>';
+		echo '<th>' . esc_html__( 'Slug', 'seogen' ) . '</th>';
+		echo '<th>' . esc_html__( 'Actions', 'seogen' ) . '</th>';
+		echo '</tr></thead>';
+		echo '<tbody>';
+		
+		if ( ! empty( $cities ) ) {
+			foreach ( $cities as $idx => $city ) {
+				echo '<tr>';
+				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][name]" value="' . esc_attr( $city['name'] ) . '" class="regular-text" required /></td>';
+				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][state]" value="' . esc_attr( $city['state'] ) . '" class="regular-text" maxlength="2" style="width: 60px;" required /></td>';
+				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][slug]" value="' . esc_attr( $city['slug'] ) . '" class="regular-text" required /></td>';
+				echo '<td>';
+				$delete_url = wp_nonce_url(
+					admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ),
+					'hyper_local_delete_city_' . $idx,
+					'nonce'
+				);
+				echo '<a href="' . esc_url( $delete_url ) . '" class="button button-small" onclick="return confirm(\'Delete this city?\');">' . esc_html__( 'Delete', 'seogen' ) . '</a>';
+				echo '</td>';
+				echo '</tr>';
+			}
+		} else {
+			echo '<tr><td colspan="4">' . esc_html__( 'No cities configured yet. Add cities using the form below.', 'seogen' ) . '</td></tr>';
+		}
+		
+		echo '</tbody></table>';
+		
+		echo '<h3>' . esc_html__( 'Add New Cities', 'seogen' ) . '</h3>';
+		echo '<p>' . esc_html__( 'Add multiple cities at once. Format: "City Name, ST" (one per line). State code is required.', 'seogen' ) . '</p>';
+		echo '<textarea name="bulk_cities" rows="6" class="large-text" placeholder="Tulsa, OK&#10;Broken Arrow, OK&#10;Owasso, OK"></textarea>';
+		
+		echo '<p class="submit">';
+		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Save Cities', 'seogen' ) . '</button>';
+		echo '</p>';
+		echo '</form>';
+		
+		echo '<hr style="margin: 40px 0;" />';
+		
+		echo '<h2>' . esc_html__( 'Generate City Hub Pages', 'seogen' ) . '</h2>';
 
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'hyper_local_city_hub_preview', 'hyper_local_city_hub_preview_nonce' );
