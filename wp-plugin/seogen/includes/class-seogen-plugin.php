@@ -322,14 +322,16 @@ class SEOgen_Plugin {
 		return array( $service, $city, $state );
 	}
 
+	/**
+	 * Output Service schema for local SEO
+	 * 
+	 * Adds JSON-LD schema on top of Yoast/RankMath for service_page post types.
+	 * Uses @graph structure with stable @ids for entity linking.
+	 * Supports service_hub, city_hub, and service_city page modes.
+	 */
 	public function maybe_output_service_schema() {
-		if ( is_admin() ) {
-			return;
-		}
-		if ( ! is_singular( 'service_page' ) ) {
-			return;
-		}
-		if ( ! $this->is_yoast_active() && ! $this->is_rankmath_active() ) {
+		// Only output on frontend, singular service_page posts
+		if ( is_admin() || ! is_singular( 'service_page' ) ) {
 			return;
 		}
 
@@ -339,108 +341,272 @@ class SEOgen_Plugin {
 		}
 
 		$post = get_post( $post_id );
-		if ( ! $post || 'service_page' !== (string) $post->post_type ) {
+		if ( ! $post || 'service_page' !== $post->post_type ) {
 			return;
 		}
 
-		$source_json = get_post_meta( $post_id, '_hyper_local_source_json', true );
-		$decoded = null;
-		if ( is_string( $source_json ) && '' !== $source_json ) {
-			$decoded = json_decode( $source_json, true );
-		}
-		if ( ! is_array( $decoded ) ) {
-			$decoded = array();
+		// Get page mode to determine schema structure
+		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
+		if ( ! in_array( $page_mode, array( 'service_hub', 'city_hub', 'service_city' ), true ) ) {
+			return;
 		}
 
-		$business_name = '';
+		// Build @graph array
+		$graph = array();
+
+		// 1. WebPage node
+		$graph[] = array(
+			'@type' => 'WebPage',
+			'@id'   => get_permalink( $post_id ) . '#webpage',
+			'url'   => get_permalink( $post_id ),
+			'name'  => get_the_title( $post_id ),
+		);
+
+		// 2. LocalBusiness node (provider)
+		$business = $this->get_business_identity();
+		if ( $business ) {
+			$graph[] = $business;
+		}
+
+		// 3. Service node (varies by page mode)
+		$service_node = $this->build_service_node( $post_id, $page_mode, $business );
+		if ( $service_node ) {
+			$graph[] = $service_node;
+		}
+
+		// Output JSON-LD
+		if ( ! empty( $graph ) ) {
+			$schema = array(
+				'@context' => 'https://schema.org',
+				'@graph'   => $graph,
+			);
+
+			$schema_json = wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT );
+			if ( $schema_json ) {
+				echo "\n" . '<script type="application/ld+json">' . "\n" . $schema_json . "\n" . '</script>' . "\n";
+			}
+		}
+	}
+
+	/**
+	 * Get business identity for LocalBusiness node
+	 * 
+	 * Attempts to extract NAP data from various sources.
+	 * Only includes data that actually exists (no fake data).
+	 * 
+	 * @return array|null LocalBusiness node or null if insufficient data
+	 */
+	private function get_business_identity() {
+		$business_name = get_bloginfo( 'name' );
+		$home_url = home_url( '/' );
+
+		// Try to get NAP from source JSON (if available)
 		$phone = '';
 		$address = '';
-		if ( isset( $decoded['blocks'] ) && is_array( $decoded['blocks'] ) ) {
-			foreach ( $decoded['blocks'] as $block ) {
-				if ( ! is_array( $block ) || empty( $block['type'] ) ) {
-					continue;
-				}
-				if ( 'nap' !== (string) $block['type'] ) {
-					continue;
-				}
-				$business_name = isset( $block['business_name'] ) ? (string) $block['business_name'] : '';
-				$phone = isset( $block['phone'] ) ? (string) $block['phone'] : '';
-				$address = isset( $block['address'] ) ? (string) $block['address'] : '';
-				break;
-			}
-		}
-
-		$service = '';
 		$city = '';
 		$state = '';
-		list( $service, $city, $state ) = $this->parse_service_city_state_from_title( $post->post_title );
 
-		$service = sanitize_text_field( wp_strip_all_tags( (string) $service ) );
-		$city = sanitize_text_field( wp_strip_all_tags( (string) $city ) );
-		$state = sanitize_text_field( wp_strip_all_tags( (string) $state ) );
-		$business_name = sanitize_text_field( wp_strip_all_tags( (string) $business_name ) );
-		$phone_digits = preg_replace( '/\D+/', '', (string) $phone );
-		$phone = sanitize_text_field( wp_strip_all_tags( (string) $phone ) );
-		$address = sanitize_text_field( wp_strip_all_tags( (string) $address ) );
+		// Check if we have any posts with NAP data
+		$recent_post = get_posts( array(
+			'post_type'      => 'service_page',
+			'posts_per_page' => 1,
+			'post_status'    => 'publish',
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		) );
 
-		$name = '';
-		if ( '' !== $service && '' !== $city && '' !== $state ) {
-			$name = $service . ' in ' . $city . ', ' . $state;
-		}
-		if ( '' === $name ) {
-			return;
-		}
-
-		$schema = array(
-			'@context' => 'https://schema.org',
-			'@type'    => 'Service',
-			'name'     => $name,
-		);
-		if ( '' !== $service ) {
-			$schema['serviceType'] = $service;
-		}
-		if ( '' !== $city ) {
-			$schema['areaServed'] = array(
-				'@type' => 'City',
-				'name'  => $city,
-			);
+		if ( ! empty( $recent_post ) ) {
+			$source_json = get_post_meta( $recent_post[0]->ID, '_hyper_local_source_json', true );
+			if ( $source_json ) {
+				$decoded = json_decode( $source_json, true );
+				if ( is_array( $decoded ) && isset( $decoded['blocks'] ) ) {
+					foreach ( $decoded['blocks'] as $block ) {
+						if ( isset( $block['type'] ) && 'nap' === $block['type'] ) {
+							$phone = isset( $block['phone'] ) ? sanitize_text_field( $block['phone'] ) : '';
+							$address = isset( $block['address'] ) ? sanitize_text_field( $block['address'] ) : '';
+							break;
+						}
+					}
+				}
+			}
 		}
 
-		$provider = array(
+		// Build LocalBusiness node
+		$business = array(
 			'@type' => 'LocalBusiness',
+			'@id'   => $home_url . '#localbusiness',
+			'name'  => $business_name,
+			'url'   => $home_url,
 		);
-		if ( '' !== $business_name ) {
-			$provider['name'] = $business_name;
+
+		// Only add phone if we have it
+		if ( $phone && preg_match( '/\d/', $phone ) ) {
+			$business['telephone'] = $phone;
 		}
-		if ( '' !== $phone_digits ) {
-			$provider['telephone'] = $phone;
-		}
-		if ( '' !== $address || '' !== $city || '' !== $state ) {
-			$provider_address = array(
-				'@type' => 'PostalAddress',
+
+		// Only add address if we have real data
+		if ( $address ) {
+			$business['address'] = array(
+				'@type'          => 'PostalAddress',
+				'streetAddress'  => $address,
+				'addressCountry' => 'US',
 			);
-			if ( '' !== $address ) {
-				$provider_address['streetAddress'] = $address;
-			}
-			if ( '' !== $city ) {
-				$provider_address['addressLocality'] = $city;
-			}
-			if ( '' !== $state ) {
-				$provider_address['addressRegion'] = $state;
-			}
-			$provider_address['addressCountry'] = 'US';
-			$provider['address'] = $provider_address;
 		}
 
-		if ( count( $provider ) > 1 ) {
-			$schema['provider'] = $provider;
+		return $business;
+	}
+
+	/**
+	 * Build Service node based on page mode
+	 * 
+	 * @param int $post_id Post ID
+	 * @param string $page_mode Page mode (service_hub, city_hub, service_city)
+	 * @param array|null $business LocalBusiness node for provider reference
+	 * @return array|null Service node or null
+	 */
+	private function build_service_node( $post_id, $page_mode, $business ) {
+		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
+		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
+		$city_meta = get_post_meta( $post_id, '_seogen_city', true );
+		$service_name = get_post_meta( $post_id, '_seogen_service_name', true );
+
+		$service = array(
+			'@type' => 'Service',
+			'@id'   => get_permalink( $post_id ) . '#service',
+		);
+
+		// Add provider reference if business exists
+		if ( $business && isset( $business['@id'] ) ) {
+			$service['provider'] = array( '@id' => $business['@id'] );
 		}
 
-		$schema_json = wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
-		if ( ! is_string( $schema_json ) || '' === $schema_json ) {
-			return;
+		// Build service node based on page mode
+		switch ( $page_mode ) {
+			case 'service_city':
+				// Specific service in specific city
+				$city_data = $this->parse_city_region( $city_meta, $city_slug );
+				
+				if ( $service_name && $city_data['city'] ) {
+					$service['name'] = $service_name . ' in ' . $city_data['city'];
+					$service['serviceType'] = $service_name;
+					$service['areaServed'] = $this->build_area_served( $city_data );
+				} else {
+					return null;
+				}
+				break;
+
+			case 'city_hub':
+				// Hub category in specific city
+				$city_data = $this->parse_city_region( $city_meta, $city_slug );
+				$hub_label = $this->hub_key_to_label( $hub_key );
+				
+				if ( $hub_label && $city_data['city'] ) {
+					$service['name'] = $hub_label . ' in ' . $city_data['city'];
+					$service['serviceType'] = $hub_label;
+					$service['areaServed'] = $this->build_area_served( $city_data );
+				} else {
+					return null;
+				}
+				break;
+
+			case 'service_hub':
+				// General hub category (no specific city)
+				$hub_label = $this->hub_key_to_label( $hub_key );
+				
+				if ( $hub_label ) {
+					$service['name'] = $hub_label;
+					$service['serviceType'] = $hub_label;
+					// No areaServed for service hubs (covers all areas)
+				} else {
+					return null;
+				}
+				break;
+
+			default:
+				return null;
 		}
-		echo '<script type="application/ld+json">' . $schema_json . '</script>';
+
+		return $service;
+	}
+
+	/**
+	 * Parse city and region from meta or slug
+	 * 
+	 * @param string $city_meta City meta value (e.g., "Tulsa, OK")
+	 * @param string $city_slug City slug (e.g., "tulsa-ok")
+	 * @return array Array with 'city' and 'region' keys
+	 */
+	private function parse_city_region( $city_meta, $city_slug ) {
+		$city = '';
+		$region = '';
+
+		// Try to parse from _seogen_city meta first
+		if ( $city_meta && strpos( $city_meta, ',' ) !== false ) {
+			$parts = explode( ',', $city_meta );
+			$city = trim( $parts[0] );
+			$region = isset( $parts[1] ) ? trim( $parts[1] ) : '';
+		} elseif ( $city_slug ) {
+			// Fallback: derive from slug
+			// Remove state suffix (last hyphen + 2 chars)
+			$city_part = preg_replace( '/-([a-z]{2})$/i', '', $city_slug, 1, $count );
+			if ( $count > 0 ) {
+				// Extract state from slug
+				preg_match( '/-([a-z]{2})$/i', $city_slug, $matches );
+				$region = isset( $matches[1] ) ? strtoupper( $matches[1] ) : '';
+			}
+			// Convert slug to title case
+			$city = ucwords( str_replace( '-', ' ', $city_part ) );
+		}
+
+		return array(
+			'city'   => $city,
+			'region' => $region,
+		);
+	}
+
+	/**
+	 * Build areaServed node
+	 * 
+	 * @param array $city_data Array with 'city' and 'region' keys
+	 * @return array City or AdministrativeArea node
+	 */
+	private function build_area_served( $city_data ) {
+		$area = array(
+			'@type' => 'City',
+			'name'  => $city_data['city'],
+		);
+
+		if ( $city_data['region'] ) {
+			$area['address'] = array(
+				'@type'         => 'PostalAddress',
+				'addressRegion' => $city_data['region'],
+			);
+		}
+
+		return $area;
+	}
+
+	/**
+	 * Map hub_key to readable service label
+	 * 
+	 * @param string $hub_key Hub key (e.g., "residential")
+	 * @return string Readable label (e.g., "Residential Electrical Services")
+	 */
+	private function hub_key_to_label( $hub_key ) {
+		$labels = array(
+			'residential' => 'Residential Electrical Services',
+			'commercial'  => 'Commercial Electrical Services',
+			'industrial'  => 'Industrial Electrical Services',
+			'emergency'   => 'Emergency Electrical Services',
+			'lighting'    => 'Lighting Services',
+			'hvac'        => 'HVAC Services',
+			'plumbing'    => 'Plumbing Services',
+			'solar'       => 'Solar Services',
+			'generator'   => 'Generator Services',
+			'ev-charging' => 'EV Charging Services',
+		);
+
+		return isset( $labels[ $hub_key ] ) ? $labels[ $hub_key ] : ucwords( str_replace( '-', ' ', $hub_key ) );
 	}
 
 	public function activate() {
