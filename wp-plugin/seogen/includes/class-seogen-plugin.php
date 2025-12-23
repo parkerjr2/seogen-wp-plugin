@@ -72,6 +72,10 @@ class SEOgen_Plugin {
 		add_shortcode( 'seogen_service_hub_city_links', array( $this, 'render_service_hub_city_links_shortcode' ) );
 		add_shortcode( 'seogen_parent_hub_link', array( $this, 'render_parent_hub_link_shortcode' ) );
 		add_shortcode( 'seogen_city_hub_link', array( $this, 'render_city_hub_link_shortcode' ) );
+		
+		// Auto-invalidate city hub link transients when posts are saved/published
+		add_action( 'save_post_service_page', array( 'SEOgen_City_Hub_Link', 'purge_city_hub_transient_for_post' ), 10, 1 );
+		add_action( 'transition_post_status', array( $this, 'handle_post_status_transition' ), 10, 3 );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-meta-inspector.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-services-diagnostic.php';
@@ -1208,6 +1212,27 @@ class SEOgen_Plugin {
 	 */
 	public function render_city_hub_link_shortcode() {
 		return SEOgen_City_Hub_Link::render();
+	}
+	
+	/**
+	 * Handle post status transitions
+	 * 
+	 * Purges city hub link transients when service pages are published.
+	 * 
+	 * @param string $new_status New post status
+	 * @param string $old_status Old post status
+	 * @param WP_Post $post Post object
+	 */
+	public function handle_post_status_transition( $new_status, $old_status, $post ) {
+		// Only process service_page post type
+		if ( 'service_page' !== $post->post_type ) {
+			return;
+		}
+		
+		// Only purge when transitioning to publish
+		if ( 'publish' === $new_status && 'publish' !== $old_status ) {
+			SEOgen_City_Hub_Link::purge_city_hub_transient_for_post( $post->ID );
+		}
 	}
 
 }

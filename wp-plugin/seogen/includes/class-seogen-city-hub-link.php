@@ -26,12 +26,9 @@ class SEOgen_City_Hub_Link {
 	 * @return string HTML output or empty string
 	 */
 	public static function render() {
-		// Always output something when WP_DEBUG is on to confirm shortcode is being called
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( 'SEOgen: seogen_city_hub_link shortcode called' );
-		}
-		
 		$post_id = get_the_ID();
+		$debug_info = array();
+		
 		if ( ! $post_id ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				return '<!-- seogen_city_hub_link: no post_id -->';
@@ -40,28 +37,39 @@ class SEOgen_City_Hub_Link {
 		}
 
 		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
+		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
+		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
+		
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$debug_info[] = "post_id={$post_id}";
+			$debug_info[] = "page_mode={$page_mode}";
+			$debug_info[] = "hub_key={$hub_key}";
+			$debug_info[] = "city_slug={$city_slug}";
+		}
+		
 		if ( 'service_city' !== $page_mode ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				return '<!-- seogen_city_hub_link: page_mode=' . esc_html( $page_mode ) . ', expected service_city -->';
+				return '<!-- seogen_city_hub_link: ' . esc_html( implode( ' | ', $debug_info ) ) . ' | ERROR: expected page_mode=service_city -->';
 			}
 			return '';
 		}
 
-		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
-		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
-
 		if ( empty( $hub_key ) || empty( $city_slug ) ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				return '<!-- seogen_city_hub_link: hub_key=' . esc_html( $hub_key ) . ', city_slug=' . esc_html( $city_slug ) . ' (one or both empty) -->';
+				return '<!-- seogen_city_hub_link: ' . esc_html( implode( ' | ', $debug_info ) ) . ' | ERROR: hub_key or city_slug empty -->';
 			}
 			return '';
 		}
 
 		$city_hub_id = self::find_city_hub_page( $hub_key, $city_slug );
 		
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$debug_info[] = $city_hub_id ? "found city_hub_id={$city_hub_id}" : 'no city hub found';
+		}
+		
 		if ( ! $city_hub_id ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				return '<!-- seogen_city_hub_link: no city hub found for hub_key=' . esc_html( $hub_key ) . ', city_slug=' . esc_html( $city_slug ) . ' -->';
+				return '<!-- seogen_city_hub_link: ' . esc_html( implode( ' | ', $debug_info ) ) . ' -->';
 			}
 			return '';
 		}
@@ -75,13 +83,16 @@ class SEOgen_City_Hub_Link {
 		$sentence = str_replace( '{url}', esc_url( $city_hub_url ), $template );
 		$sentence = str_replace( '{title}', esc_html( $clean_title ), $sentence );
 		
-		$output = '<p class="seogen-city-hub-link">';
+		$output = '';
+		
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$debug_info[] = "rendering link to '{$clean_title}'";
+			$output .= '<!-- seogen_city_hub_link: ' . esc_html( implode( ' | ', $debug_info ) ) . ' -->' . "\n";
+		}
+		
+		$output .= '<p class="seogen-city-hub-link">';
 		$output .= $sentence;
 		$output .= '</p>';
-		
-		if ( current_user_can( 'manage_options' ) ) {
-			$output .= '<!-- DEBUG: hub_key=' . esc_html( $hub_key ) . ', city_slug=' . esc_html( $city_slug ) . ', city_hub_id=' . esc_html( $city_hub_id ) . ' -->';
-		}
 		
 		return $output;
 	}
@@ -196,6 +207,45 @@ class SEOgen_City_Hub_Link {
 		$index = abs( $hash ) % count( $templates );
 		
 		return $templates[ $index ];
+	}
+	
+	/**
+	 * Purge transient for a specific post
+	 * 
+	 * Called when a city hub or service+city page is saved/published.
+	 * Clears the specific transient for that hub_key + city_slug combination.
+	 * 
+	 * @param int $post_id Post ID
+	 */
+	public static function purge_city_hub_transient_for_post( $post_id ) {
+		// Ignore autosaves and revisions
+		if ( wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+		
+		// Only process service_page post type
+		if ( 'service_page' !== get_post_type( $post_id ) ) {
+			return;
+		}
+		
+		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
+		
+		// Only purge for city_hub and service_city pages
+		if ( ! in_array( $page_mode, array( 'city_hub', 'service_city' ), true ) ) {
+			return;
+		}
+		
+		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
+		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
+		
+		if ( $hub_key && $city_slug ) {
+			$cache_key = 'seogen_city_hub_' . $hub_key . '_' . $city_slug;
+			delete_transient( $cache_key );
+			
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( "SEOgen: Purged transient {$cache_key} for post {$post_id} (page_mode={$page_mode})" );
+			}
+		}
 	}
 	
 	/**
