@@ -266,7 +266,7 @@ class SEOgen_Wizard {
 			'seogenWizard',
 			array(
 				'ajaxurl' => admin_url( 'admin-ajax.php' ),
-				'nonce' => wp_create_nonce( 'seogen_wizard' ),
+				'nonce' => wp_create_nonce( 'seogen_wizard_nonce' ),
 				'strings' => array(
 					'validating' => __( 'Validating...', 'seogen' ),
 					'saving' => __( 'Saving...', 'seogen' ),
