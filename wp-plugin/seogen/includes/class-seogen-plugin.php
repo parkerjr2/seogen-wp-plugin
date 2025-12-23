@@ -66,7 +66,6 @@ class SEOgen_Plugin {
 		add_shortcode( 'seogen_city_hub_links', array( $this, 'render_city_hub_links_shortcode' ) );
 		add_shortcode( 'seogen_service_hub_city_links', array( $this, 'render_service_hub_city_links_shortcode' ) );
 		add_shortcode( 'seogen_parent_hub_link', array( $this, 'render_parent_hub_link_shortcode' ) );
-		add_shortcode( 'seogen_city_hub_link', array( $this, 'render_city_hub_link_shortcode' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
@@ -1191,106 +1190,6 @@ class SEOgen_Plugin {
 		// Render simple editorial link
 		$output = '<p class="seogen-parent-hub-link">';
 		$output .= '← <a href="' . esc_url( $parent_url ) . '">' . $link_text . '</a>';
-		$output .= '</p>';
-		
-		return $output;
-	}
-
-	/**
-	 * Render city hub link for service+city pages
-	 * 
-	 * Displays "← Back to {Hub Name} in {City}" link on service+city pages
-	 * linking back to their parent city hub.
-	 * 
-	 * @return string HTML output or empty string
-	 */
-	public function render_city_hub_link_shortcode() {
-		// Safety check: Only render on service_city pages
-		$post_id = get_the_ID();
-		if ( ! $post_id ) {
-			if ( current_user_can( 'manage_options' ) ) {
-				return '<!-- DEBUG: No post_id -->';
-			}
-			return '';
-		}
-		
-		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
-		if ( 'service_city' !== $page_mode ) {
-			if ( current_user_can( 'manage_options' ) ) {
-				return '<!-- DEBUG: page_mode=' . esc_html( $page_mode ) . ', expected=service_city -->';
-			}
-			return '';
-		}
-		
-		// Get hub_key and city_slug from current service+city page
-		$hub_key = get_post_meta( $post_id, '_seogen_hub_key', true );
-		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
-		
-		if ( empty( $hub_key ) || empty( $city_slug ) ) {
-			return '';
-		}
-		
-		// Query for parent City Hub page
-		$city_hub_query = new WP_Query( array(
-			'post_type' => 'service_page',
-			'post_status' => 'publish',
-			'posts_per_page' => 1,
-			'meta_query' => array(
-				array(
-					'key' => '_seogen_page_mode',
-					'value' => 'city_hub',
-					'compare' => '=',
-				),
-				array(
-					'key' => '_seogen_hub_key',
-					'value' => $hub_key,
-					'compare' => '=',
-				),
-				array(
-					'key' => '_seogen_city_slug',
-					'value' => $city_slug,
-					'compare' => '=',
-				),
-			),
-		) );
-		
-		// If city hub doesn't exist yet, return empty (no error)
-		if ( ! $city_hub_query->have_posts() ) {
-			wp_reset_postdata();
-			return '';
-		}
-		
-		$city_hub = $city_hub_query->posts[0];
-		wp_reset_postdata();
-		
-		// Get city hub URL and title
-		$city_hub_url = get_permalink( $city_hub->ID );
-		$city_hub_title = get_the_title( $city_hub->ID );
-		
-		// Clean title: Remove trailing "in {City}, {State}" if present
-		// Example: "Residential Electrical in Tulsa, OK" → "Residential Electrical in Tulsa"
-		$clean_title = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $city_hub_title );
-		$clean_title = preg_replace( '/\s+services$/i', '', $clean_title ); // Remove trailing "services"
-		$clean_title = trim( $clean_title );
-		
-		// Extract city name from title for link text
-		// Pattern: "Residential Electrical in Tulsa, OK" → extract "Tulsa"
-		$city_name = '';
-		if ( preg_match( '/\s+(in|near|around|for)\s+([A-Z][^,]+)/i', $city_hub_title, $matches ) ) {
-			$city_name = trim( $matches[2] );
-		}
-		
-		// Generate natural link text
-		// Pattern: "View all {Hub Name} services in {City}"
-		if ( ! empty( $city_name ) ) {
-			$link_text = 'View all ' . esc_html( $clean_title ) . ' services in ' . esc_html( $city_name );
-		} else {
-			$link_text = 'View all ' . esc_html( $clean_title ) . ' services';
-		}
-		
-		// Render simple editorial link matching parent hub link style
-		$output = '<p class="seogen-city-hub-link">';
-		$output .= '← <a href="' . esc_url( $city_hub_url ) . '">' . $link_text . '</a>';
 		$output .= '</p>';
 		
 		return $output;

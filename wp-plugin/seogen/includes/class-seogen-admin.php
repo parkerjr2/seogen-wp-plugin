@@ -762,17 +762,6 @@ class SEOgen_Admin {
 				continue;
 			}
 
-			if ( 'shortcode' === $type ) {
-				$shortcode = isset( $block['shortcode'] ) ? (string) $block['shortcode'] : '';
-				if ( '' !== $shortcode ) {
-					$emit_hero_if_ready( false );
-					$output[] = '<!-- wp:shortcode -->';
-					$output[] = '[' . $shortcode . ']';
-					$output[] = '<!-- /wp:shortcode -->';
-				}
-				continue;
-			}
-
 			if ( 'cta' === $type ) {
 				$emit_hero_if_ready( true );
 				$close_body_group_if_open();
