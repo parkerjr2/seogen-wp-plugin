@@ -79,18 +79,25 @@ class SEOgen_City_Hub_Link {
 		// Extract city name from slug (e.g., "tulsa-ok" → "Tulsa")
 		$city_name = self::extract_city_from_slug( $city_slug );
 		
-		// Build completely natural sentence without exposing page titles
-		// Generic anchor text that works for any service category
-		$anchor_text = 'other services in ' . $city_name;
+		// Get readable hub label (e.g., "residential" → "residential electrical")
+		$hub_label = self::get_hub_label( $hub_key );
 		
-		// Natural conversational sentence
-		$sentence = 'Looking for more options? Explore <a href="' . esc_url( $city_hub_url ) . '">' . esc_html( $anchor_text ) . '</a> to see what else we offer.';
+		// Select random anchor text template
+		$anchor_text = self::get_random_anchor_text( $hub_label, $city_name, $post_id );
+		
+		// Select random sentence template and build final output
+		$sentence = self::get_random_sentence_template( $anchor_text, $city_name, $city_hub_url, $post_id );
 		
 		$output = '';
 		
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			$debug_info[] = "rendering link: '{$anchor_text}'";
 			$output .= '<!-- seogen_city_hub_link: ' . esc_html( implode( ' | ', $debug_info ) ) . ' -->' . "\n";
+		}
+		
+		// Admin-only debug info
+		if ( current_user_can( 'manage_options' ) ) {
+			$output .= '<!-- Admin Debug: hub_key=' . esc_html( $hub_key ) . ', city_slug=' . esc_html( $city_slug ) . ', city_hub_id=' . esc_html( $city_hub_id ) . ' -->' . "\n";
 		}
 		
 		$output .= '<p class="seogen-city-hub-link">';
@@ -200,6 +207,121 @@ class SEOgen_City_Hub_Link {
 		$city_name = ucwords( $city_name );
 		
 		return $city_name;
+	}
+	
+	/**
+	 * Map hub_key to readable label
+	 * 
+	 * Converts internal hub keys to human-readable service category labels.
+	 * Example: "residential" → "residential electrical"
+	 * 
+	 * To expand: Add new mappings to the $hub_labels array below.
+	 * Keep labels generic and SEO-safe (avoid brand names).
+	 * 
+	 * @param string $hub_key Hub key (e.g., "residential")
+	 * @return string Readable label (e.g., "residential electrical")
+	 */
+	private static function get_hub_label( $hub_key ) {
+		$hub_labels = array(
+			'residential'        => 'residential electrical',
+			'commercial'         => 'commercial electrical',
+			'industrial'         => 'industrial electrical',
+			'emergency'          => 'emergency electrical',
+			'lighting'           => 'lighting',
+			'hvac'               => 'HVAC',
+			'plumbing'           => 'plumbing',
+			'solar'              => 'solar',
+			'generator'          => 'generator',
+			'ev-charging'        => 'EV charging',
+		);
+		
+		return isset( $hub_labels[ $hub_key ] ) ? $hub_labels[ $hub_key ] : $hub_key;
+	}
+	
+	/**
+	 * Get random anchor text template
+	 * 
+	 * Returns varied anchor text to avoid repetitive linking patterns.
+	 * Uses deterministic randomization based on post_id for consistency.
+	 * 
+	 * Template pool (expand as needed):
+	 * - "{hub_label} overview in {city}"
+	 * - "{city} {hub_label} services"
+	 * - "all {hub_label} services in {city}"
+	 * - "{hub_label} options in {city}"
+	 * - "other {hub_label} work in {city}"
+	 * 
+	 * @param string $hub_label Readable hub label
+	 * @param string $city_name City name
+	 * @param int $post_id Current post ID (for deterministic selection)
+	 * @return string Anchor text
+	 */
+	private static function get_random_anchor_text( $hub_label, $city_name, $post_id ) {
+		$templates = array(
+			'{hub_label} overview in {city}',
+			'{city} {hub_label} services',
+			'all {hub_label} services in {city}',
+			'{hub_label} options in {city}',
+			'other {hub_label} work in {city}',
+			'{hub_label} services in {city}',
+		);
+		
+		// Deterministic selection based on post_id
+		$index = abs( crc32( 'anchor_' . $post_id ) ) % count( $templates );
+		$template = $templates[ $index ];
+		
+		// Replace placeholders
+		$anchor_text = str_replace( '{hub_label}', $hub_label, $template );
+		$anchor_text = str_replace( '{city}', $city_name, $anchor_text );
+		
+		return $anchor_text;
+	}
+	
+	/**
+	 * Get random sentence template
+	 * 
+	 * Returns varied sentence structures to sound more human-written.
+	 * Uses deterministic randomization based on post_id for consistency.
+	 * 
+	 * Template pool (expand as needed):
+	 * - "Need the bigger picture in {city}? Start with our {anchor}."
+	 * - "Not sure where to begin? See our {anchor}."
+	 * - "Want a broader view for {city}? Visit {anchor}."
+	 * - "Looking for more options? Explore {anchor}."
+	 * - "Considering other services? Check out {anchor}."
+	 * 
+	 * To expand: Add new sentence patterns to the $templates array below.
+	 * Keep {anchor} placeholder for link insertion.
+	 * Avoid brand names and overly promotional language.
+	 * 
+	 * @param string $anchor_text Pre-built anchor text
+	 * @param string $city_name City name
+	 * @param string $url City hub URL
+	 * @param int $post_id Current post ID (for deterministic selection)
+	 * @return string Complete sentence with link
+	 */
+	private static function get_random_sentence_template( $anchor_text, $city_name, $url, $post_id ) {
+		$templates = array(
+			'Need the bigger picture in {city}? Start with our {anchor}.',
+			'Not sure where to begin? See our {anchor}.',
+			'Want a broader view for {city}? Visit our {anchor}.',
+			'Looking for more options? Explore our {anchor}.',
+			'Considering other services? Check out our {anchor}.',
+			'Want to see what else we offer in {city}? Browse our {anchor}.',
+		);
+		
+		// Deterministic selection based on post_id (different seed than anchor)
+		$index = abs( crc32( 'sentence_' . $post_id ) ) % count( $templates );
+		$template = $templates[ $index ];
+		
+		// Build the link
+		$link = '<a href="' . esc_url( $url ) . '">' . esc_html( $anchor_text ) . '</a>';
+		
+		// Replace placeholders
+		$sentence = str_replace( '{anchor}', $link, $template );
+		$sentence = str_replace( '{city}', esc_html( $city_name ), $sentence );
+		
+		return $sentence;
 	}
 	
 	/**
