@@ -385,27 +385,42 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 				
 				$service_count = is_array( $services ) ? count( $services ) : 0;
 				$city_count = is_array( $cities ) ? count( $cities ) : 0;
+				$service_hub_count = $service_count;
 				$service_city_count = $service_count * $city_count;
+				$city_hub_count = $city_count;
+				$total_pages = $service_hub_count + $service_city_count + $city_hub_count;
 				?>
 				
 				<ul class="seogen-wizard-generation-list">
 					<li>
 						<span class="dashicons dashicons-yes-alt"></span>
-						<strong><?php esc_html_e( 'Service + City Pages', 'seogen' ); ?></strong>
+						<strong><?php esc_html_e( 'Phase 1: Service Hub Pages', 'seogen' ); ?></strong>
+						<span class="count">(<?php echo esc_html( $service_hub_count ); ?> pages)</span>
+						<p class="description"><?php esc_html_e( 'Overview pages for each service type', 'seogen' ); ?></p>
+					</li>
+					<li>
+						<span class="dashicons dashicons-yes-alt"></span>
+						<strong><?php esc_html_e( 'Phase 2: Service + City Pages', 'seogen' ); ?></strong>
 						<span class="count">(<?php echo esc_html( $service_city_count ); ?> pages)</span>
 						<p class="description"><?php esc_html_e( 'Location-specific service pages for each service in each city', 'seogen' ); ?></p>
+					</li>
+					<li>
+						<span class="dashicons dashicons-yes-alt"></span>
+						<strong><?php esc_html_e( 'Phase 3: City Hub Pages', 'seogen' ); ?></strong>
+						<span class="count">(<?php echo esc_html( $city_hub_count ); ?> pages)</span>
+						<p class="description"><?php esc_html_e( 'City overview pages listing all services', 'seogen' ); ?></p>
 					</li>
 				</ul>
 				
 				<p class="seogen-wizard-total">
 					<strong><?php esc_html_e( 'Total:', 'seogen' ); ?></strong>
-					<?php echo esc_html( sprintf( __( '%d pages', 'seogen' ), $service_city_count ) ); ?>
+					<?php echo esc_html( sprintf( __( '%d pages', 'seogen' ), $total_pages ) ); ?>
 				</p>
 				
 				<div style="margin-top: 15px; padding: 12px; background: #f0f6fc; border-left: 4px solid #2271b1; border-radius: 4px;">
 					<p style="margin: 0; font-size: 13px;">
 						<strong><?php esc_html_e( 'Note:', 'seogen' ); ?></strong>
-						<?php esc_html_e( 'Service Hub and City Hub pages can be generated separately from the Extensions menu after completing this wizard.', 'seogen' ); ?>
+						<?php esc_html_e( 'Pages will be generated in 3 sequential phases. All pages will be created automatically.', 'seogen' ); ?>
 					</p>
 				</div>
 				
