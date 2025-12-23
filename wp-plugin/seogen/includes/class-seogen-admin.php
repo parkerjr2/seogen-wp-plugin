@@ -794,8 +794,8 @@ class SEOgen_Admin {
 				$output[] = '<h2 class="cta-heading has-text-align-center">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
 				$output[] = '<!-- /wp:heading -->';
 				
-				$output[] = '<!-- wp:paragraph {"align":"center","className":"cta-subheading"} -->';
-				$output[] = '<p class="cta-subheading has-text-align-center">' . $text . '</p>';
+				$output[] = '<!-- wp:paragraph {"align":"center"} -->';
+				$output[] = '<p class="has-text-align-center">' . $text . '</p>';
 				$output[] = '<!-- /wp:paragraph -->';
 
 				$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
