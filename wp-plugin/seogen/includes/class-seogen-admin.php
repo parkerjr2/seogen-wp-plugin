@@ -4201,21 +4201,21 @@ class SEOgen_Admin {
 		echo '<input type="hidden" name="action" value="hyper_local_save_cities" />';
 		
 		echo '<h3>' . esc_html__( 'Current Cities', 'seogen' ) . '</h3>';
-		echo '<table class="wp-list-table widefat fixed striped">';
+		echo '<table class="wp-list-table widefat striped">';
 		echo '<thead><tr>';
-		echo '<th>' . esc_html__( 'City Name', 'seogen' ) . '</th>';
-		echo '<th>' . esc_html__( 'State', 'seogen' ) . '</th>';
-		echo '<th>' . esc_html__( 'Slug', 'seogen' ) . '</th>';
-		echo '<th>' . esc_html__( 'Actions', 'seogen' ) . '</th>';
+		echo '<th style="width: 30%;">' . esc_html__( 'City Name', 'seogen' ) . '</th>';
+		echo '<th style="width: 10%;">' . esc_html__( 'State', 'seogen' ) . '</th>';
+		echo '<th style="width: 35%;">' . esc_html__( 'Slug', 'seogen' ) . '</th>';
+		echo '<th style="width: 15%;">' . esc_html__( 'Actions', 'seogen' ) . '</th>';
 		echo '</tr></thead>';
 		echo '<tbody>';
 		
 		if ( ! empty( $cities ) ) {
 			foreach ( $cities as $idx => $city ) {
 				echo '<tr>';
-				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][name]" value="' . esc_attr( $city['name'] ) . '" class="regular-text" required /></td>';
-				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][state]" value="' . esc_attr( $city['state'] ) . '" class="regular-text" maxlength="2" style="width: 60px;" required /></td>';
-				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][slug]" value="' . esc_attr( $city['slug'] ) . '" class="regular-text" required /></td>';
+				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][name]" value="' . esc_attr( $city['name'] ) . '" style="width: 95%;" required /></td>';
+				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][state]" value="' . esc_attr( $city['state'] ) . '" maxlength="2" style="width: 50px; text-align: center;" required /></td>';
+				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][slug]" value="' . esc_attr( $city['slug'] ) . '" style="width: 95%;" required /></td>';
 				echo '<td>';
 				$delete_url = wp_nonce_url(
 					admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ),
