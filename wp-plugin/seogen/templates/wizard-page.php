@@ -174,7 +174,7 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 						</tr>
 						<tr>
 							<th scope="row">
-								<label><?php esc_html_e( 'Hub Categories', 'seogen' ); ?></label>
+								<label><?php esc_html_e( 'Hub Categories', 'seogen' ); ?> <span style="color: #d63638;">*</span></label>
 							</th>
 							<td>
 								<?php
@@ -184,24 +184,33 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 								}
 								?>
 								<fieldset>
+									<legend class="screen-reader-text"><?php esc_html_e( 'Select the service hub categories for your business:', 'seogen' ); ?></legend>
 									<label>
 										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="residential" <?php checked( in_array( 'residential', $hub_categories ) ); ?>>
-										<?php esc_html_e( 'Residential', 'seogen' ); ?>
+										<?php esc_html_e( 'Residential (residential-services)', 'seogen' ); ?>
 									</label><br>
 									<label>
 										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="commercial" <?php checked( in_array( 'commercial', $hub_categories ) ); ?>>
-										<?php esc_html_e( 'Commercial', 'seogen' ); ?>
-									</label><br>
-									<label>
-										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="industrial" <?php checked( in_array( 'industrial', $hub_categories ) ); ?>>
-										<?php esc_html_e( 'Industrial', 'seogen' ); ?>
+										<?php esc_html_e( 'Commercial (commercial-services)', 'seogen' ); ?>
 									</label><br>
 									<label>
 										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="emergency" <?php checked( in_array( 'emergency', $hub_categories ) ); ?>>
-										<?php esc_html_e( 'Emergency', 'seogen' ); ?>
+										<?php esc_html_e( 'Emergency (emergency-services)', 'seogen' ); ?>
+									</label><br>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="repair" <?php checked( in_array( 'repair', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Repair (repair-services)', 'seogen' ); ?>
+									</label><br>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="installation" <?php checked( in_array( 'installation', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Installation (installation-services)', 'seogen' ); ?>
+									</label><br>
+									<label>
+										<input type="checkbox" name="seogen_business_config[hub_categories][]" value="maintenance" <?php checked( in_array( 'maintenance', $hub_categories ) ); ?>>
+										<?php esc_html_e( 'Maintenance (maintenance-services)', 'seogen' ); ?>
 									</label>
 								</fieldset>
-								<p class="description"><?php esc_html_e( 'Select the hub categories for your business', 'seogen' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Select at least one hub category. You can add custom hubs later.', 'seogen' ); ?></p>
 							</td>
 						</tr>
 					</table>
