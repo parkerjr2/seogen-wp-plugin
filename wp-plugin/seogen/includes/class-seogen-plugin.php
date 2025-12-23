@@ -204,10 +204,13 @@ class SEOgen_Plugin {
 		}
 
 		$sticky_enabled = ! empty( $settings['enable_mobile_sticky_cta'] );
-		$cta_label = isset( $settings['primary_cta_label'] ) ? (string) $settings['primary_cta_label'] : 'Call Now';
+		
+		// Get CTA text from Business Setup config instead of Settings
+		$config = get_option( 'seogen_business_config', array() );
+		$cta_label = isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate';
 		$cta_label = trim( $cta_label );
 		if ( '' === $cta_label ) {
-			$cta_label = 'Call Now';
+			$cta_label = 'Request a Free Estimate';
 		}
 
 		if ( $sticky_enabled ) {

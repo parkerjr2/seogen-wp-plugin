@@ -337,18 +337,7 @@ class SEOgen_Admin {
 		return $templates;
 	}
 
-	public function render_field_primary_cta_label() {
-		$settings = $this->get_settings();
-		$value = isset( $settings['primary_cta_label'] ) ? (string) $settings['primary_cta_label'] : '';
-		if ( '' === $value ) {
-			$value = 'Call Now';
-		}
-		printf(
-			'<input type="text" class="regular-text" name="%1$s[primary_cta_label]" value="%2$s" />',
-			esc_attr( self::OPTION_NAME ),
-			esc_attr( $value )
-		);
-	}
+	// Removed: render_field_primary_cta_label() - now using Business Setup CTA text
 
 	public function build_gutenberg_content_from_blocks( array $blocks, $page_mode = '' ) {
 		// Infer page_mode if empty (fallback for legacy call sites)
@@ -391,10 +380,13 @@ class SEOgen_Admin {
 		if ( '' === $cta_style ) {
 			$cta_style = 'button_only';
 		}
-		$primary_cta_label = isset( $settings['primary_cta_label'] ) ? (string) $settings['primary_cta_label'] : 'Call Now';
+		
+		// Get CTA text from Business Setup config instead of Settings
+		$config = get_option( 'seogen_business_config', array() );
+		$primary_cta_label = isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate';
 		$primary_cta_label = trim( $primary_cta_label );
 		if ( '' === $primary_cta_label ) {
-			$primary_cta_label = 'Call Now';
+			$primary_cta_label = 'Request a Free Estimate';
 		}
 
 		$output = array();
@@ -2093,14 +2085,8 @@ class SEOgen_Admin {
 			'seogen_settings_section_main'
 		);
 
-		add_settings_field(
-			'hyper_local_primary_cta_label',
-			__( 'Primary CTA Label', 'seogen' ),
-			array( $this, 'render_field_primary_cta_label' ),
-			'seogen-settings',
-			'seogen_settings_section_main'
-		);
-
+		// Removed: Primary CTA Label field (now using Business Setup CTA text)
+		
 		add_settings_field(
 			'hyper_local_cta_style',
 			__( 'CTA Style', 'seogen' ),
@@ -2188,15 +2174,7 @@ class SEOgen_Admin {
 
 		$sanitized['enable_mobile_sticky_cta'] = ( isset( $input['enable_mobile_sticky_cta'] ) && '1' === (string) $input['enable_mobile_sticky_cta'] ) ? '1' : '0';
 
-		$primary_cta_label = 'Call Now';
-		if ( isset( $input['primary_cta_label'] ) ) {
-			$primary_cta_label = sanitize_text_field( (string) $input['primary_cta_label'] );
-		}
-		$primary_cta_label = trim( $primary_cta_label );
-		if ( '' === $primary_cta_label ) {
-			$primary_cta_label = 'Call Now';
-		}
-		$sanitized['primary_cta_label'] = $primary_cta_label;
+		// Removed: primary_cta_label sanitization (now using Business Setup CTA text)
 
 		$header_template_id = 0;
 		if ( isset( $input['header_template_id'] ) ) {
@@ -2531,7 +2509,6 @@ class SEOgen_Admin {
 			'hero_style' => 'minimal',
 			'cta_style' => 'button_only',
 			'enable_mobile_sticky_cta' => '0',
-			'primary_cta_label' => 'Call Now',
 		);
 
 		$settings = get_option( self::OPTION_NAME, array() );
