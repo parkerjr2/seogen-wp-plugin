@@ -382,10 +382,16 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 				<?php
 				$services = get_option( 'hyper_local_services_cache', array() );
 				$cities = get_option( 'hyper_local_cities_cache', array() );
+				$config = get_option( 'seogen_business_config', array() );
+				
+				// Get hub categories for Service Hub count
+				$hub_categories = isset( $config['hub_categories'] ) && is_array( $config['hub_categories'] )
+					? $config['hub_categories']
+					: array( 'residential', 'commercial' );
 				
 				$service_count = is_array( $services ) ? count( $services ) : 0;
 				$city_count = is_array( $cities ) ? count( $cities ) : 0;
-				$service_hub_count = $service_count;
+				$service_hub_count = count( $hub_categories );
 				$service_city_count = $service_count * $city_count;
 				$city_hub_count = $city_count;
 				$total_pages = $service_hub_count + $service_city_count + $city_hub_count;
