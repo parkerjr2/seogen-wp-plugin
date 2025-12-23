@@ -631,6 +631,15 @@ class SEOgen_Admin {
 
 				if ( ! $faq_heading_added ) {
 					$add_separator();
+					
+					// Add city hub link shortcode before FAQ section (service+city pages only)
+					if ( isset( $data['page_mode'] ) && 'service_city' === $data['page_mode'] ) {
+						$output[] = '<!-- wp:shortcode -->';
+						$output[] = '[seogen_city_hub_link]';
+						$output[] = '<!-- /wp:shortcode -->';
+						$output[] = '';
+					}
+					
 					$output[] = '<!-- wp:heading {"level":2} -->';
 					$output[] = '<h2>' . esc_html__( 'FAQ', 'seogen' ) . '</h2>';
 					$output[] = '<!-- /wp:heading -->';

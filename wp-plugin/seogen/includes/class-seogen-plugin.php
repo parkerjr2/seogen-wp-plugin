@@ -66,9 +66,11 @@ class SEOgen_Plugin {
 		add_shortcode( 'seogen_city_hub_links', array( $this, 'render_city_hub_links_shortcode' ) );
 		add_shortcode( 'seogen_service_hub_city_links', array( $this, 'render_service_hub_city_links_shortcode' ) );
 		add_shortcode( 'seogen_parent_hub_link', array( $this, 'render_parent_hub_link_shortcode' ) );
+		add_shortcode( 'seogen_city_hub_link', array( $this, 'render_city_hub_link_shortcode' ) );
 
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-link.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-meta-inspector.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-services-diagnostic.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-diagnostics.php';
@@ -1193,6 +1195,17 @@ class SEOgen_Plugin {
 		$output .= '</p>';
 		
 		return $output;
+	}
+
+	/**
+	 * Render city hub link shortcode
+	 * 
+	 * Delegates to SEOgen_City_Hub_Link class.
+	 * 
+	 * @return string HTML output or empty string
+	 */
+	public function render_city_hub_link_shortcode() {
+		return SEOgen_City_Hub_Link::render();
 	}
 
 }
