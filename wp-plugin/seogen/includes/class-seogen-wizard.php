@@ -509,6 +509,12 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'No services or cities configured' ) );
 		}
 		
+		// Get hub categories for Service Hub count
+		$business_config = get_option( 'seogen_business_config', array() );
+		$hub_categories = isset( $business_config['hub_categories'] ) && is_array( $business_config['hub_categories'] )
+			? $business_config['hub_categories']
+			: array( 'residential', 'commercial' );
+		
 		// Initialize generation state with all 3 phases
 		$this->update_wizard_state( array(
 			'generation' => array(
@@ -517,7 +523,7 @@ class SEOgen_Wizard {
 					'service_hubs' => array(
 						'status' => 'pending',
 						'job_id' => null,
-						'total' => count( $services ),
+						'total' => count( $hub_categories ),
 						'completed' => 0,
 						'failed' => 0,
 					),
@@ -554,7 +560,7 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => $result['error'] ) );
 		}
 		
-		$total_pages = count( $services ) + ( count( $services ) * count( $cities ) ) + count( $cities );
+		$total_pages = count( $hub_categories ) + ( count( $services ) * count( $cities ) ) + count( $cities );
 		
 		wp_send_json_success( array(
 			'message' => 'Phase 1: Generating Service Hub pages',
@@ -570,12 +576,12 @@ class SEOgen_Wizard {
 	 * Start Phase 1: Service Hub generation
 	 */
 	private function start_phase_service_hubs() {
-		$services = get_option( 'hyper_local_services_cache', array() );
 		$business_config = get_option( 'seogen_business_config', array() );
 		$settings = get_option( 'seogen_settings', array() );
 		
 		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		$vertical = isset( $settings['vertical'] ) ? trim( $settings['vertical'] ) : '';
 		
 		if ( empty( $api_url ) || empty( $license_key ) ) {
 			return array(
@@ -584,17 +590,19 @@ class SEOgen_Wizard {
 			);
 		}
 		
-		// Build Service Hub items
+		// Get unique hub categories from business config
+		$hub_categories = isset( $business_config['hub_categories'] ) && is_array( $business_config['hub_categories'] )
+			? $business_config['hub_categories']
+			: array( 'residential', 'commercial' );
+		
+		// Build Service Hub items - one per unique hub category
 		$api_items = array();
-		foreach ( $services as $service ) {
-			$service_name = is_array( $service ) ? $service['name'] : $service;
-			$hub_key = is_array( $service ) && isset( $service['hub'] ) ? $service['hub'] : 'residential';
-			
+		foreach ( $hub_categories as $hub_key ) {
 			$api_items[] = array(
 				'page_mode' => 'service_hub',
-				'service' => $service_name,
 				'hub_key' => $hub_key,
 				'hub_label' => ucfirst( $hub_key ),
+				'vertical' => $vertical,
 				'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
 				'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
 				'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
@@ -844,6 +852,7 @@ class SEOgen_Wizard {
 		
 		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		$vertical = isset( $settings['vertical'] ) ? trim( $settings['vertical'] ) : '';
 		
 		if ( empty( $api_url ) || empty( $license_key ) ) {
 			return array(
@@ -865,6 +874,7 @@ class SEOgen_Wizard {
 					'service' => $service_name,
 					'city' => $city_name,
 					'state' => $state,
+					'vertical' => $vertical,
 					'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
 					'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
 					'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
@@ -899,6 +909,7 @@ class SEOgen_Wizard {
 		
 		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		$vertical = isset( $settings['vertical'] ) ? trim( $settings['vertical'] ) : '';
 		
 		if ( empty( $api_url ) || empty( $license_key ) ) {
 			return array(
@@ -917,6 +928,7 @@ class SEOgen_Wizard {
 				'page_mode' => 'city_hub',
 				'city' => $city_name,
 				'state' => $state,
+				'vertical' => $vertical,
 				'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
 				'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
 				'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
