@@ -28,11 +28,17 @@ class SEOgen_City_Hub_Link {
 	public static function render() {
 		$post_id = get_the_ID();
 		if ( ! $post_id ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- seogen_city_hub_link: no post_id -->';
+			}
 			return '';
 		}
 
 		$page_mode = get_post_meta( $post_id, '_seogen_page_mode', true );
 		if ( 'service_city' !== $page_mode ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- seogen_city_hub_link: page_mode=' . esc_html( $page_mode ) . ', expected service_city -->';
+			}
 			return '';
 		}
 
@@ -40,12 +46,18 @@ class SEOgen_City_Hub_Link {
 		$city_slug = get_post_meta( $post_id, '_seogen_city_slug', true );
 
 		if ( empty( $hub_key ) || empty( $city_slug ) ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- seogen_city_hub_link: hub_key=' . esc_html( $hub_key ) . ', city_slug=' . esc_html( $city_slug ) . ' (one or both empty) -->';
+			}
 			return '';
 		}
 
 		$city_hub_id = self::find_city_hub_page( $hub_key, $city_slug );
 		
 		if ( ! $city_hub_id ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				return '<!-- seogen_city_hub_link: no city hub found for hub_key=' . esc_html( $hub_key ) . ', city_slug=' . esc_html( $city_slug ) . ' -->';
+			}
 			return '';
 		}
 
