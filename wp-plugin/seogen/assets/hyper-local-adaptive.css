@@ -193,19 +193,17 @@
 	border: 1px solid rgba(0, 0, 0, 0.08);
 	border-radius: 16px;
 	padding: 3rem 2rem;
-	text-align: center;
 	margin: 3rem 0;
 }
 
-.hyper-local-cta-section * {
-	text-align: center !important;
+.hyper-local-cta-section .cta-content {
+	text-align: center;
 }
 
 .hyper-local-cta-section .cta-heading {
 	font-size: 2rem;
 	margin: 0 0 1rem 0;
 	font-weight: 700;
-	text-align: center !important;
 }
 
 .hyper-local-cta-section .cta-subheading {
@@ -215,7 +213,6 @@
 	max-width: 600px;
 	margin-left: auto;
 	margin-right: auto;
-	text-align: center !important;
 }
 
 .hyper-local-cta-section .wp-block-button a {

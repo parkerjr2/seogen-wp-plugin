@@ -787,12 +787,15 @@ class SEOgen_Admin {
 				$output[] = '<!-- wp:group {"className":"hyper-local-cta-section"} -->';
 				$output[] = '<div class="wp-block-group hyper-local-cta-section">';
 				
-				$output[] = '<!-- wp:heading {"level":2,"textAlign":"center","className":"cta-heading"} -->';
-				$output[] = '<h2 class="cta-heading has-text-align-center">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
+				$output[] = '<!-- wp:group {"className":"cta-content"} -->';
+				$output[] = '<div class="wp-block-group cta-content">';
+				
+				$output[] = '<!-- wp:heading {"level":2,"className":"cta-heading"} -->';
+				$output[] = '<h2 class="cta-heading">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
 				$output[] = '<!-- /wp:heading -->';
 				
-				$output[] = '<!-- wp:paragraph {"align":"center","className":"cta-subheading"} -->';
-				$output[] = '<p class="cta-subheading has-text-align-center">' . $text . '</p>';
+				$output[] = '<!-- wp:paragraph {"className":"cta-subheading"} -->';
+				$output[] = '<p class="cta-subheading">' . $text . '</p>';
 				$output[] = '<!-- /wp:paragraph -->';
 
 				$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
@@ -803,9 +806,12 @@ class SEOgen_Admin {
 				$output[] = '</div>';
 				$output[] = '<!-- /wp:buttons -->';
 				
-				$output[] = '<!-- wp:paragraph {"align":"center","className":"cta-trust-signals"} -->';
-				$output[] = '<p class="cta-trust-signals has-text-align-center">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
+				$output[] = '<!-- wp:paragraph {"className":"cta-trust-signals"} -->';
+				$output[] = '<p class="cta-trust-signals">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
 				$output[] = '<!-- /wp:paragraph -->';
+				
+				$output[] = '</div>';
+				$output[] = '<!-- /wp:group -->';
 				
 				$output[] = '</div>';
 				$output[] = '<!-- /wp:group -->';
