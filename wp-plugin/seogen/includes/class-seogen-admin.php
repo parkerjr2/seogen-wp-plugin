@@ -351,6 +351,25 @@ class SEOgen_Admin {
 	}
 
 	public function build_gutenberg_content_from_blocks( array $blocks, $page_mode = '' ) {
+		// Infer page_mode if empty (fallback for legacy call sites)
+		if ( '' === $page_mode ) {
+			foreach ( $blocks as $block ) {
+				if ( ! is_array( $block ) ) {
+					continue;
+				}
+				if ( isset( $block['type'] ) && 'cta' === $block['type'] && isset( $block['text'] ) ) {
+					$text = (string) $block['text'];
+					if ( preg_match( '/\b(in|near)\s+[A-Z][a-z]+/i', $text ) ) {
+						$page_mode = 'service_city';
+						if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+							error_log( 'SEOgen: Inferred page_mode=service_city from CTA block content' );
+						}
+						break;
+					}
+				}
+			}
+		}
+		
 		$settings = $this->get_settings();
 		$show_h1_in_content = ! empty( $settings['show_h1_in_content'] );
 		$design_preset = isset( $settings['design_preset'] ) ? sanitize_key( (string) $settings['design_preset'] ) : 'theme_default';
@@ -387,6 +406,21 @@ class SEOgen_Admin {
 		$scannable_headings_added = false;
 		$section_heading_state = 0;
 		$issues_list_added = false;
+		$city_hub_link_inserted = false;
+		$has_faq_blocks = false;
+		$has_cta_blocks = false;
+		
+		// Pre-scan blocks to detect FAQ and CTA presence for fallback insertion
+		foreach ( $blocks as $block ) {
+			if ( is_array( $block ) && isset( $block['type'] ) ) {
+				if ( 'faq' === $block['type'] ) {
+					$has_faq_blocks = true;
+				}
+				if ( 'cta' === $block['type'] ) {
+					$has_cta_blocks = true;
+				}
+			}
+		}
 
 		$details_available = class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( 'core/details' );
 
@@ -631,20 +665,24 @@ class SEOgen_Admin {
 
 				if ( ! $faq_heading_added ) {
 					$add_separator();
-					
-					// Add city hub link shortcode before FAQ section (service+city pages only)
-					if ( 'service_city' === $page_mode ) {
-						$output[] = '<!-- wp:shortcode -->';
-						$output[] = '[seogen_city_hub_link]';
-						$output[] = '<!-- /wp:shortcode -->';
-						$output[] = '';
+				
+				// Add city hub link shortcode before FAQ section (service+city pages only)
+				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted ) {
+					$output[] = '<!-- wp:shortcode -->';
+					$output[] = '[seogen_city_hub_link]';
+					$output[] = '<!-- /wp:shortcode -->';
+					$output[] = '';
+					$city_hub_link_inserted = true;
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						$output[] = '<!-- seogen_debug: inserted city hub link shortcode before FAQ (page_mode=service_city) -->';
 					}
-					
-					$output[] = '<!-- wp:heading {"level":2} -->';
-					$output[] = '<h2>' . esc_html__( 'FAQ', 'seogen' ) . '</h2>';
-					$output[] = '<!-- /wp:heading -->';
-					$faq_heading_added = true;
 				}
+				
+				$output[] = '<!-- wp:heading {"level":2} -->';
+				$output[] = '<h2>' . esc_html__( 'FAQ', 'seogen' ) . '</h2>';
+				$output[] = '<!-- /wp:heading -->';
+				$faq_heading_added = true;
+			}
 
 				$question = isset( $block['question'] ) ? esc_html( (string) $block['question'] ) : '';
 				$answer   = isset( $block['answer'] ) ? esc_html( (string) $block['answer'] ) : '';
@@ -775,6 +813,19 @@ class SEOgen_Admin {
 				$emit_hero_if_ready( true );
 				$close_body_group_if_open();
 				$add_separator();
+				
+				// Fallback: Insert city hub link before CTA if no FAQ exists
+				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted && ! $has_faq_blocks ) {
+					$output[] = '<!-- wp:shortcode -->';
+					$output[] = '[seogen_city_hub_link]';
+					$output[] = '<!-- /wp:shortcode -->';
+					$output[] = '';
+					$city_hub_link_inserted = true;
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						$output[] = '<!-- seogen_debug: inserted city hub link shortcode before CTA (fallback, no FAQ found, page_mode=service_city) -->';
+					}
+				}
+				
 				if ( '' === $context_city || '' === $context_state || '' === $context_business ) {
 					$infer_context_from_title( (string) $hero_heading_text );
 				}

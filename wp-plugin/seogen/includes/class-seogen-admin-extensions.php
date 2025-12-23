@@ -738,7 +738,8 @@ trait SEOgen_Admin_Extensions {
 			set_transient( $last_preview_key, $preview_data, 30 * MINUTE_IN_SECONDS );
 		}
 
-		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'] );
+		$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : 'service_hub';
+		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'], $page_mode );
 
 		// Apply Service Hub quality improvements (FAQ deduplication, city link rules, framing, heading variation)
 		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'] );
