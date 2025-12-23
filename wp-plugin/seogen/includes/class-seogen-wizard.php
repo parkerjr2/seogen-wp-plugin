@@ -430,7 +430,7 @@ class SEOgen_Wizard {
 	 * AJAX: Validate step
 	 */
 	public function ajax_validate_step() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -450,7 +450,7 @@ class SEOgen_Wizard {
 	 * AJAX: Advance to next step
 	 */
 	public function ajax_advance_step() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -686,7 +686,7 @@ class SEOgen_Wizard {
 	 * AJAX: Process generation batch - polls API and imports results with phase transitions
 	 */
 	public function ajax_process_batch() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1111,7 +1111,7 @@ class SEOgen_Wizard {
 	 * AJAX: Get generation progress
 	 */
 	public function ajax_generation_progress() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1141,7 +1141,7 @@ class SEOgen_Wizard {
 	 * AJAX: Skip generation
 	 */
 	public function ajax_skip_generation() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1179,7 +1179,7 @@ class SEOgen_Wizard {
 	 * AJAX: Reset wizard
 	 */
 	public function ajax_reset_wizard() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1264,7 +1264,7 @@ class SEOgen_Wizard {
 	 * AJAX: Add service
 	 */
 	public function ajax_add_service() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1303,7 +1303,7 @@ class SEOgen_Wizard {
 	 * AJAX: Bulk add services
 	 */
 	public function ajax_bulk_add_services() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1376,7 +1376,7 @@ class SEOgen_Wizard {
 	 * AJAX: Delete service
 	 */
 	public function ajax_delete_service() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1412,7 +1412,7 @@ class SEOgen_Wizard {
 	 * AJAX: Add city
 	 */
 	public function ajax_add_city() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
@@ -1465,7 +1465,7 @@ class SEOgen_Wizard {
 	 * AJAX: Delete city
 	 */
 	public function ajax_delete_city() {
-		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
 		
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
