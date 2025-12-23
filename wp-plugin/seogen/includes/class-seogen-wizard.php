@@ -61,12 +61,33 @@ class SEOgen_Wizard {
 				'services' => false,
 				'cities' => false,
 			),
-			'auto_generation' => array(
-				'service_hubs' => 'pending',
-				'service_pages' => 'pending',
-				'city_hubs' => 'pending',
-				'job_ids' => array(),
-				'created_posts' => array(),
+			'generation' => array(
+				'current_phase' => null,
+				'phases' => array(
+					'service_hubs' => array(
+						'status' => 'pending',
+						'job_id' => null,
+						'total' => 0,
+						'completed' => 0,
+						'failed' => 0,
+					),
+					'service_city' => array(
+						'status' => 'pending',
+						'job_id' => null,
+						'total' => 0,
+						'completed' => 0,
+						'failed' => 0,
+					),
+					'city_hubs' => array(
+						'status' => 'pending',
+						'job_id' => null,
+						'total' => 0,
+						'completed' => 0,
+						'failed' => 0,
+					),
+				),
+				'started_at' => null,
+				'completed_at' => null,
 			),
 		);
 		
@@ -463,7 +484,7 @@ class SEOgen_Wizard {
 	}
 	
 	/**
-	 * AJAX: Start automated generation
+	 * AJAX: Start automated generation (3-phase process)
 	 */
 	public function ajax_start_generation() {
 		check_ajax_referer( 'seogen_wizard', 'nonce' );
@@ -472,66 +493,130 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
 		}
 		
+		// DUPLICATE PREVENTION: Check if generation already running
+		$state = $this->get_wizard_state();
+		if ( isset( $state['generation']['current_phase'] ) && $state['generation']['current_phase'] !== null ) {
+			wp_send_json_error( array( 
+				'message' => 'Generation already in progress. Please wait for it to complete or refresh the page.' 
+			) );
+		}
+		
 		// Get services and cities from cache
 		$services = get_option( 'hyper_local_services_cache', array() );
 		$cities = get_option( 'hyper_local_cities_cache', array() );
-		$business_config = get_option( 'seogen_business_config', array() );
-		$settings = get_option( 'seogen_settings', array() );
 		
 		if ( empty( $services ) || empty( $cities ) ) {
 			wp_send_json_error( array( 'message' => 'No services or cities configured' ) );
 		}
 		
+		// Initialize generation state with all 3 phases
+		$this->update_wizard_state( array(
+			'generation' => array(
+				'current_phase' => 'service_hubs',
+				'phases' => array(
+					'service_hubs' => array(
+						'status' => 'pending',
+						'job_id' => null,
+						'total' => count( $services ),
+						'completed' => 0,
+						'failed' => 0,
+					),
+					'service_city' => array(
+						'status' => 'pending',
+						'job_id' => null,
+						'total' => count( $services ) * count( $cities ),
+						'completed' => 0,
+						'failed' => 0,
+					),
+					'city_hubs' => array(
+						'status' => 'pending',
+						'job_id' => null,
+						'total' => count( $cities ),
+						'completed' => 0,
+						'failed' => 0,
+					),
+				),
+				'started_at' => current_time( 'mysql' ),
+				'completed_at' => null,
+			),
+		) );
+		
+		// Start Phase 1: Service Hubs
+		$result = $this->start_phase_service_hubs();
+		
+		if ( ! $result['success'] ) {
+			// Reset generation state on failure
+			$this->update_wizard_state( array(
+				'generation' => array(
+					'current_phase' => null,
+				),
+			) );
+			wp_send_json_error( array( 'message' => $result['error'] ) );
+		}
+		
+		$total_pages = count( $services ) + ( count( $services ) * count( $cities ) ) + count( $cities );
+		
+		wp_send_json_success( array(
+			'message' => 'Phase 1: Generating Service Hub pages',
+			'phase' => 'service_hubs',
+			'phase_number' => 1,
+			'total_phases' => 3,
+			'total_pages' => $total_pages,
+			'job_id' => $result['job_id'],
+		) );
+	}
+	
+	/**
+	 * Start Phase 1: Service Hub generation
+	 */
+	private function start_phase_service_hubs() {
+		$services = get_option( 'hyper_local_services_cache', array() );
+		$business_config = get_option( 'seogen_business_config', array() );
+		$settings = get_option( 'seogen_settings', array() );
+		
 		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 		
 		if ( empty( $api_url ) || empty( $license_key ) ) {
-			wp_send_json_error( array( 'message' => 'API settings not configured' ) );
+			return array(
+				'success' => false,
+				'error' => 'API settings not configured',
+			);
 		}
 		
-		// Build items for API
+		// Build Service Hub items
 		$api_items = array();
 		foreach ( $services as $service ) {
 			$service_name = is_array( $service ) ? $service['name'] : $service;
-			foreach ( $cities as $city ) {
-				$city_name = is_array( $city ) ? $city['city'] : $city;
-				$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
-				
-				$api_items[] = array(
-					'service' => $service_name,
-					'city' => $city_name,
-					'state' => $state,
-					'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
-					'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
-					'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
-					'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
-				);
-			}
+			$hub_key = is_array( $service ) && isset( $service['hub'] ) ? $service['hub'] : 'residential';
+			
+			$api_items[] = array(
+				'page_mode' => 'service_hub',
+				'service' => $service_name,
+				'hub_key' => $hub_key,
+				'hub_label' => ucfirst( $hub_key ),
+				'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
+				'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
+				'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
+				'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+			);
 		}
 		
-		// Call API to create bulk job
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
 		
-		$job_name = 'Wizard Generation - ' . current_time( 'Y-m-d H:i:s' );
+		$job_name = 'Wizard - Phase 1: Service Hubs - ' . current_time( 'Y-m-d H:i:s' );
 		$result = $this->call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $api_items );
 		
-		if ( ! $result['success'] ) {
-			wp_send_json_error( array( 'message' => $result['error'] ) );
+		if ( $result['success'] ) {
+			// Update phase state
+			$state = $this->get_wizard_state();
+			$state['generation']['phases']['service_hubs']['status'] = 'running';
+			$state['generation']['phases']['service_hubs']['job_id'] = $result['job_id'];
+			$this->update_wizard_state( $state );
 		}
 		
-		// Store job info in wizard state
-		$this->update_wizard_state( array(
-			'api_job_id' => $result['job_id'],
-			'generation_status' => 'running',
-			'total_pages' => count( $api_items ),
-		) );
-		
-		wp_send_json_success( array(
-			'message' => 'Generation started',
-			'job_id' => $result['job_id'],
-			'total' => count( $api_items ),
-		) );
+		return $result;
 	}
 	
 	/**
@@ -557,7 +642,7 @@ class SEOgen_Wizard {
 	}
 	
 	/**
-	 * AJAX: Process generation batch - polls API and imports results
+	 * AJAX: Process generation batch - polls API and imports results with phase transitions
 	 */
 	public function ajax_process_batch() {
 		check_ajax_referer( 'seogen_wizard', 'nonce' );
@@ -566,9 +651,19 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
 		}
 		
-		$api_job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( $_POST['job_id'] ) : '';
+		// Get wizard state to determine current phase
+		$state = $this->get_wizard_state();
+		$current_phase = isset( $state['generation']['current_phase'] ) ? $state['generation']['current_phase'] : null;
+		
+		if ( ! $current_phase ) {
+			wp_send_json_error( array( 'message' => 'No active generation phase' ) );
+		}
+		
+		$phase_data = $state['generation']['phases'][ $current_phase ];
+		$api_job_id = $phase_data['job_id'];
+		
 		if ( empty( $api_job_id ) ) {
-			wp_send_json_error( array( 'message' => 'Job ID required' ) );
+			wp_send_json_error( array( 'message' => 'No job ID for current phase' ) );
 		}
 		
 		// Get settings
@@ -593,10 +688,9 @@ class SEOgen_Wizard {
 		$completed = isset( $status_data['completed'] ) ? (int) $status_data['completed'] : 0;
 		$failed = isset( $status_data['failed'] ) ? (int) $status_data['failed'] : 0;
 		
-		// Get wizard state to track imported pages
-		$state = $this->get_wizard_state();
-		$imported_count = isset( $state['imported_count'] ) ? (int) $state['imported_count'] : 0;
-		$cursor = isset( $state['api_cursor'] ) ? $state['api_cursor'] : '';
+		// Get cursor for this phase
+		$cursor_key = 'api_cursor_' . $current_phase;
+		$cursor = isset( $state[ $cursor_key ] ) ? $state[ $cursor_key ] : '';
 		
 		// Fetch results from API (batch of 10)
 		$results_response = $this->call_api_get_job_results( $admin, $api_url, $license_key, $api_job_id, $cursor, 10 );
@@ -619,50 +713,231 @@ class SEOgen_Wizard {
 						$newly_imported++;
 						$batch_results[] = array(
 							'success' => true,
-							'service' => isset( $item['service'] ) ? $item['service'] : '',
-							'city' => isset( $item['city'] ) ? $item['city'] : '',
+							'title' => $import_result['title'],
 							'post_id' => $import_result['post_id'],
 						);
 					} else {
 						$batch_results[] = array(
 							'success' => false,
-							'service' => isset( $item['service'] ) ? $item['service'] : '',
-							'city' => isset( $item['city'] ) ? $item['city'] : '',
 							'error' => $import_result['error'],
 						);
 					}
 				} elseif ( $item_status === 'failed' ) {
 					$batch_results[] = array(
 						'success' => false,
-						'service' => isset( $item['service'] ) ? $item['service'] : '',
-						'city' => isset( $item['city'] ) ? $item['city'] : '',
 						'error' => isset( $item['error'] ) ? $item['error'] : 'Generation failed',
 					);
 				}
 			}
 		}
 		
-		// Update wizard state
-		$imported_count += $newly_imported;
-		$is_complete = ( $job_status === 'completed' || $job_status === 'complete' );
+		// Update phase progress
+		$state['generation']['phases'][ $current_phase ]['completed'] = $completed;
+		$state['generation']['phases'][ $current_phase ]['failed'] = $failed;
+		$state[ $cursor_key ] = $new_cursor;
 		
-		$this->update_wizard_state( array(
-			'imported_count' => $imported_count,
-			'api_cursor' => $new_cursor,
-			'generation_status' => $is_complete ? 'completed' : 'running',
-			'completed' => $is_complete,
-			'completed_at' => $is_complete ? current_time( 'mysql' ) : null,
-		) );
+		// Check if current phase is complete
+		$is_phase_complete = ( $job_status === 'completed' || $job_status === 'complete' );
+		
+		if ( $is_phase_complete ) {
+			// Mark phase as completed
+			$state['generation']['phases'][ $current_phase ]['status'] = 'completed';
+			
+			// Transition to next phase
+			if ( $current_phase === 'service_hubs' ) {
+				// Start Phase 2: Service+City
+				$state['generation']['current_phase'] = 'service_city';
+				$this->update_wizard_state( $state );
+				
+				$result = $this->start_phase_service_city();
+				
+				if ( ! $result['success'] ) {
+					wp_send_json_error( array( 'message' => 'Failed to start Phase 2: ' . $result['error'] ) );
+				}
+				
+				wp_send_json_success( array(
+					'status' => 'phase_transition',
+					'next_phase' => 'service_city',
+					'phase_number' => 2,
+					'message' => 'Phase 1 complete! Starting Phase 2: Service+City pages',
+					'phase_1_completed' => $completed,
+					'phase_1_failed' => $failed,
+				) );
+				
+			} elseif ( $current_phase === 'service_city' ) {
+				// Start Phase 3: City Hubs
+				$state['generation']['current_phase'] = 'city_hubs';
+				$this->update_wizard_state( $state );
+				
+				$result = $this->start_phase_city_hubs();
+				
+				if ( ! $result['success'] ) {
+					wp_send_json_error( array( 'message' => 'Failed to start Phase 3: ' . $result['error'] ) );
+				}
+				
+				wp_send_json_success( array(
+					'status' => 'phase_transition',
+					'next_phase' => 'city_hubs',
+					'phase_number' => 3,
+					'message' => 'Phase 2 complete! Starting Phase 3: City Hub pages',
+					'phase_2_completed' => $completed,
+					'phase_2_failed' => $failed,
+				) );
+				
+			} elseif ( $current_phase === 'city_hubs' ) {
+				// All phases complete!
+				$state['generation']['current_phase'] = null;
+				$state['generation']['completed_at'] = current_time( 'mysql' );
+				$state['completed'] = true;
+				$this->update_wizard_state( $state );
+				
+				$total_pages = $state['generation']['phases']['service_hubs']['completed'] +
+				               $state['generation']['phases']['service_city']['completed'] +
+				               $state['generation']['phases']['city_hubs']['completed'];
+				
+				wp_send_json_success( array(
+					'status' => 'all_complete',
+					'message' => 'All 3 phases complete!',
+					'total_pages' => $total_pages,
+					'phase_1_completed' => $state['generation']['phases']['service_hubs']['completed'],
+					'phase_2_completed' => $state['generation']['phases']['service_city']['completed'],
+					'phase_3_completed' => $state['generation']['phases']['city_hubs']['completed'],
+				) );
+			}
+		}
+		
+		// Update state and continue polling current phase
+		$this->update_wizard_state( $state );
 		
 		wp_send_json_success( array(
-			'status' => $job_status,
+			'status' => 'running',
+			'phase' => $current_phase,
+			'phase_label' => $this->get_phase_label( $current_phase ),
+			'completed' => $completed,
 			'total' => $total,
-			'processed' => $completed + $failed,
-			'successful' => $imported_count,
 			'failed' => $failed,
 			'batch_results' => $batch_results,
-			'complete' => $is_complete,
+			'newly_imported' => $newly_imported,
 		) );
+	}
+	
+	/**
+	 * Get human-readable phase label
+	 */
+	private function get_phase_label( $phase ) {
+		$labels = array(
+			'service_hubs' => 'Service Hub Pages',
+			'service_city' => 'Service + City Pages',
+			'city_hubs' => 'City Hub Pages',
+		);
+		return isset( $labels[ $phase ] ) ? $labels[ $phase ] : $phase;
+	}
+	
+	/**
+	 * Start Phase 2: Service+City generation
+	 */
+	private function start_phase_service_city() {
+		$services = get_option( 'hyper_local_services_cache', array() );
+		$cities = get_option( 'hyper_local_cities_cache', array() );
+		$business_config = get_option( 'seogen_business_config', array() );
+		$settings = get_option( 'seogen_settings', array() );
+		
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			return array(
+				'success' => false,
+				'error' => 'API settings not configured',
+			);
+		}
+		
+		// Build Service+City items
+		$api_items = array();
+		foreach ( $services as $service ) {
+			$service_name = is_array( $service ) ? $service['name'] : $service;
+			foreach ( $cities as $city ) {
+				$city_name = is_array( $city ) ? $city['city'] : $city;
+				$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
+				
+				$api_items[] = array(
+					'page_mode' => 'service_city',
+					'service' => $service_name,
+					'city' => $city_name,
+					'state' => $state,
+					'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
+					'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
+					'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
+					'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+				);
+			}
+		}
+		
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
+		$admin = new SEOgen_Admin();
+		
+		$job_name = 'Wizard - Phase 2: Service+City - ' . current_time( 'Y-m-d H:i:s' );
+		$result = $this->call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $api_items );
+		
+		if ( $result['success'] ) {
+			$state = $this->get_wizard_state();
+			$state['generation']['phases']['service_city']['status'] = 'running';
+			$state['generation']['phases']['service_city']['job_id'] = $result['job_id'];
+			$this->update_wizard_state( $state );
+		}
+		
+		return $result;
+	}
+	
+	/**
+	 * Start Phase 3: City Hub generation
+	 */
+	private function start_phase_city_hubs() {
+		$cities = get_option( 'hyper_local_cities_cache', array() );
+		$business_config = get_option( 'seogen_business_config', array() );
+		$settings = get_option( 'seogen_settings', array() );
+		
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			return array(
+				'success' => false,
+				'error' => 'API settings not configured',
+			);
+		}
+		
+		// Build City Hub items
+		$api_items = array();
+		foreach ( $cities as $city ) {
+			$city_name = is_array( $city ) ? $city['city'] : $city;
+			$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
+			
+			$api_items[] = array(
+				'page_mode' => 'city_hub',
+				'city' => $city_name,
+				'state' => $state,
+				'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
+				'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
+				'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
+				'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+			);
+		}
+		
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
+		$admin = new SEOgen_Admin();
+		
+		$job_name = 'Wizard - Phase 3: City Hubs - ' . current_time( 'Y-m-d H:i:s' );
+		$result = $this->call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $api_items );
+		
+		if ( $result['success'] ) {
+			$state = $this->get_wizard_state();
+			$state['generation']['phases']['city_hubs']['status'] = 'running';
+			$state['generation']['phases']['city_hubs']['job_id'] = $result['job_id'];
+			$this->update_wizard_state( $state );
+		}
+		
+		return $result;
 	}
 	
 	/**

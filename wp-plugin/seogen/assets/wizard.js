@@ -522,29 +522,48 @@
 				method: 'POST',
 				data: {
 					action: 'seogen_wizard_process_batch',
-					nonce: seogenWizard.nonce,
-					job_id: self.jobId
+					nonce: seogenWizard.nonce
 				},
 				success: function(response) {
 					if (response.success) {
 						var data = response.data;
 						
-						// Update progress
-						self.updateProgress(data.processed, data.total, data.successful, data.failed);
-						
-						// Show batch results
-						if (data.batch_results && data.batch_results.length > 0) {
-							self.showBatchResults(data.batch_results);
-						}
-						
-						// Check if complete
-						if (data.complete) {
-							self.onGenerationComplete(data);
-						} else {
-							// Process next batch
+						if (data.status === 'phase_transition') {
+							// Phase completed, transitioning to next
+							self.addActivityLog('✓ ' + data.message);
+							
+							// Continue polling for next phase
 							setTimeout(function() {
 								self.processBatch();
-							}, 500);
+							}, 2000);
+							
+						} else if (data.status === 'all_complete') {
+							// All 3 phases complete!
+							self.updateProgress(data.total_pages, data.total_pages, data.total_pages, 0);
+							self.addActivityLog('✓ All generation complete! Created ' + data.total_pages + ' pages.');
+							self.addActivityLog('  Phase 1: ' + data.phase_1_completed + ' Service Hub pages');
+							self.addActivityLog('  Phase 2: ' + data.phase_2_completed + ' Service+City pages');
+							self.addActivityLog('  Phase 3: ' + data.phase_3_completed + ' City Hub pages');
+							self.onGenerationComplete(data.total_pages);
+							
+						} else if (data.status === 'running') {
+							// Update progress for current phase
+							self.updateProgress(data.completed, data.total, data.completed, data.failed);
+							
+							// Show batch results
+							if (data.batch_results && data.batch_results.length > 0) {
+								self.showBatchResults(data.batch_results);
+							}
+							
+							// Update phase label
+							if (data.phase_label) {
+								$('.seogen-wizard-progress-text').text(data.phase_label + ': ' + data.completed + ' / ' + data.total + ' pages');
+							}
+							
+							// Continue polling
+							setTimeout(function() {
+								self.processBatch();
+							}, 3000);
 						}
 					} else {
 						alert(response.data.message || 'Generation failed');
@@ -575,23 +594,26 @@
 			}
 		},
 		
-		showBatchResults: function(results) {
+		addActivityLog: function(message) {
 			var $log = $('.seogen-wizard-generation-log');
+			$log.prepend(
+				'<div style="padding: 4px 0;">' + message + '</div>'
+			);
+		},
+		
+		showBatchResults: function(results) {
+			var self = this;
 			
 			results.forEach(function(result) {
 				var icon = result.success ? '✓' : '✗';
 				var color = result.success ? '#46b450' : '#dc3232';
-				var text = result.service + ' in ' + result.city;
+				var text = result.title || 'Page';
 				
 				if (!result.success && result.error) {
 					text += ' - ' + result.error;
 				}
 				
-				$log.prepend(
-					'<div style="color: ' + color + '; padding: 4px 0;">' +
-					icon + ' ' + text +
-					'</div>'
-				);
+				self.addActivityLog('<span style="color: ' + color + ';">' + icon + ' ' + text + '</span>');
 			});
 			
 			// Keep log scrolled to top to show latest
