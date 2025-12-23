@@ -77,16 +77,22 @@ class SEOgen_City_Hub_Link {
 		$city_hub_url = get_permalink( $city_hub_id );
 		$city_hub_title = get_the_title( $city_hub_id );
 		
-		$clean_title = self::clean_city_hub_title( $city_hub_title );
+		// Extract service category (e.g., "Residential Electrical")
+		$service_category = self::clean_city_hub_title( $city_hub_title );
 		
-		$template = self::get_sentence_template( $hub_key, $city_slug, $post_id );
-		$sentence = str_replace( '{url}', esc_url( $city_hub_url ), $template );
-		$sentence = str_replace( '{title}', esc_html( $clean_title ), $sentence );
+		// Extract city name from slug (e.g., "tulsa-ok" → "Tulsa")
+		$city_name = self::extract_city_from_slug( $city_slug );
+		
+		// Build natural anchor text: "{service_category} services in {city}"
+		$anchor_text = $service_category . ' services in ' . $city_name;
+		
+		// Build conversational sentence
+		$sentence = 'Looking for a broader view? You can explore our <a href="' . esc_url( $city_hub_url ) . '">' . esc_html( $anchor_text ) . '</a> to see everything we offer.';
 		
 		$output = '';
 		
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			$debug_info[] = "rendering link to '{$clean_title}'";
+			$debug_info[] = "rendering link: '{$anchor_text}'";
 			$output .= '<!-- seogen_city_hub_link: ' . esc_html( implode( ' | ', $debug_info ) ) . ' -->' . "\n";
 		}
 		
@@ -176,6 +182,27 @@ class SEOgen_City_Hub_Link {
 		$clean = preg_replace( '/\s+(in|near|around|for)\s+[A-Z][^,]+,?\s*[A-Z]{2}$/i', '', $title );
 		$clean = preg_replace( '/\s+services$/i', '', $clean );
 		return trim( $clean );
+	}
+	
+	/**
+	 * Extract city name from city slug
+	 * 
+	 * Converts slug format to proper city name.
+	 * Example: "tulsa-ok" → "Tulsa"
+	 * Example: "broken-arrow-ok" → "Broken Arrow"
+	 * 
+	 * @param string $city_slug City slug (e.g., "tulsa-ok")
+	 * @return string City name (e.g., "Tulsa")
+	 */
+	private static function extract_city_from_slug( $city_slug ) {
+		// Remove state suffix (last hyphen + 2 characters)
+		$city_part = preg_replace( '/-[a-z]{2}$/i', '', $city_slug );
+		
+		// Replace hyphens with spaces and title case
+		$city_name = str_replace( '-', ' ', $city_part );
+		$city_name = ucwords( $city_name );
+		
+		return $city_name;
 	}
 	
 	/**
