@@ -62,8 +62,8 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 				?>
 				
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="seogen-wizard-settings-form">
-					<input type="hidden" name="action" value="seogen_save_settings">
-					<?php wp_nonce_field( 'seogen_save_settings' ); ?>
+					<input type="hidden" name="action" value="seogen_wizard_save_settings">
+					<?php wp_nonce_field( 'seogen_wizard_save_settings' ); ?>
 					
 					<!-- Hidden field with default API URL -->
 					<input type="hidden" name="seogen_settings[api_url]" value="<?php echo esc_attr( $api_url ); ?>">
@@ -102,8 +102,8 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 				?>
 				
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="seogen-wizard-business-form">
-					<input type="hidden" name="action" value="hyper_local_save_business_config">
-					<?php wp_nonce_field( 'hyper_local_save_business_config' ); ?>
+					<input type="hidden" name="action" value="seogen_wizard_save_business">
+					<?php wp_nonce_field( 'seogen_wizard_save_business' ); ?>
 					
 					<table class="form-table">
 						<tr>

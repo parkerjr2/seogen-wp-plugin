@@ -32,6 +32,10 @@ class SEOgen_Wizard {
 		add_action( 'wp_ajax_seogen_wizard_skip_generation', array( $this, 'ajax_skip_generation' ) );
 		add_action( 'wp_ajax_seogen_wizard_dismiss', array( $this, 'ajax_dismiss_wizard' ) );
 		add_action( 'wp_ajax_seogen_wizard_reset', array( $this, 'ajax_reset_wizard' ) );
+		
+		// Admin-post handlers for form submissions
+		add_action( 'admin_post_seogen_wizard_save_settings', array( $this, 'handle_save_settings' ) );
+		add_action( 'admin_post_seogen_wizard_save_business', array( $this, 'handle_save_business' ) );
 	}
 	
 	/**
@@ -503,6 +507,65 @@ class SEOgen_Wizard {
 		wp_send_json_success( array(
 			'message' => 'Wizard reset successfully',
 			'redirect' => admin_url( 'admin.php?page=seogen-wizard' ),
+		) );
+	}
+	
+	/**
+	 * Handle settings form submission
+	 */
+	public function handle_save_settings() {
+		check_admin_referer( 'seogen_wizard_save_settings' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Permission denied' );
+		}
+		
+		// Get posted data
+		$settings = isset( $_POST['seogen_settings'] ) ? $_POST['seogen_settings'] : array();
+		
+		// Sanitize settings
+		$sanitized = array(
+			'api_url' => isset( $settings['api_url'] ) ? esc_url_raw( $settings['api_url'] ) : 'https://seogen-production.up.railway.app',
+			'license_key' => isset( $settings['license_key'] ) ? sanitize_text_field( $settings['license_key'] ) : '',
+		);
+		
+		// Save settings
+		update_option( 'seogen_settings', $sanitized );
+		
+		// Return JSON for AJAX
+		wp_send_json_success( array(
+			'message' => 'Settings saved successfully',
+		) );
+	}
+	
+	/**
+	 * Handle business config form submission
+	 */
+	public function handle_save_business() {
+		check_admin_referer( 'seogen_wizard_save_business' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Permission denied' );
+		}
+		
+		// Get posted data
+		$config = isset( $_POST['seogen_business_config'] ) ? $_POST['seogen_business_config'] : array();
+		
+		// Sanitize config
+		$sanitized = array(
+			'vertical' => isset( $config['vertical'] ) ? sanitize_text_field( $config['vertical'] ) : '',
+			'business_name' => isset( $config['business_name'] ) ? sanitize_text_field( $config['business_name'] ) : '',
+			'phone' => isset( $config['phone'] ) ? sanitize_text_field( $config['phone'] ) : '',
+			'cta_text' => isset( $config['cta_text'] ) ? sanitize_text_field( $config['cta_text'] ) : 'Request a Free Estimate',
+			'service_area_label' => isset( $config['service_area_label'] ) ? sanitize_text_field( $config['service_area_label'] ) : '',
+		);
+		
+		// Save config
+		update_option( 'seogen_business_config', $sanitized );
+		
+		// Return JSON for AJAX
+		wp_send_json_success( array(
+			'message' => 'Business config saved successfully',
 		) );
 	}
 }
