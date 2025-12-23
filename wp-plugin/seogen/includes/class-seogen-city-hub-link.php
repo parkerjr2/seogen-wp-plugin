@@ -75,19 +75,16 @@ class SEOgen_City_Hub_Link {
 		}
 
 		$city_hub_url = get_permalink( $city_hub_id );
-		$city_hub_title = get_the_title( $city_hub_id );
-		
-		// Extract service category (e.g., "Residential Electrical")
-		$service_category = self::clean_city_hub_title( $city_hub_title );
 		
 		// Extract city name from slug (e.g., "tulsa-ok" → "Tulsa")
 		$city_name = self::extract_city_from_slug( $city_slug );
 		
-		// Build natural anchor text: "{service_category} services in {city}"
-		$anchor_text = $service_category . ' services in ' . $city_name;
+		// Build completely natural sentence without exposing page titles
+		// Generic anchor text that works for any service category
+		$anchor_text = 'other services in ' . $city_name;
 		
-		// Build conversational sentence
-		$sentence = 'Looking for a broader view? You can explore our <a href="' . esc_url( $city_hub_url ) . '">' . esc_html( $anchor_text ) . '</a> to see everything we offer.';
+		// Natural conversational sentence
+		$sentence = 'Looking for more options? Explore <a href="' . esc_url( $city_hub_url ) . '">' . esc_html( $anchor_text ) . '</a> to see what else we offer.';
 		
 		$output = '';
 		
