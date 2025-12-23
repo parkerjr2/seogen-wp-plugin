@@ -260,10 +260,50 @@ class SEOgen_Wizard {
 	 * Render wizard page
 	 */
 	public function render_wizard_page() {
+		// Migrate existing services to include hub field if missing
+		$this->migrate_services_hub_field();
+		
 		$state = $this->get_wizard_state();
 		$current_step = isset( $state['current_step'] ) ? (int) $state['current_step'] : 1;
 		
 		include SEOGEN_PLUGIN_DIR . 'templates/wizard-page.php';
+	}
+	
+	/**
+	 * Migrate existing services to include hub field
+	 */
+	private function migrate_services_hub_field() {
+		$services = get_option( 'hyper_local_services_cache', array() );
+		if ( empty( $services ) || ! is_array( $services ) ) {
+			return;
+		}
+		
+		$config = get_option( 'seogen_business_config', array() );
+		$hub_categories = isset( $config['hub_categories'] ) && is_array( $config['hub_categories'] ) 
+			? $config['hub_categories'] 
+			: array( 'residential', 'commercial' );
+		$default_hub = ! empty( $hub_categories ) ? $hub_categories[0] : 'residential';
+		
+		$updated = false;
+		foreach ( $services as $idx => $service ) {
+			// If service is a string, convert to array with hub
+			if ( is_string( $service ) ) {
+				$services[ $idx ] = array(
+					'name' => $service,
+					'hub' => $default_hub,
+				);
+				$updated = true;
+			}
+			// If service is array but missing hub, add default hub
+			elseif ( is_array( $service ) && ! isset( $service['hub'] ) ) {
+				$services[ $idx ]['hub'] = $default_hub;
+				$updated = true;
+			}
+		}
+		
+		if ( $updated ) {
+			update_option( 'hyper_local_services_cache', $services );
+		}
 	}
 	
 	/**
