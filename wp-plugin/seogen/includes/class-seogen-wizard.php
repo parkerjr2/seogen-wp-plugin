@@ -598,15 +598,25 @@ class SEOgen_Wizard {
 		// Build Service Hub items - one per unique hub category
 		$api_items = array();
 		foreach ( $hub_categories as $hub_key ) {
+			$business_name = isset( $business_config['business_name'] ) ? $business_config['business_name'] : '';
+			$phone = isset( $business_config['phone'] ) ? $business_config['phone'] : '';
+			$email = isset( $business_config['email'] ) ? $business_config['email'] : '';
+			$address = isset( $business_config['address'] ) ? $business_config['address'] : '';
+			$cta_text = isset( $business_config['cta_text'] ) ? $business_config['cta_text'] : 'Request a Free Estimate';
+			$service_area_label = isset( $business_config['service_area_label'] ) ? $business_config['service_area_label'] : '';
+			
 			$api_items[] = array(
 				'page_mode' => 'service_hub',
 				'hub_key' => $hub_key,
 				'hub_label' => ucfirst( $hub_key ),
 				'vertical' => $vertical,
-				'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
-				'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
-				'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
-				'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+				'business_name' => $business_name,
+				'company_name' => $business_name,
+				'phone' => $phone,
+				'email' => $email,
+				'address' => $address,
+				'cta_text' => $cta_text,
+				'service_area_label' => $service_area_label,
 			);
 		}
 		
@@ -863,6 +873,13 @@ class SEOgen_Wizard {
 		
 		// Build Service+City items
 		$api_items = array();
+		$business_name = isset( $business_config['business_name'] ) ? $business_config['business_name'] : '';
+		$phone = isset( $business_config['phone'] ) ? $business_config['phone'] : '';
+		$email = isset( $business_config['email'] ) ? $business_config['email'] : '';
+		$address = isset( $business_config['address'] ) ? $business_config['address'] : '';
+		$cta_text = isset( $business_config['cta_text'] ) ? $business_config['cta_text'] : 'Request a Free Estimate';
+		$service_area_label = isset( $business_config['service_area_label'] ) ? $business_config['service_area_label'] : '';
+		
 		foreach ( $services as $service ) {
 			$service_name = is_array( $service ) ? $service['name'] : $service;
 			foreach ( $cities as $city ) {
@@ -875,10 +892,13 @@ class SEOgen_Wizard {
 					'city' => $city_name,
 					'state' => $state,
 					'vertical' => $vertical,
-					'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
-					'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
-					'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
-					'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+					'business_name' => $business_name,
+					'company_name' => $business_name,
+					'phone' => $phone,
+					'email' => $email,
+					'address' => $address,
+					'cta_text' => $cta_text,
+					'service_area_label' => $service_area_label,
 				);
 			}
 		}
@@ -920,6 +940,13 @@ class SEOgen_Wizard {
 		
 		// Build City Hub items
 		$api_items = array();
+		$business_name = isset( $business_config['business_name'] ) ? $business_config['business_name'] : '';
+		$phone = isset( $business_config['phone'] ) ? $business_config['phone'] : '';
+		$email = isset( $business_config['email'] ) ? $business_config['email'] : '';
+		$address = isset( $business_config['address'] ) ? $business_config['address'] : '';
+		$cta_text = isset( $business_config['cta_text'] ) ? $business_config['cta_text'] : 'Request a Free Estimate';
+		$service_area_label = isset( $business_config['service_area_label'] ) ? $business_config['service_area_label'] : '';
+		
 		foreach ( $cities as $city ) {
 			$city_name = is_array( $city ) ? $city['city'] : $city;
 			$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
@@ -929,10 +956,13 @@ class SEOgen_Wizard {
 				'city' => $city_name,
 				'state' => $state,
 				'vertical' => $vertical,
-				'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
-				'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
-				'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
-				'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+				'business_name' => $business_name,
+				'company_name' => $business_name,
+				'phone' => $phone,
+				'email' => $email,
+				'address' => $address,
+				'cta_text' => $cta_text,
+				'service_area_label' => $service_area_label,
 			);
 		}
 		
