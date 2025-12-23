@@ -197,7 +197,11 @@
 }
 
 .hyper-local-cta-section .cta-content {
-	text-align: center;
+	text-align: center !important;
+}
+
+.hyper-local-cta-section .cta-content * {
+	text-align: center !important;
 }
 
 .hyper-local-cta-section .cta-heading {
