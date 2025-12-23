@@ -350,7 +350,7 @@ class SEOgen_Admin {
 		);
 	}
 
-	public function build_gutenberg_content_from_blocks( array $blocks ) {
+	public function build_gutenberg_content_from_blocks( array $blocks, $page_mode = '' ) {
 		$settings = $this->get_settings();
 		$show_h1_in_content = ! empty( $settings['show_h1_in_content'] );
 		$design_preset = isset( $settings['design_preset'] ) ? sanitize_key( (string) $settings['design_preset'] ) : 'theme_default';
@@ -633,7 +633,7 @@ class SEOgen_Admin {
 					$add_separator();
 					
 					// Add city hub link shortcode before FAQ section (service+city pages only)
-					if ( isset( $data['page_mode'] ) && 'service_city' === $data['page_mode'] ) {
+					if ( 'service_city' === $page_mode ) {
 						$output[] = '<!-- wp:shortcode -->';
 						$output[] = '[seogen_city_hub_link]';
 						$output[] = '<!-- /wp:shortcode -->';
@@ -1144,7 +1144,8 @@ class SEOgen_Admin {
 			'blocks'           => ( isset( $data['blocks'] ) && is_array( $data['blocks'] ) ) ? $data['blocks'] : array(),
 			'inputs'           => $post_data,
 		);
-		$last_preview['gutenberg_markup'] = $this->build_gutenberg_content_from_blocks( $last_preview['blocks'] );
+		$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : '';
+		$last_preview['gutenberg_markup'] = $this->build_gutenberg_content_from_blocks( $last_preview['blocks'], $page_mode );
 		$last_preview['source_json']      = $data;
 		set_transient( $last_preview_key, $last_preview, 30 * MINUTE_IN_SECONDS );
 
@@ -1272,7 +1273,8 @@ class SEOgen_Admin {
 		$title = isset( $full_data['title'] ) ? (string) $full_data['title'] : $title;
 		$slug  = isset( $full_data['slug'] ) ? (string) $full_data['slug'] : $slug;
 		$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
-		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'] );
+		$page_mode = isset( $full_data['page_mode'] ) ? $full_data['page_mode'] : '';
+		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'], $page_mode );
 		$source_json      = $full_data;
 
 		// Prepend header template if configured
@@ -1603,7 +1605,8 @@ class SEOgen_Admin {
 			}
 
 			if ( isset( $preview['blocks'] ) && is_array( $preview['blocks'] ) ) {
-				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $preview['blocks'] );
+				$page_mode = isset( $preview['page_mode'] ) ? $preview['page_mode'] : '';
+				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $preview['blocks'], $page_mode );
 			}
 		}
 
@@ -3418,7 +3421,8 @@ class SEOgen_Admin {
 					$slug = isset( $result_json['slug'] ) ? (string) $result_json['slug'] : '';
 					$meta_description = isset( $result_json['meta_description'] ) ? (string) $result_json['meta_description'] : '';
 					$blocks = ( isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ) ? $result_json['blocks'] : array();
-					$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
+					$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
+					$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
 
 					// Prepend header template if configured
 					$settings = $this->get_settings();
@@ -3959,7 +3963,8 @@ class SEOgen_Admin {
 				$title = isset( $full_data['title'] ) ? (string) $full_data['title'] : '';
 				$slug = isset( $full_data['slug'] ) ? (string) $full_data['slug'] : '';
 				$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
-				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'] );
+				$page_mode = isset( $full_data['page_mode'] ) ? $full_data['page_mode'] : '';
+				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'], $page_mode );
 
 				$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
 				$post_status = $auto_publish ? 'publish' : 'draft';
@@ -4708,8 +4713,9 @@ class SEOgen_Admin {
 			$slug = $city['slug'];
 			$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
 			$blocks = $data['blocks'];
+			$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : '';
 
-			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
+			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
 
 			// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication, city nuance)
 			$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
@@ -5095,8 +5101,9 @@ class SEOgen_Admin {
 		$slug = $city['slug'];
 		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
 		$blocks = $data['blocks'];
+		$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : '';
 
-		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks );
+		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
 
 		// Apply City Hub quality improvements (parent link, city repetition cleanup, FAQ deduplication, city nuance)
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
