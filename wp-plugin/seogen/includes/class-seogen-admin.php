@@ -4188,13 +4188,6 @@ class SEOgen_Admin {
 			return;
 		}
 
-		if ( empty( $cities ) ) {
-			echo '<div class="wrap"><h1>' . esc_html__( 'City Hubs', 'seogen' ) . '</h1>';
-			echo '<div class="notice notice-warning"><p>' . esc_html__( 'Please configure your cities first.', 'seogen' ) . '</p></div>';
-			echo '</div>';
-			return;
-		}
-
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'City Hubs (Step 4)', 'seogen' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Generate city hub pages that serve as parent pages for service+city pages. Each city hub will have the same layout as service hub pages.', 'seogen' ) . '</p>';
