@@ -1963,10 +1963,22 @@ class SEOgen_Admin {
 		}
 		if ( $code < 200 || $code >= 300 ) {
 			$error = sprintf( __( 'API returned HTTP %d', 'seogen' ), $code );
-			if ( is_array( $data ) && isset( $data['detail'] ) ) {
-				$error = $error . ': ' . sanitize_text_field( (string) $data['detail'] );
+			if ( is_array( $data ) ) {
+				if ( isset( $data['detail'] ) ) {
+					// FastAPI validation error format
+					if ( is_array( $data['detail'] ) ) {
+						$error .= ': ' . wp_json_encode( $data['detail'] );
+					} else {
+						$error .= ': ' . sanitize_text_field( (string) $data['detail'] );
+					}
+				} else {
+					// Show full data if no detail field
+					$error .= ': ' . wp_json_encode( $data );
+				}
+			} elseif ( '' !== $body ) {
+				$error .= ': ' . substr( $body, 0, 200 );
 			}
-			error_log( '[HyperLocal API] api_json_request FAILED code=' . $code . ' error=' . $error );
+			error_log( '[HyperLocal API] api_json_request FAILED code=' . $code . ' error=' . $error . ' full_body=' . $body );
 			return array(
 				'ok'    => false,
 				'error' => $error,
