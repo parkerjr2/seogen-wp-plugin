@@ -36,6 +36,12 @@ class SEOgen_Wizard {
 		// Admin-post handlers for form submissions
 		add_action( 'admin_post_seogen_wizard_save_settings', array( $this, 'handle_save_settings' ) );
 		add_action( 'admin_post_seogen_wizard_save_business', array( $this, 'handle_save_business' ) );
+		
+		// AJAX handlers for inline service/city management
+		add_action( 'wp_ajax_seogen_wizard_add_service', array( $this, 'ajax_add_service' ) );
+		add_action( 'wp_ajax_seogen_wizard_delete_service', array( $this, 'ajax_delete_service' ) );
+		add_action( 'wp_ajax_seogen_wizard_add_city', array( $this, 'ajax_add_city' ) );
+		add_action( 'wp_ajax_seogen_wizard_delete_city', array( $this, 'ajax_delete_city' ) );
 	}
 	
 	/**
@@ -575,5 +581,154 @@ class SEOgen_Wizard {
 		wp_send_json_success( array(
 			'message' => 'Business config saved successfully',
 		) );
+	}
+	
+	/**
+	 * AJAX: Add service
+	 */
+	public function ajax_add_service() {
+		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$service_name = isset( $_POST['service_name'] ) ? sanitize_text_field( $_POST['service_name'] ) : '';
+		
+		if ( empty( $service_name ) ) {
+			wp_send_json_error( array( 'message' => 'Service name is required' ) );
+		}
+		
+		// Get existing services
+		$services = get_option( 'hyper_local_services_cache', array() );
+		if ( ! is_array( $services ) ) {
+			$services = array();
+		}
+		
+		// Add new service
+		$services[] = array( 'name' => $service_name );
+		
+		// Save services
+		update_option( 'hyper_local_services_cache', $services );
+		
+		wp_send_json_success( array(
+			'message' => 'Service added successfully',
+			'count' => count( $services ),
+		) );
+	}
+	
+	/**
+	 * AJAX: Delete service
+	 */
+	public function ajax_delete_service() {
+		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$index = isset( $_POST['index'] ) ? intval( $_POST['index'] ) : -1;
+		
+		if ( $index < 0 ) {
+			wp_send_json_error( array( 'message' => 'Invalid index' ) );
+		}
+		
+		// Get existing services
+		$services = get_option( 'hyper_local_services_cache', array() );
+		if ( ! is_array( $services ) ) {
+			$services = array();
+		}
+		
+		// Remove service at index
+		if ( isset( $services[ $index ] ) ) {
+			array_splice( $services, $index, 1 );
+			update_option( 'hyper_local_services_cache', $services );
+			
+			wp_send_json_success( array(
+				'message' => 'Service deleted successfully',
+				'count' => count( $services ),
+			) );
+		} else {
+			wp_send_json_error( array( 'message' => 'Service not found' ) );
+		}
+	}
+	
+	/**
+	 * AJAX: Add city
+	 */
+	public function ajax_add_city() {
+		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$city_name = isset( $_POST['city_name'] ) ? sanitize_text_field( $_POST['city_name'] ) : '';
+		
+		if ( empty( $city_name ) ) {
+			wp_send_json_error( array( 'message' => 'City name is required' ) );
+		}
+		
+		// Get existing cities
+		$cities = get_option( 'hyper_local_cities_cache', array() );
+		if ( ! is_array( $cities ) ) {
+			$cities = array();
+		}
+		
+		// Parse city and state
+		$parts = array_map( 'trim', explode( ',', $city_name ) );
+		$city = isset( $parts[0] ) ? $parts[0] : '';
+		$state = isset( $parts[1] ) ? $parts[1] : '';
+		
+		// Add new city
+		$cities[] = array(
+			'name' => $city_name,
+			'city' => $city,
+			'state' => $state,
+		);
+		
+		// Save cities
+		update_option( 'hyper_local_cities_cache', $cities );
+		
+		wp_send_json_success( array(
+			'message' => 'City added successfully',
+			'count' => count( $cities ),
+		) );
+	}
+	
+	/**
+	 * AJAX: Delete city
+	 */
+	public function ajax_delete_city() {
+		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$index = isset( $_POST['index'] ) ? intval( $_POST['index'] ) : -1;
+		
+		if ( $index < 0 ) {
+			wp_send_json_error( array( 'message' => 'Invalid index' ) );
+		}
+		
+		// Get existing cities
+		$cities = get_option( 'hyper_local_cities_cache', array() );
+		if ( ! is_array( $cities ) ) {
+			$cities = array();
+		}
+		
+		// Remove city at index
+		if ( isset( $cities[ $index ] ) ) {
+			array_splice( $cities, $index, 1 );
+			update_option( 'hyper_local_cities_cache', $cities );
+			
+			wp_send_json_success( array(
+				'message' => 'City deleted successfully',
+				'count' => count( $cities ),
+			) );
+		} else {
+			wp_send_json_error( array( 'message' => 'City not found' ) );
+		}
 	}
 }

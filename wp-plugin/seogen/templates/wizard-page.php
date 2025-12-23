@@ -235,33 +235,41 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 			<p><?php esc_html_e( 'Add at least 3 services that you offer. These will be used to generate service pages.', 'seogen' ); ?></p>
 			
 			<div class="seogen-wizard-form">
+				<!-- Add Service Form -->
+				<div class="seogen-wizard-add-form" style="margin-bottom: 20px;">
+					<h3><?php esc_html_e( 'Add a Service', 'seogen' ); ?></h3>
+					<div style="display: flex; gap: 10px; align-items: flex-start;">
+						<input type="text" id="seogen-wizard-new-service" placeholder="<?php esc_attr_e( 'e.g., Electrical Panel Upgrade', 'seogen' ); ?>" class="regular-text" style="flex: 1;">
+						<button type="button" class="button button-primary seogen-wizard-add-service">
+							<?php esc_html_e( 'Add Service', 'seogen' ); ?>
+						</button>
+					</div>
+				</div>
+				
+				<!-- Services List -->
 				<div id="seogen-wizard-services-container">
 					<?php
 					$services = get_option( 'hyper_local_services_cache', array() );
 					if ( ! empty( $services ) && is_array( $services ) ) {
-						echo '<ul class="seogen-wizard-list">';
-						foreach ( $services as $service ) {
+						echo '<ul class="seogen-wizard-list seogen-wizard-list-deletable">';
+						foreach ( $services as $idx => $service ) {
 							$service_name = is_array( $service ) ? ( isset( $service['name'] ) ? $service['name'] : '' ) : $service;
 							if ( $service_name ) {
-								echo '<li>' . esc_html( $service_name ) . '</li>';
+								echo '<li data-index="' . esc_attr( $idx ) . '">';
+								echo '<span class="seogen-wizard-list-text">' . esc_html( $service_name ) . '</span>';
+								echo '<button type="button" class="button button-small seogen-wizard-delete-service" data-index="' . esc_attr( $idx ) . '" data-name="' . esc_attr( $service_name ) . '">';
+								echo esc_html__( 'Delete', 'seogen' );
+								echo '</button>';
+								echo '</li>';
 							}
 						}
 						echo '</ul>';
 						echo '<p class="seogen-wizard-count">' . sprintf( esc_html__( '%d services added', 'seogen' ), count( $services ) ) . '</p>';
 					} else {
-						echo '<p class="seogen-wizard-empty">' . esc_html__( 'No services added yet.', 'seogen' ) . '</p>';
+						echo '<p class="seogen-wizard-empty">' . esc_html__( 'No services added yet. Add at least 3 services above.', 'seogen' ) . '</p>';
 					}
 					?>
 				</div>
-				
-				<p>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local&tab=services' ) ); ?>" class="button button-secondary" target="_blank">
-						<?php esc_html_e( 'Manage Services', 'seogen' ); ?>
-					</a>
-					<button type="button" class="button button-secondary seogen-wizard-refresh" data-refresh="services">
-						<?php esc_html_e( 'Refresh List', 'seogen' ); ?>
-					</button>
-				</p>
 				
 				<div class="seogen-wizard-validation-message"></div>
 				
@@ -282,33 +290,42 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 			<p><?php esc_html_e( 'Add at least 3 cities that you serve. These will be used to generate location-specific pages.', 'seogen' ); ?></p>
 			
 			<div class="seogen-wizard-form">
+				<!-- Add City Form -->
+				<div class="seogen-wizard-add-form" style="margin-bottom: 20px;">
+					<h3><?php esc_html_e( 'Add a City', 'seogen' ); ?></h3>
+					<div style="display: flex; gap: 10px; align-items: flex-start;">
+						<input type="text" id="seogen-wizard-new-city" placeholder="<?php esc_attr_e( 'e.g., Tulsa, OK', 'seogen' ); ?>" class="regular-text" style="flex: 1;">
+						<button type="button" class="button button-primary seogen-wizard-add-city">
+							<?php esc_html_e( 'Add City', 'seogen' ); ?>
+						</button>
+					</div>
+					<p class="description"><?php esc_html_e( 'Format: City Name, State (e.g., "Austin, TX" or "New York, NY")', 'seogen' ); ?></p>
+				</div>
+				
+				<!-- Cities List -->
 				<div id="seogen-wizard-cities-container">
 					<?php
 					$cities = get_option( 'hyper_local_cities_cache', array() );
 					if ( ! empty( $cities ) && is_array( $cities ) ) {
-						echo '<ul class="seogen-wizard-list">';
-						foreach ( $cities as $city ) {
+						echo '<ul class="seogen-wizard-list seogen-wizard-list-deletable">';
+						foreach ( $cities as $idx => $city ) {
 							$city_name = is_array( $city ) ? ( isset( $city['name'] ) ? $city['name'] : '' ) : $city;
 							if ( $city_name ) {
-								echo '<li>' . esc_html( $city_name ) . '</li>';
+								echo '<li data-index="' . esc_attr( $idx ) . '">';
+								echo '<span class="seogen-wizard-list-text">' . esc_html( $city_name ) . '</span>';
+								echo '<button type="button" class="button button-small seogen-wizard-delete-city" data-index="' . esc_attr( $idx ) . '" data-name="' . esc_attr( $city_name ) . '">';
+								echo esc_html__( 'Delete', 'seogen' );
+								echo '</button>';
+								echo '</li>';
 							}
 						}
 						echo '</ul>';
 						echo '<p class="seogen-wizard-count">' . sprintf( esc_html__( '%d cities added', 'seogen' ), count( $cities ) ) . '</p>';
 					} else {
-						echo '<p class="seogen-wizard-empty">' . esc_html__( 'No cities added yet.', 'seogen' ) . '</p>';
+						echo '<p class="seogen-wizard-empty">' . esc_html__( 'No cities added yet. Add at least 3 cities above.', 'seogen' ) . '</p>';
 					}
 					?>
 				</div>
-				
-				<p>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local&tab=cities' ) ); ?>" class="button button-secondary" target="_blank">
-						<?php esc_html_e( 'Manage Cities', 'seogen' ); ?>
-					</a>
-					<button type="button" class="button button-secondary seogen-wizard-refresh" data-refresh="cities">
-						<?php esc_html_e( 'Refresh List', 'seogen' ); ?>
-					</button>
-				</p>
 				
 				<div class="seogen-wizard-validation-message"></div>
 				

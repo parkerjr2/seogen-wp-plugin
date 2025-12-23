@@ -48,6 +48,47 @@
 				self.refreshList(type);
 			});
 			
+			// Add/Delete service buttons
+			$('.seogen-wizard-add-service').on('click', function(e) {
+				e.preventDefault();
+				self.addService();
+			});
+			
+			$(document).on('click', '.seogen-wizard-delete-service', function(e) {
+				e.preventDefault();
+				var index = $(this).data('index');
+				var name = $(this).data('name');
+				self.deleteService(index, name);
+			});
+			
+			// Add/Delete city buttons
+			$('.seogen-wizard-add-city').on('click', function(e) {
+				e.preventDefault();
+				self.addCity();
+			});
+			
+			$(document).on('click', '.seogen-wizard-delete-city', function(e) {
+				e.preventDefault();
+				var index = $(this).data('index');
+				var name = $(this).data('name');
+				self.deleteCity(index, name);
+			});
+			
+			// Enter key support for add forms
+			$('#seogen-wizard-new-service').on('keypress', function(e) {
+				if (e.which === 13) {
+					e.preventDefault();
+					self.addService();
+				}
+			});
+			
+			$('#seogen-wizard-new-city').on('keypress', function(e) {
+				if (e.which === 13) {
+					e.preventDefault();
+					self.addCity();
+				}
+			});
+			
 			// Generation buttons
 			$('.seogen-wizard-start-generation').on('click', function(e) {
 				e.preventDefault();
@@ -221,6 +262,136 @@
 						'error',
 						'An error occurred. Please try again.'
 					);
+				}
+			});
+		},
+		
+		addService: function() {
+			var self = this;
+			var $input = $('#seogen-wizard-new-service');
+			var serviceName = $input.val().trim();
+			
+			if (!serviceName) {
+				alert('Please enter a service name');
+				return;
+			}
+			
+			var $button = $('.seogen-wizard-add-service');
+			$button.addClass('loading').prop('disabled', true);
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_add_service',
+					nonce: seogenWizard.nonce,
+					service_name: serviceName
+				},
+				success: function(response) {
+					if (response.success) {
+						$input.val('');
+						location.reload();
+					} else {
+						alert(response.data.message || 'Failed to add service');
+						$button.removeClass('loading').prop('disabled', false);
+					}
+				},
+				error: function() {
+					alert('An error occurred. Please try again.');
+					$button.removeClass('loading').prop('disabled', false);
+				}
+			});
+		},
+		
+		deleteService: function(index, name) {
+			var self = this;
+			
+			if (!confirm('Delete "' + name + '"?')) {
+				return;
+			}
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_delete_service',
+					nonce: seogenWizard.nonce,
+					index: index
+				},
+				success: function(response) {
+					if (response.success) {
+						location.reload();
+					} else {
+						alert(response.data.message || 'Failed to delete service');
+					}
+				},
+				error: function() {
+					alert('An error occurred. Please try again.');
+				}
+			});
+		},
+		
+		addCity: function() {
+			var self = this;
+			var $input = $('#seogen-wizard-new-city');
+			var cityName = $input.val().trim();
+			
+			if (!cityName) {
+				alert('Please enter a city name');
+				return;
+			}
+			
+			var $button = $('.seogen-wizard-add-city');
+			$button.addClass('loading').prop('disabled', true);
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_add_city',
+					nonce: seogenWizard.nonce,
+					city_name: cityName
+				},
+				success: function(response) {
+					if (response.success) {
+						$input.val('');
+						location.reload();
+					} else {
+						alert(response.data.message || 'Failed to add city');
+						$button.removeClass('loading').prop('disabled', false);
+					}
+				},
+				error: function() {
+					alert('An error occurred. Please try again.');
+					$button.removeClass('loading').prop('disabled', false);
+				}
+			});
+		},
+		
+		deleteCity: function(index, name) {
+			var self = this;
+			
+			if (!confirm('Delete "' + name + '"?')) {
+				return;
+			}
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_delete_city',
+					nonce: seogenWizard.nonce,
+					index: index
+				},
+				success: function(response) {
+					if (response.success) {
+						location.reload();
+					} else {
+						alert(response.data.message || 'Failed to delete city');
+					}
+				},
+				error: function() {
+					alert('An error occurred. Please try again.');
 				}
 			});
 		},
