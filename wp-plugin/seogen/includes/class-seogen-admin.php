@@ -2724,6 +2724,18 @@ class SEOgen_Admin {
 				<?php submit_button( __( 'Test API Connection', 'seogen' ), 'secondary', 'submit', false ); ?>
 			</form>
 
+			<hr style="margin: 30px 0;">
+
+			<h2><?php echo esc_html__( 'Setup Wizard', 'seogen' ); ?></h2>
+			<p><?php echo esc_html__( 'Run the setup wizard again to reconfigure your settings and generate pages.', 'seogen' ); ?></p>
+			<p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=seogen-wizard' ) ); ?>" class="button button-secondary">
+					<?php echo esc_html__( 'Run Setup Wizard', 'seogen' ); ?>
+				</a>
+			</p>
+
+			<hr style="margin: 30px 0;">
+
 			<form method="post" action="options.php">
 				<?php
 				settings_fields( 'seogen_settings_group' );

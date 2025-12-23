@@ -1,0 +1,418 @@
+/**
+ * Wizard Styles
+ * 
+ * Styles for the first-run setup wizard interface.
+ */
+
+.seogen-wizard-wrap {
+	max-width: 900px;
+	margin: 20px auto;
+	background: #fff;
+	padding: 30px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	border-radius: 4px;
+}
+
+.seogen-wizard-wrap h1 {
+	text-align: center;
+	margin-bottom: 30px;
+	font-size: 28px;
+	color: #23282d;
+}
+
+/* Progress Bar */
+.seogen-wizard-progress {
+	margin-bottom: 40px;
+}
+
+.seogen-wizard-steps {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 15px;
+	position: relative;
+}
+
+.seogen-wizard-step {
+	flex: 1;
+	text-align: center;
+	position: relative;
+	z-index: 2;
+}
+
+.seogen-wizard-step .step-number {
+	display: inline-block;
+	width: 40px;
+	height: 40px;
+	line-height: 40px;
+	border-radius: 50%;
+	background: #e5e5e5;
+	color: #666;
+	font-weight: 600;
+	margin-bottom: 8px;
+	transition: all 0.3s ease;
+}
+
+.seogen-wizard-step.active .step-number {
+	background: #0073aa;
+	color: #fff;
+}
+
+.seogen-wizard-step.completed .step-number {
+	background: #46b450;
+	color: #fff;
+}
+
+.seogen-wizard-step.completed .step-number::before {
+	content: "✓";
+	font-weight: bold;
+}
+
+.seogen-wizard-step .step-label {
+	display: block;
+	font-size: 13px;
+	color: #666;
+	font-weight: 500;
+}
+
+.seogen-wizard-step.active .step-label {
+	color: #0073aa;
+	font-weight: 600;
+}
+
+.seogen-wizard-step.completed .step-label {
+	color: #46b450;
+}
+
+.seogen-wizard-progress-bar {
+	height: 4px;
+	background: #e5e5e5;
+	border-radius: 2px;
+	overflow: hidden;
+	position: relative;
+}
+
+.seogen-wizard-progress-fill {
+	height: 100%;
+	background: #0073aa;
+	transition: width 0.3s ease;
+	border-radius: 2px;
+}
+
+/* Step Content */
+.seogen-wizard-content {
+	margin-bottom: 30px;
+}
+
+.seogen-wizard-step-content {
+	animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.seogen-wizard-step-content h2 {
+	font-size: 22px;
+	margin-bottom: 10px;
+	color: #23282d;
+}
+
+.seogen-wizard-step-content > p {
+	color: #666;
+	margin-bottom: 25px;
+	font-size: 14px;
+}
+
+.seogen-wizard-form {
+	background: #f9f9f9;
+	padding: 25px;
+	border-radius: 4px;
+	border: 1px solid #e5e5e5;
+}
+
+.seogen-wizard-form .form-table {
+	margin-bottom: 0;
+}
+
+.seogen-wizard-form .form-table th {
+	padding: 15px 10px 15px 0;
+	width: 200px;
+}
+
+.seogen-wizard-form .form-table td {
+	padding: 15px 10px;
+}
+
+.seogen-wizard-validation-message {
+	margin-top: 15px;
+	padding: 12px;
+	border-radius: 4px;
+	display: none;
+}
+
+.seogen-wizard-validation-message.success {
+	display: block;
+	background: #ecf7ed;
+	border-left: 4px solid #46b450;
+	color: #2e7d32;
+}
+
+.seogen-wizard-validation-message.error {
+	display: block;
+	background: #fef7f1;
+	border-left: 4px solid #dc3232;
+	color: #c62828;
+}
+
+.seogen-wizard-validation-message.info {
+	display: block;
+	background: #e5f5fa;
+	border-left: 4px solid #00a0d2;
+	color: #006799;
+}
+
+/* Lists */
+.seogen-wizard-list {
+	list-style: none;
+	margin: 0 0 15px 0;
+	padding: 0;
+	background: #fff;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+	max-height: 300px;
+	overflow-y: auto;
+}
+
+.seogen-wizard-list li {
+	padding: 12px 15px;
+	border-bottom: 1px solid #e5e5e5;
+	display: flex;
+	align-items: center;
+}
+
+.seogen-wizard-list li:last-child {
+	border-bottom: none;
+}
+
+.seogen-wizard-list li::before {
+	content: "✓";
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	line-height: 20px;
+	text-align: center;
+	background: #46b450;
+	color: #fff;
+	border-radius: 50%;
+	margin-right: 10px;
+	font-size: 12px;
+	font-weight: bold;
+}
+
+.seogen-wizard-count {
+	font-weight: 600;
+	color: #0073aa;
+	margin: 10px 0;
+}
+
+.seogen-wizard-empty {
+	color: #dc3232;
+	font-style: italic;
+	padding: 15px;
+	background: #fef7f1;
+	border: 1px solid #dc3232;
+	border-radius: 4px;
+	margin-bottom: 15px;
+}
+
+/* Generation Plan */
+.seogen-wizard-generation-plan {
+	background: #f9f9f9;
+	padding: 25px;
+	border-radius: 4px;
+	border: 1px solid #e5e5e5;
+	margin-bottom: 25px;
+}
+
+.seogen-wizard-generation-plan h3 {
+	margin-top: 0;
+	margin-bottom: 20px;
+	font-size: 18px;
+	color: #23282d;
+}
+
+.seogen-wizard-generation-list {
+	list-style: none;
+	margin: 0 0 20px 0;
+	padding: 0;
+}
+
+.seogen-wizard-generation-list li {
+	padding: 15px;
+	background: #fff;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+	margin-bottom: 10px;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.seogen-wizard-generation-list li .dashicons {
+	color: #46b450;
+	font-size: 24px;
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+}
+
+.seogen-wizard-generation-list li strong {
+	display: block;
+	margin-bottom: 5px;
+	color: #23282d;
+}
+
+.seogen-wizard-generation-list li .count {
+	color: #666;
+	font-size: 13px;
+	margin-left: 8px;
+}
+
+.seogen-wizard-generation-list li .description {
+	margin: 0;
+	color: #666;
+	font-size: 13px;
+}
+
+.seogen-wizard-total {
+	padding: 15px;
+	background: #e5f5fa;
+	border-left: 4px solid #0073aa;
+	border-radius: 4px;
+	margin-bottom: 15px;
+	font-size: 16px;
+}
+
+.seogen-wizard-generation-progress {
+	background: #f9f9f9;
+	padding: 25px;
+	border-radius: 4px;
+	border: 1px solid #e5e5e5;
+	margin-bottom: 25px;
+}
+
+.seogen-wizard-generation-progress h3 {
+	margin-top: 0;
+	margin-bottom: 15px;
+	font-size: 18px;
+	color: #23282d;
+}
+
+.seogen-wizard-progress-details {
+	padding: 15px;
+	background: #fff;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+}
+
+/* Buttons */
+.seogen-wizard-wrap .submit {
+	margin: 25px 0 0 0;
+	padding-top: 20px;
+	border-top: 1px solid #e5e5e5;
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+}
+
+.seogen-wizard-wrap .button-large {
+	height: 40px;
+	line-height: 38px;
+	padding: 0 20px;
+	font-size: 14px;
+}
+
+.seogen-wizard-back {
+	margin-right: auto;
+}
+
+/* Footer */
+.seogen-wizard-footer {
+	text-align: center;
+	padding-top: 20px;
+	border-top: 1px solid #e5e5e5;
+}
+
+.seogen-wizard-footer a {
+	color: #666;
+	text-decoration: none;
+	font-size: 13px;
+}
+
+.seogen-wizard-footer a:hover {
+	color: #0073aa;
+}
+
+/* Loading States */
+.seogen-wizard-wrap .button.loading {
+	position: relative;
+	color: transparent;
+	pointer-events: none;
+}
+
+.seogen-wizard-wrap .button.loading::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 16px;
+	height: 16px;
+	margin: -8px 0 0 -8px;
+	border: 2px solid #fff;
+	border-top-color: transparent;
+	border-radius: 50%;
+	animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+	.seogen-wizard-wrap {
+		margin: 10px;
+		padding: 20px;
+	}
+	
+	.seogen-wizard-steps {
+		flex-wrap: wrap;
+	}
+	
+	.seogen-wizard-step {
+		flex: 0 0 20%;
+		margin-bottom: 15px;
+	}
+	
+	.seogen-wizard-step .step-label {
+		font-size: 11px;
+	}
+	
+	.seogen-wizard-wrap .submit {
+		flex-direction: column;
+	}
+	
+	.seogen-wizard-back {
+		margin-right: 0;
+		order: 2;
+	}
+}
