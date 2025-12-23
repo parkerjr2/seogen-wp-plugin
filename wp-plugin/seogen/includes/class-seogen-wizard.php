@@ -631,6 +631,7 @@ class SEOgen_Wizard {
 		// Debug logging
 		error_log( '[WIZARD] Creating Service Hub job with ' . count( $api_items ) . ' items' );
 		error_log( '[WIZARD] First item payload: ' . wp_json_encode( $api_items[0] ) );
+		error_log( '[WIZARD] All items: ' . wp_json_encode( $api_items ) );
 		
 		$result = $this->call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $api_items );
 		
