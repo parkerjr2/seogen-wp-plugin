@@ -491,9 +491,15 @@
 					nonce: seogenWizard.nonce
 				},
 				success: function(response) {
-					if (response.success && response.data.redirect) {
-						// Redirect to bulk generation page
-						window.location.href = response.data.redirect;
+					if (response.success) {
+						self.jobId = response.data.job_id;
+						self.totalPages = response.data.total;
+						
+						// Update initial progress
+						self.updateProgress(0, self.totalPages, 0, 0);
+						
+						// Start processing batches
+						self.processBatch();
 					} else {
 						$button.removeClass('loading').prop('disabled', false);
 						$('.seogen-wizard-skip-generation').prop('disabled', false);

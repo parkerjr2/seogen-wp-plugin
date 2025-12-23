@@ -464,7 +464,6 @@ class SEOgen_Wizard {
 	
 	/**
 	 * AJAX: Start automated generation
-	 * Redirects to bulk generation page with wizard data
 	 */
 	public function ajax_start_generation() {
 		check_ajax_referer( 'seogen_wizard', 'nonce' );
@@ -476,26 +475,89 @@ class SEOgen_Wizard {
 		// Get services and cities from cache
 		$services = get_option( 'hyper_local_services_cache', array() );
 		$cities = get_option( 'hyper_local_cities_cache', array() );
+		$business_config = get_option( 'seogen_business_config', array() );
+		$settings = get_option( 'seogen_settings', array() );
 		
 		if ( empty( $services ) || empty( $cities ) ) {
 			wp_send_json_error( array( 'message' => 'No services or cities configured' ) );
 		}
 		
-		// Mark wizard as complete
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			wp_send_json_error( array( 'message' => 'API settings not configured' ) );
+		}
+		
+		// Build items for API
+		$api_items = array();
+		foreach ( $services as $service ) {
+			$service_name = is_array( $service ) ? $service['name'] : $service;
+			foreach ( $cities as $city ) {
+				$city_name = is_array( $city ) ? $city['city'] : $city;
+				$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
+				
+				$api_items[] = array(
+					'service' => $service_name,
+					'city' => $city_name,
+					'state' => $state,
+					'company_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
+					'phone' => isset( $business_config['phone'] ) ? $business_config['phone'] : '',
+					'email' => isset( $business_config['email'] ) ? $business_config['email'] : '',
+					'address' => isset( $business_config['address'] ) ? $business_config['address'] : '',
+				);
+			}
+		}
+		
+		// Call API to create bulk job
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
+		$admin = new SEOgen_Admin();
+		
+		$job_name = 'Wizard Generation - ' . current_time( 'Y-m-d H:i:s' );
+		$result = $this->call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $api_items );
+		
+		if ( ! $result['success'] ) {
+			wp_send_json_error( array( 'message' => $result['error'] ) );
+		}
+		
+		// Store job info in wizard state
 		$this->update_wizard_state( array(
-			'completed' => true,
-			'completed_at' => current_time( 'mysql' ),
+			'api_job_id' => $result['job_id'],
+			'generation_status' => 'running',
+			'total_pages' => count( $api_items ),
 		) );
 		
-		// Return redirect URL to bulk generation page
 		wp_send_json_success( array(
-			'message' => 'Redirecting to bulk generation',
-			'redirect' => admin_url( 'admin.php?page=hyper-local-bulk' ),
+			'message' => 'Generation started',
+			'job_id' => $result['job_id'],
+			'total' => count( $api_items ),
 		) );
 	}
 	
 	/**
-	 * AJAX: Process generation batch
+	 * Call API to create bulk job using admin class method
+	 */
+	private function call_api_create_bulk_job( $admin, $api_url, $license_key, $job_name, $items ) {
+		// Use reflection to call private method
+		$method = new ReflectionMethod( $admin, 'api_create_bulk_job' );
+		$method->setAccessible( true );
+		$response = $method->invoke( $admin, $api_url, $license_key, $job_name, $items );
+		
+		if ( empty( $response['ok'] ) || ! is_array( $response['data'] ) || empty( $response['data']['job_id'] ) ) {
+			return array(
+				'success' => false,
+				'error' => isset( $response['error'] ) ? $response['error'] : 'Failed to create bulk job',
+			);
+		}
+		
+		return array(
+			'success' => true,
+			'job_id' => $response['data']['job_id'],
+		);
+	}
+	
+	/**
+	 * AJAX: Process generation batch - polls API and imports results
 	 */
 	public function ajax_process_batch() {
 		check_ajax_referer( 'seogen_wizard', 'nonce' );
@@ -504,139 +566,204 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'Permission denied' ) );
 		}
 		
-		$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( $_POST['job_id'] ) : '';
-		if ( empty( $job_id ) ) {
+		$api_job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( $_POST['job_id'] ) : '';
+		if ( empty( $api_job_id ) ) {
 			wp_send_json_error( array( 'message' => 'Job ID required' ) );
 		}
 		
-		// Get job data
-		$job_data = get_transient( 'seogen_wizard_job_' . $job_id );
-		if ( ! $job_data ) {
-			wp_send_json_error( array( 'message' => 'Job not found or expired' ) );
-		}
+		// Get settings
+		$settings = get_option( 'seogen_settings', array() );
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 		
-		// Update status to running
-		if ( $job_data['status'] === 'pending' ) {
-			$job_data['status'] = 'running';
-		}
-		
-		// Process batch (5 pages at a time)
-		$batch_size = 5;
-		$processed = $job_data['processed'];
-		$rows = $job_data['rows'];
-		$settings = $job_data['settings'];
-		
-		$batch_end = min( $processed + $batch_size, count( $rows ) );
-		$results = array();
-		
-		// Get admin instance for page generation
+		// Get admin instance
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
 		$admin = new SEOgen_Admin();
 		
-		for ( $i = $processed; $i < $batch_end; $i++ ) {
-			$row = $rows[ $i ];
+		// Get job status from API
+		$status_result = $this->call_api_get_job_status( $admin, $api_url, $license_key, $api_job_id );
+		
+		if ( ! $status_result['success'] ) {
+			wp_send_json_error( array( 'message' => $status_result['error'] ) );
+		}
+		
+		$status_data = $status_result['data'];
+		$job_status = isset( $status_data['status'] ) ? $status_data['status'] : 'pending';
+		$total = isset( $status_data['total_items'] ) ? (int) $status_data['total_items'] : 0;
+		$completed = isset( $status_data['completed'] ) ? (int) $status_data['completed'] : 0;
+		$failed = isset( $status_data['failed'] ) ? (int) $status_data['failed'] : 0;
+		
+		// Get wizard state to track imported pages
+		$state = $this->get_wizard_state();
+		$imported_count = isset( $state['imported_count'] ) ? (int) $state['imported_count'] : 0;
+		$cursor = isset( $state['api_cursor'] ) ? $state['api_cursor'] : '';
+		
+		// Fetch results from API (batch of 10)
+		$results_response = $this->call_api_get_job_results( $admin, $api_url, $license_key, $api_job_id, $cursor, 10 );
+		
+		$batch_results = array();
+		$new_cursor = $cursor;
+		$newly_imported = 0;
+		
+		if ( $results_response['success'] && ! empty( $results_response['items'] ) ) {
+			$new_cursor = isset( $results_response['cursor'] ) ? $results_response['cursor'] : '';
 			
-			try {
-				// Generate page using existing admin method
-				$result = $this->generate_service_city_page( $row, $settings, $admin );
+			// Import each completed page
+			foreach ( $results_response['items'] as $item ) {
+				$item_status = isset( $item['status'] ) ? $item['status'] : '';
 				
-				if ( $result['success'] ) {
-					$job_data['successful']++;
-					$results[] = array(
-						'success' => true,
-						'service' => $row['service'],
-						'city' => $row['city'],
-						'post_id' => $result['post_id'],
-					);
-				} else {
-					$job_data['failed']++;
-					$results[] = array(
+				if ( $item_status === 'completed' && isset( $item['result_json'] ) ) {
+					$import_result = $this->import_page_from_api_result( $item, $admin );
+					
+					if ( $import_result['success'] ) {
+						$newly_imported++;
+						$batch_results[] = array(
+							'success' => true,
+							'service' => isset( $item['service'] ) ? $item['service'] : '',
+							'city' => isset( $item['city'] ) ? $item['city'] : '',
+							'post_id' => $import_result['post_id'],
+						);
+					} else {
+						$batch_results[] = array(
+							'success' => false,
+							'service' => isset( $item['service'] ) ? $item['service'] : '',
+							'city' => isset( $item['city'] ) ? $item['city'] : '',
+							'error' => $import_result['error'],
+						);
+					}
+				} elseif ( $item_status === 'failed' ) {
+					$batch_results[] = array(
 						'success' => false,
-						'service' => $row['service'],
-						'city' => $row['city'],
-						'error' => $result['error'],
+						'service' => isset( $item['service'] ) ? $item['service'] : '',
+						'city' => isset( $item['city'] ) ? $item['city'] : '',
+						'error' => isset( $item['error'] ) ? $item['error'] : 'Generation failed',
 					);
 				}
-			} catch ( Exception $e ) {
-				$job_data['failed']++;
-				$results[] = array(
-					'success' => false,
-					'service' => $row['service'],
-					'city' => $row['city'],
-					'error' => $e->getMessage(),
-				);
 			}
-			
-			$job_data['processed']++;
 		}
 		
-		// Check if complete
-		if ( $job_data['processed'] >= count( $rows ) ) {
-			$job_data['status'] = 'completed';
-			$job_data['completed_at'] = current_time( 'mysql' );
-			
-			// Mark wizard as complete
-			$this->update_wizard_state( array(
-				'completed' => true,
-				'completed_at' => current_time( 'mysql' ),
-				'generation_status' => 'completed',
-			) );
-		}
+		// Update wizard state
+		$imported_count += $newly_imported;
+		$is_complete = ( $job_status === 'completed' || $job_status === 'complete' );
 		
-		// Update job data
-		set_transient( 'seogen_wizard_job_' . $job_id, $job_data, 12 * HOUR_IN_SECONDS );
+		$this->update_wizard_state( array(
+			'imported_count' => $imported_count,
+			'api_cursor' => $new_cursor,
+			'generation_status' => $is_complete ? 'completed' : 'running',
+			'completed' => $is_complete,
+			'completed_at' => $is_complete ? current_time( 'mysql' ) : null,
+		) );
 		
 		wp_send_json_success( array(
-			'status' => $job_data['status'],
-			'total' => $job_data['total'],
-			'processed' => $job_data['processed'],
-			'successful' => $job_data['successful'],
-			'failed' => $job_data['failed'],
-			'batch_results' => $results,
-			'complete' => $job_data['status'] === 'completed',
+			'status' => $job_status,
+			'total' => $total,
+			'processed' => $completed + $failed,
+			'successful' => $imported_count,
+			'failed' => $failed,
+			'batch_results' => $batch_results,
+			'complete' => $is_complete,
 		) );
 	}
 	
 	/**
-	 * Generate a single service+city page using the admin class method
+	 * Call API to get job status
 	 */
-	private function generate_service_city_page( $row, $settings, $admin ) {
-		$service = $row['service'];
-		$city = $row['city'];
-		$state = isset( $row['state'] ) ? $row['state'] : '';
+	private function call_api_get_job_status( $admin, $api_url, $license_key, $api_job_id ) {
+		$method = new ReflectionMethod( $admin, 'api_get_bulk_job_status' );
+		$method->setAccessible( true );
+		$response = $method->invoke( $admin, $api_url, $license_key, $api_job_id );
 		
-		// Use the existing admin method for generating pages
-		// This ensures consistency with the bulk generation system
-		try {
-			// Build the form data structure expected by the admin class
-			$business_config = get_option( 'seogen_business_config', array() );
-			
-			$form = array(
-				'business_name' => isset( $business_config['business_name'] ) ? $business_config['business_name'] : '',
-				'service_area_label' => isset( $business_config['service_area_label'] ) ? $business_config['service_area_label'] : '',
-				'vertical' => isset( $business_config['vertical'] ) ? $business_config['vertical'] : 'electrical',
-			);
-			
-			// Call the admin's generate method
-			$result = $admin->generate_single_page_sync( $service, $city, $state, $form );
-			
-			if ( $result && isset( $result['post_id'] ) && $result['post_id'] > 0 ) {
-				return array(
-					'success' => true,
-					'post_id' => $result['post_id'],
-				);
-			} else {
-				return array(
-					'success' => false,
-					'error' => isset( $result['error'] ) ? $result['error'] : 'Generation failed',
-				);
-			}
-		} catch ( Exception $e ) {
+		if ( empty( $response['ok'] ) || ! is_array( $response['data'] ) ) {
 			return array(
 				'success' => false,
-				'error' => $e->getMessage(),
+				'error' => isset( $response['error'] ) ? $response['error'] : 'Failed to get job status',
 			);
 		}
+		
+		return array(
+			'success' => true,
+			'data' => $response['data'],
+		);
+	}
+	
+	/**
+	 * Call API to get job results
+	 */
+	private function call_api_get_job_results( $admin, $api_url, $license_key, $api_job_id, $cursor, $limit ) {
+		$method = new ReflectionMethod( $admin, 'api_get_bulk_job_results' );
+		$method->setAccessible( true );
+		$response = $method->invoke( $admin, $api_url, $license_key, $api_job_id, $cursor, $limit );
+		
+		if ( empty( $response['ok'] ) || ! is_array( $response['data'] ) ) {
+			return array(
+				'success' => false,
+				'error' => isset( $response['error'] ) ? $response['error'] : 'Failed to get results',
+			);
+		}
+		
+		return array(
+			'success' => true,
+			'items' => isset( $response['data']['items'] ) ? $response['data']['items'] : array(),
+			'cursor' => isset( $response['data']['next_cursor'] ) ? $response['data']['next_cursor'] : '',
+		);
+	}
+	
+	/**
+	 * Import a page from API result
+	 */
+	private function import_page_from_api_result( $item, $admin ) {
+		$result_json = isset( $item['result_json'] ) ? $item['result_json'] : null;
+		
+		if ( ! is_array( $result_json ) ) {
+			return array(
+				'success' => false,
+				'error' => 'Invalid result data',
+			);
+		}
+		
+		$title = isset( $result_json['title'] ) ? $result_json['title'] : '';
+		$slug = isset( $result_json['slug'] ) ? $result_json['slug'] : '';
+		$blocks = isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ? $result_json['blocks'] : array();
+		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
+		
+		// Use admin's method to build Gutenberg content
+		$method = new ReflectionMethod( $admin, 'build_gutenberg_content_from_blocks' );
+		$method->setAccessible( true );
+		$content = $method->invoke( $admin, $blocks, $page_mode );
+		
+		// Create WordPress post
+		$post_data = array(
+			'post_title' => $title,
+			'post_name' => $slug,
+			'post_content' => $content,
+			'post_status' => 'publish',
+			'post_type' => 'service_page',
+		);
+		
+		$post_id = wp_insert_post( $post_data );
+		
+		if ( is_wp_error( $post_id ) ) {
+			return array(
+				'success' => false,
+				'error' => $post_id->get_error_message(),
+			);
+		}
+		
+		// Save metadata
+		if ( isset( $item['service'] ) ) {
+			update_post_meta( $post_id, '_hyper_local_service_name', $item['service'] );
+		}
+		if ( isset( $item['city'] ) ) {
+			update_post_meta( $post_id, '_hyper_local_city_name', $item['city'] );
+		}
+		if ( isset( $item['state'] ) && ! empty( $item['state'] ) ) {
+			update_post_meta( $post_id, '_hyper_local_state', $item['state'] );
+		}
+		
+		return array(
+			'success' => true,
+			'post_id' => $post_id,
+		);
 	}
 	
 	/**
