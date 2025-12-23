@@ -54,6 +54,11 @@
 				self.addService();
 			});
 			
+			$('.seogen-wizard-bulk-add-services').on('click', function(e) {
+				e.preventDefault();
+				self.bulkAddServices();
+			});
+			
 			$(document).on('click', '.seogen-wizard-delete-service', function(e) {
 				e.preventDefault();
 				var index = $(this).data('index');
@@ -269,10 +274,17 @@
 		addService: function() {
 			var self = this;
 			var $input = $('#seogen-wizard-new-service');
+			var $hubSelect = $('#seogen-wizard-service-hub');
 			var serviceName = $input.val().trim();
+			var serviceHub = $hubSelect.val();
 			
 			if (!serviceName) {
 				alert('Please enter a service name');
+				return;
+			}
+			
+			if (!serviceHub) {
+				alert('Please select a hub category');
 				return;
 			}
 			
@@ -285,14 +297,54 @@
 				data: {
 					action: 'seogen_wizard_add_service',
 					nonce: seogenWizard.nonce,
-					service_name: serviceName
+					service_name: serviceName,
+					service_hub: serviceHub
 				},
 				success: function(response) {
 					if (response.success) {
 						$input.val('');
+						$hubSelect.val('');
 						location.reload();
 					} else {
 						alert(response.data.message || 'Failed to add service');
+						$button.removeClass('loading').prop('disabled', false);
+					}
+				},
+				error: function() {
+					alert('An error occurred. Please try again.');
+					$button.removeClass('loading').prop('disabled', false);
+				}
+			});
+		},
+		
+		bulkAddServices: function() {
+			var self = this;
+			var $textarea = $('#seogen-wizard-bulk-services');
+			var bulkText = $textarea.val().trim();
+			
+			if (!bulkText) {
+				alert('Please enter services to add');
+				return;
+			}
+			
+			var $button = $('.seogen-wizard-bulk-add-services');
+			$button.addClass('loading').prop('disabled', true);
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_bulk_add_services',
+					nonce: seogenWizard.nonce,
+					bulk_text: bulkText
+				},
+				success: function(response) {
+					if (response.success) {
+						$textarea.val('');
+						alert(response.data.message || 'Services added successfully');
+						location.reload();
+					} else {
+						alert(response.data.message || 'Failed to add services');
 						$button.removeClass('loading').prop('disabled', false);
 					}
 				},

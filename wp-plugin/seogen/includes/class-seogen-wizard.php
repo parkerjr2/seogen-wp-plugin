@@ -39,6 +39,7 @@ class SEOgen_Wizard {
 		
 		// AJAX handlers for inline service/city management
 		add_action( 'wp_ajax_seogen_wizard_add_service', array( $this, 'ajax_add_service' ) );
+		add_action( 'wp_ajax_seogen_wizard_bulk_add_services', array( $this, 'ajax_bulk_add_services' ) );
 		add_action( 'wp_ajax_seogen_wizard_delete_service', array( $this, 'ajax_delete_service' ) );
 		add_action( 'wp_ajax_seogen_wizard_add_city', array( $this, 'ajax_add_city' ) );
 		add_action( 'wp_ajax_seogen_wizard_delete_city', array( $this, 'ajax_delete_city' ) );
@@ -594,6 +595,7 @@ class SEOgen_Wizard {
 		}
 		
 		$service_name = isset( $_POST['service_name'] ) ? sanitize_text_field( $_POST['service_name'] ) : '';
+		$service_hub = isset( $_POST['service_hub'] ) ? sanitize_text_field( $_POST['service_hub'] ) : '';
 		
 		if ( empty( $service_name ) ) {
 			wp_send_json_error( array( 'message' => 'Service name is required' ) );
@@ -605,8 +607,12 @@ class SEOgen_Wizard {
 			$services = array();
 		}
 		
-		// Add new service
-		$services[] = array( 'name' => $service_name );
+		// Add new service with hub category
+		$new_service = array( 'name' => $service_name );
+		if ( ! empty( $service_hub ) ) {
+			$new_service['hub'] = $service_hub;
+		}
+		$services[] = $new_service;
 		
 		// Save services
 		update_option( 'hyper_local_services_cache', $services );
@@ -614,6 +620,79 @@ class SEOgen_Wizard {
 		wp_send_json_success( array(
 			'message' => 'Service added successfully',
 			'count' => count( $services ),
+		) );
+	}
+	
+	/**
+	 * AJAX: Bulk add services
+	 */
+	public function ajax_bulk_add_services() {
+		check_ajax_referer( 'seogen_wizard', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$bulk_text = isset( $_POST['bulk_text'] ) ? sanitize_textarea_field( $_POST['bulk_text'] ) : '';
+		
+		if ( empty( $bulk_text ) ) {
+			wp_send_json_error( array( 'message' => 'Bulk text is required' ) );
+		}
+		
+		// Get existing services
+		$services = get_option( 'hyper_local_services_cache', array() );
+		if ( ! is_array( $services ) ) {
+			$services = array();
+		}
+		
+		// Get hub categories for default
+		$config = get_option( 'seogen_business_config', array() );
+		$hub_categories = isset( $config['hub_categories'] ) && is_array( $config['hub_categories'] ) 
+			? $config['hub_categories'] 
+			: array( 'residential', 'commercial' );
+		$default_hub = ! empty( $hub_categories ) ? $hub_categories[0] : 'residential';
+		
+		// Parse bulk text
+		$lines = explode( "\n", $bulk_text );
+		$added_count = 0;
+		
+		foreach ( $lines as $line ) {
+			$line = trim( $line );
+			if ( empty( $line ) ) {
+				continue;
+			}
+			
+			// Check if line has hub prefix (e.g., "residential: Service Name")
+			if ( strpos( $line, ':' ) !== false ) {
+				$parts = explode( ':', $line, 2 );
+				$hub = trim( $parts[0] );
+				$service_name = trim( $parts[1] );
+				
+				// Validate hub exists in configured hubs
+				if ( in_array( $hub, $hub_categories ) && ! empty( $service_name ) ) {
+					$services[] = array(
+						'name' => $service_name,
+						'hub' => $hub,
+					);
+					$added_count++;
+				}
+			} else {
+				// No hub specified, use default
+				$services[] = array(
+					'name' => $line,
+					'hub' => $default_hub,
+				);
+				$added_count++;
+			}
+		}
+		
+		// Save services
+		update_option( 'hyper_local_services_cache', $services );
+		
+		wp_send_json_success( array(
+			'message' => sprintf( '%d services added successfully', $added_count ),
+			'count' => count( $services ),
+			'added' => $added_count,
 		) );
 	}
 	

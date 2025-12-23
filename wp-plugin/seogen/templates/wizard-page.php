@@ -235,15 +235,41 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 			<p><?php esc_html_e( 'Add at least 3 services that you offer. These will be used to generate service pages.', 'seogen' ); ?></p>
 			
 			<div class="seogen-wizard-form">
-				<!-- Add Service Form -->
+				<!-- Add Single Service Form -->
 				<div class="seogen-wizard-add-form" style="margin-bottom: 20px;">
 					<h3><?php esc_html_e( 'Add a Service', 'seogen' ); ?></h3>
 					<div style="display: flex; gap: 10px; align-items: flex-start;">
 						<input type="text" id="seogen-wizard-new-service" placeholder="<?php esc_attr_e( 'e.g., Electrical Panel Upgrade', 'seogen' ); ?>" class="regular-text" style="flex: 1;">
+						<select id="seogen-wizard-service-hub" class="regular-text">
+							<option value=""><?php esc_html_e( 'Select Hub...', 'seogen' ); ?></option>
+							<?php
+							$config = get_option( 'seogen_business_config', array() );
+							$hub_categories = isset( $config['hub_categories'] ) && is_array( $config['hub_categories'] ) 
+								? $config['hub_categories'] 
+								: array( 'residential', 'commercial' );
+							foreach ( $hub_categories as $hub ) {
+								echo '<option value="' . esc_attr( $hub ) . '">' . esc_html( ucfirst( $hub ) ) . '</option>';
+							}
+							?>
+						</select>
 						<button type="button" class="button button-primary seogen-wizard-add-service">
 							<?php esc_html_e( 'Add Service', 'seogen' ); ?>
 						</button>
 					</div>
+				</div>
+				
+				<!-- Bulk Add Services Form -->
+				<div class="seogen-wizard-add-form" style="margin-bottom: 20px; padding: 20px; background: #f0f0f1; border-radius: 4px;">
+					<h3><?php esc_html_e( 'Bulk Add Services', 'seogen' ); ?></h3>
+					<p class="description" style="margin-bottom: 10px;">
+						<?php esc_html_e( 'Add multiple services at once. Format: "hub_key: Service Name" (one per line). If hub_key is omitted, the first hub will be used.', 'seogen' ); ?>
+					</p>
+					<textarea id="seogen-wizard-bulk-services" rows="6" class="large-text" placeholder="<?php esc_attr_e( "residential: Outlet Installation\ncommercial: Panel Upgrade\nLighting Repair", 'seogen' ); ?>"></textarea>
+					<p style="margin-top: 10px;">
+						<button type="button" class="button button-secondary seogen-wizard-bulk-add-services">
+							<?php esc_html_e( 'Bulk Add Services', 'seogen' ); ?>
+						</button>
+					</p>
 				</div>
 				
 				<!-- Services List -->
@@ -254,9 +280,14 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 						echo '<ul class="seogen-wizard-list seogen-wizard-list-deletable">';
 						foreach ( $services as $idx => $service ) {
 							$service_name = is_array( $service ) ? ( isset( $service['name'] ) ? $service['name'] : '' ) : $service;
+							$service_hub = is_array( $service ) && isset( $service['hub'] ) ? $service['hub'] : '';
 							if ( $service_name ) {
 								echo '<li data-index="' . esc_attr( $idx ) . '">';
-								echo '<span class="seogen-wizard-list-text">' . esc_html( $service_name ) . '</span>';
+								echo '<span class="seogen-wizard-list-text">' . esc_html( $service_name );
+								if ( $service_hub ) {
+									echo ' <span style="color: #666; font-size: 12px;">(' . esc_html( ucfirst( $service_hub ) ) . ')</span>';
+								}
+								echo '</span>';
 								echo '<button type="button" class="button button-small seogen-wizard-delete-service" data-index="' . esc_attr( $idx ) . '" data-name="' . esc_attr( $service_name ) . '">';
 								echo esc_html__( 'Delete', 'seogen' );
 								echo '</button>';
