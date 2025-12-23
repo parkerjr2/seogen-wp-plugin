@@ -788,16 +788,26 @@ class SEOgen_Wizard {
 			wp_send_json_error( array( 'message' => 'City name is required' ) );
 		}
 		
+		// Parse city and state
+		$parts = array_map( 'trim', explode( ',', $city_name ) );
+		$city = isset( $parts[0] ) ? $parts[0] : '';
+		$state = isset( $parts[1] ) ? $parts[1] : '';
+		
+		// Validate that both city and state are provided
+		if ( empty( $city ) || empty( $state ) ) {
+			wp_send_json_error( array( 'message' => 'Please enter city in format: City Name, State (e.g., "Tulsa, OK")' ) );
+		}
+		
+		// Validate state is 2 characters (state abbreviation)
+		if ( strlen( $state ) !== 2 ) {
+			wp_send_json_error( array( 'message' => 'Please use 2-letter state abbreviation (e.g., "OK", "TX", "NY")' ) );
+		}
+		
 		// Get existing cities
 		$cities = get_option( 'hyper_local_cities_cache', array() );
 		if ( ! is_array( $cities ) ) {
 			$cities = array();
 		}
-		
-		// Parse city and state
-		$parts = array_map( 'trim', explode( ',', $city_name ) );
-		$city = isset( $parts[0] ) ? $parts[0] : '';
-		$state = isset( $parts[1] ) ? $parts[1] : '';
 		
 		// Add new city
 		$cities[] = array(

@@ -393,6 +393,19 @@
 				return;
 			}
 			
+			// Validate format: City, State
+			var parts = cityName.split(',').map(function(part) { return part.trim(); });
+			if (parts.length !== 2 || !parts[0] || !parts[1]) {
+				alert('Please enter city in format: City Name, State (e.g., "Tulsa, OK")');
+				return;
+			}
+			
+			// Validate state is 2 characters
+			if (parts[1].length !== 2) {
+				alert('Please use 2-letter state abbreviation (e.g., "OK", "TX", "NY")');
+				return;
+			}
+			
 			var $button = $('.seogen-wizard-add-city');
 			$button.addClass('loading').prop('disabled', true);
 			
