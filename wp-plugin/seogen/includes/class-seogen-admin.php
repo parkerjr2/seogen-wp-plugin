@@ -2734,9 +2734,10 @@ class SEOgen_Admin {
 			'hyper-local-services' => 'hyper-local-service-hubs',
 			'hyper-local-service-hubs' => 'hyper-local-bulk',
 			'hyper-local-bulk' => 'hyper-local-city-hubs',
+			'hyper-local-city-hubs' => null,
 		);
 		
-		if ( isset( $sequence[ $current_page ] ) ) {
+		if ( isset( $sequence[ $current_page ] ) && $sequence[ $current_page ] !== null ) {
 			return admin_url( 'admin.php?page=' . $sequence[ $current_page ] );
 		}
 		

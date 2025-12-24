@@ -616,10 +616,6 @@ class SEOgen_Plugin {
 	public function activate() {
 		$this->register_post_type();
 		flush_rewrite_rules();
-	}
-
-	public function activate() {
-		flush_rewrite_rules();
 		
 		// Check if pages were unpublished and set notice
 		$unpublished_count = get_option( 'seogen_unpublished_count', 0 );
