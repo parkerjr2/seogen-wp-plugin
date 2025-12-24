@@ -1391,11 +1391,18 @@ class SEOgen_Wizard {
 		// Get posted data
 		$settings = isset( $_POST['seogen_settings'] ) ? $_POST['seogen_settings'] : array();
 		
-		// Sanitize settings
+		// Sanitize settings - ensure api_url has default if empty
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		if ( empty( $api_url ) ) {
+			$api_url = 'https://seogen-production.up.railway.app';
+		}
+		
 		$sanitized = array(
-			'api_url' => isset( $settings['api_url'] ) ? esc_url_raw( $settings['api_url'] ) : 'https://seogen-production.up.railway.app',
+			'api_url' => esc_url_raw( $api_url ),
 			'license_key' => isset( $settings['license_key'] ) ? sanitize_text_field( $settings['license_key'] ) : '',
 		);
+		
+		error_log( '[WIZARD] Saving settings - api_url: ' . $sanitized['api_url'] . ', license_key: ' . ( $sanitized['license_key'] ? 'SET' : 'EMPTY' ) );
 		
 		// Save settings
 		update_option( 'seogen_settings', $sanitized );
@@ -1403,6 +1410,10 @@ class SEOgen_Wizard {
 		// Return JSON for AJAX
 		wp_send_json_success( array(
 			'message' => 'Settings saved successfully',
+			'debug_saved' => array(
+				'api_url' => $sanitized['api_url'],
+				'license_key_length' => strlen( $sanitized['license_key'] ),
+			),
 		) );
 	}
 	
