@@ -292,7 +292,8 @@ class SEOgen_Wizard {
 	}
 	
 	/**
-	 * Migrate existing services to include hub field
+	 * Normalize services cache: ensure all services use 'hub_key' not 'hub'
+	 * Provides backward compatibility for existing data
 	 */
 	private function migrate_services_hub_field() {
 		$services = get_option( 'hyper_local_services_cache', array() );
@@ -308,17 +309,23 @@ class SEOgen_Wizard {
 		
 		$updated = false;
 		foreach ( $services as $idx => $service ) {
-			// If service is a string, convert to array with hub
+			// If service is a string, convert to array with hub_key
 			if ( is_string( $service ) ) {
 				$services[ $idx ] = array(
 					'name' => $service,
-					'hub' => $default_hub,
+					'hub_key' => $default_hub,
 				);
 				$updated = true;
 			}
-			// If service is array but missing hub, add default hub
-			elseif ( is_array( $service ) && ! isset( $service['hub'] ) ) {
-				$services[ $idx ]['hub'] = $default_hub;
+			// If service is array with 'hub' but no 'hub_key', migrate hub → hub_key
+			elseif ( is_array( $service ) && isset( $service['hub'] ) && ! isset( $service['hub_key'] ) ) {
+				$services[ $idx ]['hub_key'] = $service['hub'];
+				unset( $services[ $idx ]['hub'] );
+				$updated = true;
+			}
+			// If service is array but missing both hub and hub_key, add default hub_key
+			elseif ( is_array( $service ) && ! isset( $service['hub_key'] ) && ! isset( $service['hub'] ) ) {
+				$services[ $idx ]['hub_key'] = $default_hub;
 				$updated = true;
 			}
 		}
@@ -827,11 +834,24 @@ class SEOgen_Wizard {
 			}
 		}
 		
+		// ACK imported items to prevent re-import (CRITICAL FIX)
+		if ( ! empty( $imported_item_ids ) ) {
+			$ack_result = $this->call_api_ack_bulk_job_items( $admin, $api_url, $license_key, $api_job_id, $imported_item_ids );
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( '[WIZARD] ACK ' . count( $imported_item_ids ) . ' items: ' . ( $ack_result['success'] ? 'SUCCESS' : 'FAILED - ' . $ack_result['error'] ) );
+			}
+		}
+		
 		// Update phase progress
 		$state['generation']['phases'][ $current_phase ]['completed'] = $completed;
 		$state['generation']['phases'][ $current_phase ]['failed'] = $failed;
 		$state[ $cursor_key ] = $new_cursor;
 		$state[ $imported_key ] = $imported_item_ids;
+		
+		// Debug logging
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( '[WIZARD] Batch complete - cursor: ' . ( $new_cursor ? $new_cursor : 'EMPTY' ) . ', imported: ' . count( $imported_item_ids ) . ', newly_imported: ' . $newly_imported );
+		}
 		
 		// Check if current phase is complete
 		// IMPORTANT: Only transition when job is complete AND all results have been imported
@@ -1090,22 +1110,35 @@ class SEOgen_Wizard {
 	 * Call API to get job results
 	 */
 	private function call_api_get_job_results( $admin, $api_url, $license_key, $api_job_id, $cursor, $limit ) {
-		$method = new ReflectionMethod( $admin, 'api_get_bulk_job_results' );
-		$method->setAccessible( true );
-		$response = $method->invoke( $admin, $api_url, $license_key, $api_job_id, $cursor, $limit );
-		
-		if ( empty( $response['ok'] ) || ! is_array( $response['data'] ) ) {
+		try {
+			$method = new ReflectionMethod( $admin, 'api_get_bulk_job_results' );
+			$method->setAccessible( true );
+			return $method->invoke( $admin, $api_url, $license_key, $api_job_id, $cursor, $limit );
+		} catch ( Exception $e ) {
 			return array(
 				'success' => false,
-				'error' => isset( $response['error'] ) ? $response['error'] : 'Failed to get results',
+				'error' => 'Failed to call API: ' . $e->getMessage(),
 			);
 		}
-		
-		return array(
-			'success' => true,
-			'items' => isset( $response['data']['items'] ) ? $response['data']['items'] : array(),
-			'cursor' => isset( $response['data']['next_cursor'] ) ? $response['data']['next_cursor'] : '',
-		);
+	}
+	
+	/**
+	 * Call admin's private API method to ACK imported items
+	 */
+	private function call_api_ack_bulk_job_items( $admin, $api_url, $license_key, $api_job_id, $item_ids ) {
+		try {
+			$method = new ReflectionMethod( $admin, 'api_ack_bulk_job_items' );
+			$method->setAccessible( true );
+			return $method->invoke( $admin, $api_url, $license_key, $api_job_id, $item_ids );
+		} catch ( Exception $e ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( '[WIZARD] Failed to ACK items: ' . $e->getMessage() );
+			}
+			return array(
+				'success' => false,
+				'error' => 'Failed to ACK items: ' . $e->getMessage(),
+			);
+		}
 	}
 	
 	/**
@@ -1417,10 +1450,10 @@ class SEOgen_Wizard {
 			$services = array();
 		}
 		
-		// Add new service with hub category
+		// Add new service with hub_key (not 'hub' - must match admin expectations)
 		$new_service = array( 'name' => $service_name );
 		if ( ! empty( $service_hub ) ) {
-			$new_service['hub'] = $service_hub;
+			$new_service['hub_key'] = $service_hub;
 		}
 		$services[] = $new_service;
 		
@@ -1482,7 +1515,7 @@ class SEOgen_Wizard {
 				if ( in_array( $hub, $hub_categories ) && ! empty( $service_name ) ) {
 					$services[] = array(
 						'name' => $service_name,
-						'hub' => $hub,
+						'hub_key' => $hub,
 					);
 					$added_count++;
 				}
@@ -1490,7 +1523,7 @@ class SEOgen_Wizard {
 				// No hub specified, use default
 				$services[] = array(
 					'name' => $line,
-					'hub' => $default_hub,
+					'hub_key' => $default_hub,
 				);
 				$added_count++;
 			}
