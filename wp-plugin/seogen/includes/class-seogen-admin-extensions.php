@@ -534,6 +534,11 @@ trait SEOgen_Admin_Extensions {
 					<?php endforeach; ?>
 				</tbody>
 			</table>
+			<p style="margin-top: 20px;">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-bulk' ) ); ?>" class="button button-secondary">
+					<?php echo esc_html__( 'Next Step: Generate Service Pages →', 'seogen' ); ?>
+				</a>
+			</p>
 		</div>
 		<?php
 	}
