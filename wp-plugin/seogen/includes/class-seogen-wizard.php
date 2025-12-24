@@ -767,6 +767,10 @@ class SEOgen_Wizard {
 		$cursor_key = 'api_cursor_' . $current_phase;
 		$cursor = isset( $state[ $cursor_key ] ) ? $state[ $cursor_key ] : '';
 		
+		// Get imported item IDs for this phase to prevent duplicates
+		$imported_key = 'imported_items_' . $current_phase;
+		$imported_item_ids = isset( $state[ $imported_key ] ) ? $state[ $imported_key ] : array();
+		
 		// Fetch results from API (batch of 10)
 		$results_response = $this->call_api_get_job_results( $admin, $api_url, $license_key, $api_job_id, $cursor, 10 );
 		
@@ -779,13 +783,21 @@ class SEOgen_Wizard {
 			
 			// Import each completed page
 			foreach ( $results_response['items'] as $item ) {
+				$item_id = isset( $item['id'] ) ? $item['id'] : '';
 				$item_status = isset( $item['status'] ) ? $item['status'] : '';
+				
+				// Skip if already imported
+				if ( in_array( $item_id, $imported_item_ids ) ) {
+					error_log( '[WIZARD] Skipping already imported item: ' . $item_id );
+					continue;
+				}
 				
 				if ( $item_status === 'completed' && isset( $item['result_json'] ) ) {
 					$import_result = $this->import_page_from_api_result( $item, $admin );
 					
 					if ( $import_result['success'] ) {
 						$newly_imported++;
+						$imported_item_ids[] = $item_id; // Track as imported
 						$batch_results[] = array(
 							'success' => true,
 							'title' => $import_result['title'],
@@ -798,6 +810,7 @@ class SEOgen_Wizard {
 						);
 					}
 				} elseif ( $item_status === 'failed' ) {
+					$imported_item_ids[] = $item_id; // Track failed items too
 					$batch_results[] = array(
 						'success' => false,
 						'error' => isset( $item['error'] ) ? $item['error'] : 'Generation failed',
@@ -810,6 +823,7 @@ class SEOgen_Wizard {
 		$state['generation']['phases'][ $current_phase ]['completed'] = $completed;
 		$state['generation']['phases'][ $current_phase ]['failed'] = $failed;
 		$state[ $cursor_key ] = $new_cursor;
+		$state[ $imported_key ] = $imported_item_ids;
 		
 		// Check if current phase is complete
 		$is_phase_complete = ( $job_status === 'completed' || $job_status === 'complete' );
