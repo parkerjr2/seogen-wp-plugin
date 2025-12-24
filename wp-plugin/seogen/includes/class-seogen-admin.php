@@ -2720,6 +2720,25 @@ class SEOgen_Admin {
 		SEOgen_Troubleshooting::render_page();
 	}
 
+	/**
+	 * Get next page URL in setup sequence
+	 */
+	private function get_next_setup_page_url( $current_page ) {
+		$sequence = array(
+			'hyper-local-settings' => 'hyper-local-business-setup',
+			'hyper-local-business-setup' => 'hyper-local-services',
+			'hyper-local-services' => 'hyper-local-service-hubs',
+			'hyper-local-service-hubs' => 'hyper-local-bulk',
+			'hyper-local-bulk' => 'hyper-local-city-hubs',
+		);
+		
+		if ( isset( $sequence[ $current_page ] ) ) {
+			return admin_url( 'admin.php?page=' . $sequence[ $current_page ] );
+		}
+		
+		return null;
+	}
+
 	public function render_dashboard_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -2826,6 +2845,17 @@ class SEOgen_Admin {
 				submit_button();
 				?>
 			</form>
+			
+			<?php
+			$next_url = $this->get_next_setup_page_url( 'hyper-local-settings' );
+			if ( $next_url ) :
+			?>
+				<p>
+					<a href="<?php echo esc_url( $next_url ); ?>" class="button button-secondary">
+						<?php echo esc_html__( 'Next Step: Business Info →', 'seogen' ); ?>
+					</a>
+				</p>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -3169,6 +3199,12 @@ class SEOgen_Admin {
 					<?php endforeach; ?>
 				</ul>
 			<?php endif; ?>
+			
+			<p style="margin-top: 20px;">
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-city-hubs' ) ); ?>" class="button button-secondary">
+					<?php echo esc_html__( 'Next Step: City Hubs →', 'seogen' ); ?>
+				</a>
+			</p>
 		</div>
 		<?php
 	}
