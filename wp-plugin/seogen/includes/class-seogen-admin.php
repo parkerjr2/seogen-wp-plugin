@@ -4402,6 +4402,8 @@ class SEOgen_Admin {
 				var hubKey = $("#hub_key").val();
 				var citySlugs = $("#city_slugs").val();
 				
+				console.log("[CITY HUB] Form values - hubKey:", hubKey, "citySlugs:", citySlugs);
+				
 				if (!hubKey) {
 					alert("Please select a hub.");
 					return;
@@ -4433,16 +4435,21 @@ class SEOgen_Admin {
 				$("#create_city_hubs_btn").prop("disabled", true).text("Generating...");
 				$("#progress_status").text("Starting batch...");
 				
+				var ajaxData = {
+					action: "seogen_start_city_hub_batch",
+					nonce: "' . wp_create_nonce( 'seogen_city_hub_batch' ) . '",
+					hub_key: hubKey,
+					city_slugs: citySlugs.join(",")
+				};
+				
+				console.log("[CITY HUB] Sending AJAX request:", ajaxData);
+				
 				$.ajax({
 					url: ajaxurl,
 					type: "POST",
-					data: {
-						action: "seogen_start_city_hub_batch",
-						nonce: "' . wp_create_nonce( 'seogen_city_hub_batch' ) . '",
-						hub_key: hubKey,
-						city_slugs: citySlugs.join(",")
-					},
+					data: ajaxData,
 					success: function(response) {
+						console.log("[CITY HUB] AJAX response:", response);
 						if (response.success) {
 							batchId = response.data.batch_id;
 							$("#progress_details").text("0 of " + response.data.total + " completed");
@@ -4452,7 +4459,13 @@ class SEOgen_Admin {
 							resetUI();
 						}
 					},
-					error: function() {
+					error: function(xhr, status, error) {
+						console.error("[CITY HUB] AJAX error:", {
+							status: xhr.status,
+							statusText: xhr.statusText,
+							responseText: xhr.responseText,
+							error: error
+						});
 						alert("Error starting batch. Please try again.");
 						resetUI();
 					}
