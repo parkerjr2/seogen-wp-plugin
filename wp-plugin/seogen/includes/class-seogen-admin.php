@@ -2917,8 +2917,17 @@ class SEOgen_Admin {
 				<?php submit_button( __( 'Test API Connection', 'seogen' ), 'secondary', 'submit', false ); ?>
 			</form>
 
-			echo '<h2>' . esc_html__( 'Settings', 'seogen' ) . '</h2>';
+			<h2><?php echo esc_html__( 'Settings', 'seogen' ); ?></h2>
+			<form method="post" action="options.php">
+				<?php settings_fields( 'seogen_settings_group' ); ?>
+				<?php do_settings_sections( 'seogen_settings_group' ); ?>
+				<?php submit_button(); ?>
+			</form>
+			
 			<?php
+			// Display license status
+			$this->render_license_status_section();
+			
 			$next_url = $this->get_next_setup_page_url( 'hyper-local-settings' );
 			if ( $next_url ) :
 			?>
