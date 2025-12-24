@@ -8,15 +8,12 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
-require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-navigation.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
-	use SEOgen_Admin_Helpers;
 	use SEOgen_Admin_City_Hub_Helpers;
 	use SEOgen_Admin_Cities;
 	use SEOgen_Admin_Import;
-	use SEOgen_Admin_Navigation;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
@@ -29,11 +26,6 @@ class SEOgen_Admin {
 
 	public function run() {
 		error_log( '[HyperLocal] SEOgen_Admin::run() called - registering admin-post handlers' );
-		
-		// Store instance globally for trait access
-		global $seogen_admin_instance;
-		$seogen_admin_instance = $this;
-		
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_post_seogen_test_connection', array( $this, 'handle_test_connection' ) );
@@ -2077,9 +2069,6 @@ class SEOgen_Admin {
 			self::OPTION_NAME,
 			array( $this, 'sanitize_settings' )
 		);
-		
-		// Handle redirect after save
-		add_action( 'admin_init', array( $this, 'handle_settings_redirect' ), 20 );
 
 		add_settings_section(
 			'seogen_settings_section_main',
@@ -2830,15 +2819,12 @@ class SEOgen_Admin {
 
 			<hr style="margin: 30px 0;">
 
-			<form method="post" action="options.php" id="seogen-settings-form">
+			<form method="post" action="options.php">
 				<?php
 				settings_fields( 'seogen_settings_group' );
 				do_settings_sections( 'seogen-settings' );
+				submit_button();
 				?>
-				<p class="submit">
-					<?php submit_button( __( 'Save Changes', 'seogen' ), 'primary', 'submit', false ); ?>
-					<?php $this->render_save_continue_button( 'hyper-local-settings' ); ?>
-				</p>
 			</form>
 		</div>
 		<?php
