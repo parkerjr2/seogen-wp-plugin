@@ -170,13 +170,11 @@ trait SEOgen_Admin_Extensions {
 
 				<?php submit_button( __( 'Save Business Configuration', 'seogen' ) ); ?>
 			</form>
-			
 			<p>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-services' ) ); ?>" class="button button-secondary">
 					<?php echo esc_html__( 'Next Step: Services →', 'seogen' ); ?>
 				</a>
-			</div>
-			
+			</p>
 			<p style="margin-top: 20px;">
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-bulk' ) ); ?>" class="button button-secondary">
 					<?php echo esc_html__( 'Next Step: Generate Service Pages →', 'seogen' ); ?>
@@ -928,5 +926,15 @@ trait SEOgen_Admin_Extensions {
 			'hl_msg' => rawurlencode( $notice_msg ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
+	}
+	
+	public function render_service_hubs_page_footer() {
+		?>
+		<p style="margin-top: 20px;">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-bulk' ) ); ?>" class="button button-secondary">
+				<?php echo esc_html__( 'Next Step: Generate Service Pages →', 'seogen' ); ?>
+			</a>
+		</p>
+		<?php
 	}
 }
