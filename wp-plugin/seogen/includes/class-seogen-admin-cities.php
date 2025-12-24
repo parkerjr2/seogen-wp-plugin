@@ -97,7 +97,7 @@ trait SEOgen_Admin_Cities {
 		
 		if ( $index < 0 ) {
 			wp_redirect( add_query_arg( array(
-				'page' => 'hyper-local-city-hubs',
+				'page' => 'hyper-local-services',
 				'hl_notice' => 'error',
 				'hl_msg' => rawurlencode( 'Invalid city index.' ),
 			), admin_url( 'admin.php' ) ) );
@@ -110,7 +110,7 @@ trait SEOgen_Admin_Cities {
 		
 		if ( ! isset( $cities[ $index ] ) ) {
 			wp_redirect( add_query_arg( array(
-				'page' => 'hyper-local-city-hubs',
+				'page' => 'hyper-local-services',
 				'hl_notice' => 'error',
 				'hl_msg' => rawurlencode( 'City not found.' ),
 			), admin_url( 'admin.php' ) ) );
@@ -128,7 +128,7 @@ trait SEOgen_Admin_Cities {
 		update_option( 'hyper_local_cities_cache', $cities );
 
 		wp_redirect( add_query_arg( array(
-			'page' => 'hyper-local-city-hubs',
+			'page' => 'hyper-local-services',
 			'hl_notice' => 'created',
 			'hl_msg' => rawurlencode( 'City "' . $deleted_city_name . '" deleted successfully.' ),
 		), admin_url( 'admin.php' ) ) );
