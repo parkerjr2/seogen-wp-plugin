@@ -283,21 +283,28 @@ trait SEOgen_Admin_Extensions {
 				.hl-column .wp-list-table td {
 					word-wrap: break-word;
 					overflow-wrap: break-word;
+					padding: 8px 10px;
+				}
+				.hl-column .wp-list-table input[type="text"],
+				.hl-column .wp-list-table select {
+					width: 95%;
+					max-width: 100%;
+					box-sizing: border-box;
 				}
 				.hl-services-table th:nth-child(1),
-				.hl-services-table td:nth-child(1) { width: 30%; }
+				.hl-services-table td:nth-child(1) { width: 28%; }
 				.hl-services-table th:nth-child(2),
-				.hl-services-table td:nth-child(2) { width: 25%; }
+				.hl-services-table td:nth-child(2) { width: 28%; }
 				.hl-services-table th:nth-child(3),
-				.hl-services-table td:nth-child(3) { width: 25%; }
+				.hl-services-table td:nth-child(3) { width: 24%; }
 				.hl-services-table th:nth-child(4),
-				.hl-services-table td:nth-child(4) { width: 20%; }
+				.hl-services-table td:nth-child(4) { width: 20%; text-align: center; }
 				.hl-cities-table th:nth-child(1),
-				.hl-cities-table td:nth-child(1) { width: 45%; }
+				.hl-cities-table td:nth-child(1) { width: 50%; }
 				.hl-cities-table th:nth-child(2),
 				.hl-cities-table td:nth-child(2) { width: 30%; }
 				.hl-cities-table th:nth-child(3),
-				.hl-cities-table td:nth-child(3) { width: 25%; }
+				.hl-cities-table td:nth-child(3) { width: 20%; text-align: center; }
 				.hl-section-divider {
 					border: 0;
 					border-top: 1px solid #dcdcde;
