@@ -1389,18 +1389,22 @@ class SEOgen_Wizard {
 		}
 		
 		// Get posted data
-		$settings = isset( $_POST['seogen_settings'] ) ? $_POST['seogen_settings'] : array();
+		$posted_settings = isset( $_POST['seogen_settings'] ) ? $_POST['seogen_settings'] : array();
+		
+		// Get existing settings to preserve other fields
+		$existing_settings = get_option( 'seogen_settings', array() );
 		
 		// Sanitize settings - ensure api_url has default if empty
-		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$api_url = isset( $posted_settings['api_url'] ) ? trim( $posted_settings['api_url'] ) : '';
 		if ( empty( $api_url ) ) {
 			$api_url = 'https://seogen-production.up.railway.app';
 		}
 		
-		$sanitized = array(
+		// Merge with existing settings to preserve header/footer templates, etc.
+		$sanitized = array_merge( $existing_settings, array(
 			'api_url' => esc_url_raw( $api_url ),
-			'license_key' => isset( $settings['license_key'] ) ? sanitize_text_field( $settings['license_key'] ) : '',
-		);
+			'license_key' => isset( $posted_settings['license_key'] ) ? sanitize_text_field( $posted_settings['license_key'] ) : '',
+		) );
 		
 		error_log( '[WIZARD] Saving settings - api_url: ' . $sanitized['api_url'] . ', license_key: ' . ( $sanitized['license_key'] ? 'SET' : 'EMPTY' ) );
 		
