@@ -304,6 +304,11 @@ trait SEOgen_Admin_Extensions {
 
 				<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
 			</form>
+			<p>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-service-hubs' ) ); ?>" class="button button-secondary">
+					<?php echo esc_html__( 'Next Step: Service Hubs →', 'seogen' ); ?>
+				</a>
+			</p>
 		</div>
 		<?php
 	}
