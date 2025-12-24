@@ -541,6 +541,8 @@
 		processBatch: function() {
 			var self = this;
 			
+			console.log('[WIZARD] processBatch called - sending AJAX request');
+			
 			$.ajax({
 				url: seogenWizard.ajaxurl,
 				method: 'POST',
@@ -606,8 +608,14 @@
 						$('.seogen-wizard-skip-generation').prop('disabled', false);
 					}
 				},
-				error: function(xhr) {
-					alert('An error occurred during generation. Please try again.');
+				error: function(xhr, status, error) {
+					console.error('[WIZARD] processBatch AJAX error:', {
+						status: xhr.status,
+						statusText: xhr.statusText,
+						responseText: xhr.responseText,
+						error: error
+					});
+					alert('An error occurred during generation. Please check console for details.');
 					$('.seogen-wizard-start-generation').removeClass('loading').prop('disabled', false);
 					$('.seogen-wizard-skip-generation').prop('disabled', false);
 				}
