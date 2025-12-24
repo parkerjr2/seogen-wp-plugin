@@ -78,7 +78,7 @@ trait SEOgen_Admin_Cities {
 		update_option( 'hyper_local_cities_cache', $unique_cities );
 
 		wp_redirect( add_query_arg( array(
-			'page' => 'hyper-local-city-hubs',
+			'page' => 'hyper-local-services',
 			'hl_notice' => 'created',
 			'hl_msg' => rawurlencode( 'Cities saved successfully.' ),
 		), admin_url( 'admin.php' ) ) );
