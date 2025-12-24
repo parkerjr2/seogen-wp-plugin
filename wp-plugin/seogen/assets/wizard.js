@@ -805,23 +805,54 @@
 			
 			console.log('[WIZARD] Canceling generation...');
 			
+			// First, cancel the backend job
 			$.ajax({
 				url: seogenWizard.ajaxurl,
 				method: 'POST',
 				data: {
-					action: 'seogen_wizard_reset',
+					action: 'seogen_wizard_cancel_backend',
 					nonce: seogenWizard.nonce
 				},
 				success: function(response) {
-					if (response.success) {
-						console.log('[WIZARD] Generation canceled, reloading...');
-						location.reload();
-					} else {
-						alert(response.data.message || 'Failed to cancel generation');
-					}
+					console.log('[WIZARD] Backend cancel response:', response);
+					
+					// Then reset wizard state
+					$.ajax({
+						url: seogenWizard.ajaxurl,
+						method: 'POST',
+						data: {
+							action: 'seogen_wizard_reset',
+							nonce: seogenWizard.nonce
+						},
+						success: function(resetResponse) {
+							if (resetResponse.success) {
+								console.log('[WIZARD] Generation canceled, reloading...');
+								location.reload();
+							} else {
+								alert(resetResponse.data.message || 'Failed to reset wizard');
+							}
+						},
+						error: function() {
+							alert('Failed to reset wizard state');
+						}
+					});
 				},
-				error: function() {
-					alert('An error occurred while canceling generation');
+				error: function(xhr) {
+					console.error('[WIZARD] Backend cancel failed:', xhr);
+					// Still try to reset wizard state even if backend cancel fails
+					$.ajax({
+						url: seogenWizard.ajaxurl,
+						method: 'POST',
+						data: {
+							action: 'seogen_wizard_reset',
+							nonce: seogenWizard.nonce
+						},
+						success: function(response) {
+							if (response.success) {
+								location.reload();
+							}
+						}
+					});
 				}
 			});
 		}

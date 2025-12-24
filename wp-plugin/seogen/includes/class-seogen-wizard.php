@@ -33,6 +33,7 @@ class SEOgen_Wizard {
 		add_action( 'wp_ajax_seogen_wizard_skip_generation', array( $this, 'ajax_skip_generation' ) );
 		add_action( 'wp_ajax_seogen_wizard_dismiss', array( $this, 'ajax_dismiss_wizard' ) );
 		add_action( 'wp_ajax_seogen_wizard_reset', array( $this, 'ajax_reset_wizard' ) );
+		add_action( 'wp_ajax_seogen_wizard_cancel_backend', array( $this, 'ajax_cancel_backend' ) );
 		
 		// Admin-post handlers for form submissions
 		add_action( 'admin_post_seogen_wizard_save_settings', array( $this, 'handle_save_settings' ) );
@@ -1102,6 +1103,8 @@ class SEOgen_Wizard {
 		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
 		$canonical_key = isset( $item['canonical_key'] ) ? $item['canonical_key'] : '';
 		
+		error_log( '[WIZARD] import_page_from_api_result - title: ' . $title . ', page_mode: ' . $page_mode . ', hub_key from item: ' . ( isset( $item['hub_key'] ) ? $item['hub_key'] : 'NOT SET' ) );
+		
 		// Get settings and config
 		$settings_method = new ReflectionMethod( $admin, 'get_settings' );
 		$settings_method->setAccessible( true );
@@ -1166,10 +1169,12 @@ class SEOgen_Wizard {
 		$existing_post_id = 0;
 		if ( $page_mode === 'service_hub' ) {
 			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+			error_log( '[WIZARD] Checking for existing Service Hub: hub_key=' . $hub_key . ', title=' . $title );
 			if ( $hub_key ) {
 				$find_hub_method = new ReflectionMethod( $admin, 'find_service_hub_post_id' );
 				$find_hub_method->setAccessible( true );
 				$existing_post_id = $find_hub_method->invoke( $admin, $hub_key );
+				error_log( '[WIZARD] Found existing Service Hub post_id: ' . $existing_post_id );
 			}
 		} elseif ( $page_mode === 'city_hub' ) {
 			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
@@ -1178,6 +1183,7 @@ class SEOgen_Wizard {
 				$find_city_hub_method = new ReflectionMethod( $admin, 'find_city_hub_post_id' );
 				$find_city_hub_method->setAccessible( true );
 				$existing_post_id = $find_city_hub_method->invoke( $admin, $hub_key, $city_slug );
+				error_log( '[WIZARD] Found existing City Hub post_id: ' . $existing_post_id );
 			}
 		}
 		
@@ -1204,11 +1210,13 @@ class SEOgen_Wizard {
 		
 		if ( $existing_post_id > 0 ) {
 			// Update existing post
+			error_log( '[WIZARD] Updating existing post ID ' . $existing_post_id . ': ' . $title );
 			$post_data['ID'] = $existing_post_id;
 			unset( $post_data['post_name'] ); // Avoid slug conflicts on update
 			$post_id = wp_update_post( $post_data, true );
 		} else {
 			// Create new post
+			error_log( '[WIZARD] Creating new post: ' . $title );
 			$post_id = wp_insert_post( $post_data, true );
 		}
 		
@@ -1381,6 +1389,81 @@ class SEOgen_Wizard {
 		wp_send_json_success( array(
 			'message' => 'Wizard dismissed',
 		) );
+	}
+	
+	/**
+	 * AJAX: Cancel backend jobs
+	 */
+	public function ajax_cancel_backend() {
+		check_ajax_referer( 'seogen_wizard_nonce', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+		
+		$settings = get_option( 'seogen_settings', array() );
+		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			wp_send_json_success( array( 'message' => 'No API settings configured, nothing to cancel' ) );
+		}
+		
+		// Get all running job IDs from wizard state
+		$state = $this->get_wizard_state();
+		$job_ids = array();
+		
+		if ( isset( $state['generation']['phases'] ) ) {
+			foreach ( $state['generation']['phases'] as $phase_name => $phase_data ) {
+				if ( isset( $phase_data['job_id'] ) && ! empty( $phase_data['job_id'] ) ) {
+					$job_ids[] = $phase_data['job_id'];
+				}
+			}
+		}
+		
+		if ( empty( $job_ids ) ) {
+			wp_send_json_success( array( 'message' => 'No running jobs to cancel' ) );
+		}
+		
+		// Cancel each job via backend API
+		$canceled_count = 0;
+		$errors = array();
+		
+		foreach ( $job_ids as $job_id ) {
+			$response = wp_remote_post(
+				rtrim( $api_url, '/' ) . '/bulk-jobs/' . $job_id . '/cancel',
+				array(
+					'headers' => array( 'Content-Type' => 'application/json' ),
+					'body' => wp_json_encode( array( 'license_key' => $license_key ) ),
+					'timeout' => 15,
+				)
+			);
+			
+			if ( is_wp_error( $response ) ) {
+				$errors[] = 'Job ' . $job_id . ': ' . $response->get_error_message();
+			} else {
+				$status_code = wp_remote_retrieve_response_code( $response );
+				if ( $status_code === 200 ) {
+					$canceled_count++;
+				} else {
+					$body = wp_remote_retrieve_body( $response );
+					$errors[] = 'Job ' . $job_id . ': HTTP ' . $status_code . ' - ' . $body;
+				}
+			}
+		}
+		
+		if ( $canceled_count > 0 ) {
+			wp_send_json_success( array(
+				'message' => sprintf( 'Canceled %d backend job(s)', $canceled_count ),
+				'canceled' => $canceled_count,
+				'errors' => $errors,
+			) );
+		} else {
+			wp_send_json_error( array(
+				'message' => 'Failed to cancel backend jobs',
+				'errors' => $errors,
+			) );
+		}
 	}
 	
 	/**
