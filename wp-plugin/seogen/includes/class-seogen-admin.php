@@ -1571,8 +1571,8 @@ class SEOgen_Admin {
 		// 4. Services
 		add_submenu_page(
 			'hyper-local',
-			__( 'Services', 'seogen' ),
-			__( 'Services', 'seogen' ),
+			__( 'Services & Cities', 'seogen' ),
+			__( 'Services & Cities', 'seogen' ),
 			'manage_options',
 			'hyper-local-services',
 			array( $this, 'render_services_page' )
@@ -4374,17 +4374,10 @@ class SEOgen_Admin {
 		}
 
 		echo '<div class="wrap">';
-		echo '<h1>' . esc_html__( 'City Hubs (Step 4)', 'seogen' ) . '</h1>';
-		echo '<p>' . esc_html__( 'Generate city hub pages that serve as parent pages for service+city pages. Each city hub will have the same layout as service hub pages.', 'seogen' ) . '</p>';
+		echo '<h1>' . esc_html__( 'City Hubs', 'seogen' ) . '</h1>';
+		echo '<p>' . esc_html__( 'Generate city hub pages. City hubs are top-level pages that link to all service+city pages for that location.', 'seogen' ) . '</p>';
+		echo '<p><em>' . esc_html__( 'Note: Cities are now managed on the Services & Cities page.', 'seogen' ) . '</em></p>';
 
-		// Cities Management Section
-		echo '<h2>' . esc_html__( 'Manage Cities', 'seogen' ) . '</h2>';
-		echo '<p>' . esc_html__( 'Add or remove cities that will be available for city hub page generation.', 'seogen' ) . '</p>';
-		
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="margin-bottom: 30px;">';
-		wp_nonce_field( 'hyper_local_save_cities', 'hyper_local_cities_nonce' );
-		echo '<input type="hidden" name="action" value="hyper_local_save_cities" />';
-		
 		echo '<h3>' . esc_html__( 'Current Cities', 'seogen' ) . '</h3>';
 		echo '<table class="wp-list-table widefat striped">';
 		echo '<thead><tr>';
@@ -4416,10 +4409,6 @@ class SEOgen_Admin {
 		}
 		
 		echo '</tbody></table>';
-		
-		echo '<h3>' . esc_html__( 'Add New Cities', 'seogen' ) . '</h3>';
-		echo '<p>' . esc_html__( 'Add multiple cities at once. Format: "City Name, ST" (one per line). State code is required.', 'seogen' ) . '</p>';
-		echo '<textarea name="bulk_cities" rows="6" class="large-text" placeholder="Tulsa, OK&#10;Broken Arrow, OK&#10;Owasso, OK"></textarea>';
 		
 		echo '<p class="submit">';
 		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Save Cities', 'seogen' ) . '</button>';

@@ -247,8 +247,36 @@ trait SEOgen_Admin_Extensions {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Services', 'seogen' ); ?></h1>
-			<p><?php esc_html_e( 'Configure the services your business offers, grouped by hub category.', 'seogen' ); ?></p>
+			<h1><?php esc_html_e( 'Services & Cities', 'seogen' ); ?></h1>
+			<p><?php esc_html_e( 'Configure the services your business offers and the cities you serve.', 'seogen' ); ?></p>
+			
+			<style>
+				.hl-two-column-layout {
+					display: flex;
+					gap: 30px;
+					margin-top: 20px;
+				}
+				.hl-column {
+					flex: 1;
+					min-width: 0;
+				}
+				@media (max-width: 1200px) {
+					.hl-two-column-layout {
+						flex-direction: column;
+					}
+				}
+				.hl-column h2 {
+					margin-top: 0;
+					border-bottom: 2px solid #2271b1;
+					padding-bottom: 10px;
+				}
+			</style>
+			
+			<div class="hl-two-column-layout">
+				<!-- LEFT COLUMN: SERVICES -->
+				<div class="hl-column">
+					<h2><?php esc_html_e( 'Services', 'seogen' ); ?></h2>
+					<p><?php esc_html_e( 'Configure the services your business offers, grouped by hub category.', 'seogen' ); ?></p>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'hyper_local_save_services', 'hyper_local_services_nonce' ); ?>
@@ -302,13 +330,71 @@ trait SEOgen_Admin_Extensions {
 				<p><?php esc_html_e( 'Add multiple services at once. Format: "hub_key: Service Name" (one per line). If hub_key is omitted, the first hub will be used.', 'seogen' ); ?></p>
 				<textarea name="bulk_services" rows="10" class="large-text" placeholder="residential: Outlet Installation&#10;commercial: Panel Upgrade&#10;Lighting Repair"></textarea>
 
-				<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
-			</form>
-			<p>
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-service-hubs' ) ); ?>" class="button button-secondary">
-					<?php echo esc_html__( 'Next Step: Service Hubs →', 'seogen' ); ?>
-				</a>
-			</p>
+					<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
+				</form>
+			</div>
+			
+			<!-- RIGHT COLUMN: CITIES -->
+			<div class="hl-column">
+				<h2><?php esc_html_e( 'Cities', 'seogen' ); ?></h2>
+				<p><?php esc_html_e( 'Add and manage the cities your business serves.', 'seogen' ); ?></p>
+				
+				<?php
+				$cities = get_option( 'hyper_local_cities_cache', array() );
+				?>
+				
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<?php wp_nonce_field( 'hyper_local_save_cities', 'hyper_local_cities_nonce' ); ?>
+					<input type="hidden" name="action" value="hyper_local_save_cities" />
+					
+					<h3><?php esc_html_e( 'Current Cities', 'seogen' ); ?></h3>
+					<table class="wp-list-table widefat fixed striped">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'City Name', 'seogen' ); ?></th>
+								<th><?php esc_html_e( 'State', 'seogen' ); ?></th>
+								<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php if ( ! empty( $cities ) ) : ?>
+								<?php foreach ( $cities as $idx => $city ) : ?>
+									<tr>
+										<td>
+											<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][name]" value="<?php echo esc_attr( $city['name'] ); ?>" class="regular-text" required />
+										</td>
+										<td>
+											<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][state]" value="<?php echo esc_attr( $city['state'] ); ?>" class="regular-text" required />
+										</td>
+										<td>
+											<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ), 'hyper_local_delete_city_' . $idx, 'nonce' ) ); ?>" 
+											   class="button button-small" 
+											   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this city?', 'seogen' ); ?>');"><?php esc_html_e( 'Delete', 'seogen' ); ?></a>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							<?php else : ?>
+								<tr>
+									<td colspan="3"><?php esc_html_e( 'No cities configured yet. Add cities using the bulk add feature below.', 'seogen' ); ?></td>
+								</tr>
+							<?php endif; ?>
+						</tbody>
+					</table>
+					
+					<h3><?php esc_html_e( 'Bulk Add Cities', 'seogen' ); ?></h3>
+					<p><?php esc_html_e( 'Add multiple cities at once. Format: "City Name, State" (one per line).', 'seogen' ); ?></p>
+					<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Austin, TX&#10;Dallas, TX&#10;Houston, TX"></textarea>
+					
+					<?php submit_button( __( 'Save Cities', 'seogen' ) ); ?>
+				</form>
+			</div>
+		</div>
+		
+		<p style="margin-top: 30px;">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-service-hubs' ) ); ?>" class="button button-secondary">
+				<?php echo esc_html__( 'Next Step: Service Hubs →', 'seogen' ); ?>
+			</a>
+		</p>
 		</div>
 		<?php
 	}
