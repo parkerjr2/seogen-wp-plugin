@@ -630,23 +630,37 @@
 		showBatchResults: function(results) {
 			var self = this;
 			
+			console.log('[WIZARD] showBatchResults called with:', results);
+			
 			if (!results || !Array.isArray(results)) {
+				console.log('[WIZARD] No results or not an array');
 				return;
 			}
 			
-			results.forEach(function(result) {
+			console.log('[WIZARD] Processing', results.length, 'results');
+			
+			results.forEach(function(result, index) {
+				console.log('[WIZARD] Result', index, ':', result);
+				
 				var icon = '●';
 				var color = '#999';
-				var text = result.service || result.city || 'Page';
+				var text = result.title || result.service || result.city || 'Page';
 				
-				if (result.status === 'success') {
+				if (result.success) {
+					icon = '✓';
+					color = '#46b450';
+					text += ' - Created (post_id: ' + result.post_id + ')';
+					console.log('[WIZARD] SUCCESS:', text);
+				} else if (result.status === 'success') {
 					icon = '✓';
 					color = '#46b450';
 					text += ' - Created';
+					console.log('[WIZARD] SUCCESS:', text);
 				} else if (result.status === 'skipped') {
 					icon = '○';
 					color = '#ffb900';
 					text += ' - Skipped (already exists)';
+					console.log('[WIZARD] SKIPPED:', text);
 				} else if (result.status === 'error') {
 					icon = '✗';
 					color = '#dc3232';
@@ -654,10 +668,12 @@
 					if (result.error) {
 						text += ': ' + result.error;
 					}
+					console.error('[WIZARD] ERROR:', text);
 				} else if (result.error) {
 					icon = '✗';
 					color = '#dc3232';
 					text += ' - ' + result.error;
+					console.error('[WIZARD] ERROR:', text);
 				}
 				
 				self.addActivityLog('<span style="color: ' + color + ';">' + icon + ' ' + text + '</span>');
