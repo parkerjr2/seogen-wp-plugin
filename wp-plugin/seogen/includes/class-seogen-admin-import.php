@@ -213,7 +213,7 @@ trait SEOgen_Admin_Import {
 		// Create/update post with parent relationship
 		$post_data = array(
 			'post_type' => 'service_page',
-			'post_status' => 'draft',
+			'post_status' => 'publish',
 			'post_title' => $title,
 			'post_name' => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,
