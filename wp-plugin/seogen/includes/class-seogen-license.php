@@ -113,19 +113,7 @@ class SEOgen_License {
 			'timestamp' => current_time( 'mysql' ),
 		);
 		
-		if ( 'expired' === $license_status || 'cancelled' === $license_status || 'inactive' === $license_status ) {
-			// Unpublish all generated pages
-			$unpublished_count = self::unpublish_generated_pages();
-			$result['pages_unpublished'] = $unpublished_count;
-			$log_data['pages_unpublished'] = $unpublished_count;
-			$log_data['action'] = 'unpublished';
-			
-			// Set transient for admin notice
-			set_transient( 'seogen_license_expired_notice', $unpublished_count, 300 );
-			
-			self::log_to_console( 'SEOgen License Expired', $log_data );
-			
-		} elseif ( 'active' === $license_status ) {
+		if ( 'active' === $license_status ) {
 			// Clear any expired notices and set reactivation notice
 			delete_transient( 'seogen_license_expired_notice' );
 			
@@ -137,6 +125,18 @@ class SEOgen_License {
 			$log_data['action'] = 'renewed';
 			
 			self::log_to_console( 'SEOgen License Renewed', $log_data );
+			
+		} else {
+			// Any non-active status (inactive, expired, cancelled, etc.) unpublishes pages
+			$unpublished_count = self::unpublish_generated_pages();
+			$result['pages_unpublished'] = $unpublished_count;
+			$log_data['pages_unpublished'] = $unpublished_count;
+			$log_data['action'] = 'unpublished';
+			
+			// Set transient for admin notice
+			set_transient( 'seogen_license_expired_notice', $unpublished_count, 300 );
+			
+			self::log_to_console( 'SEOgen License Expired', $log_data );
 		}
 		
 		return rest_ensure_response( $result );
