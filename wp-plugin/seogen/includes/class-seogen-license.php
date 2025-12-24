@@ -113,7 +113,7 @@ class SEOgen_License {
 			'timestamp' => current_time( 'mysql' ),
 		);
 		
-		if ( 'expired' === $license_status || 'cancelled' === $license_status ) {
+		if ( 'expired' === $license_status || 'cancelled' === $license_status || 'inactive' === $license_status ) {
 			// Unpublish all generated pages
 			$unpublished_count = self::unpublish_generated_pages();
 			$result['pages_unpublished'] = $unpublished_count;
