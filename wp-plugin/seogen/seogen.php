@@ -19,7 +19,6 @@ define( 'SEOGEN_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SEOGEN_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-plugin.php';
-require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-wizard.php';
 
 function seogen_plugin() {
 	static $plugin = null;
@@ -29,17 +28,8 @@ function seogen_plugin() {
 	return $plugin;
 }
 
-function seogen_wizard() {
-	static $wizard = null;
-	if ( null === $wizard ) {
-		$wizard = new SEOgen_Wizard();
-	}
-	return $wizard;
-}
-
 function seogen_run() {
 	seogen_plugin()->run();
-	seogen_wizard();
 }
 add_action( 'plugins_loaded', 'seogen_run' );
 
