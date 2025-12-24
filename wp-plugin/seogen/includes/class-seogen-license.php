@@ -23,6 +23,12 @@ class SEOgen_License {
 	 * Initialize license management
 	 */
 	public static function init() {
+		// Log initialization
+		self::log_to_console( 'SEOgen License Init', array(
+			'class_loaded' => true,
+			'timestamp' => current_time( 'mysql' )
+		) );
+		
 		// Register REST API endpoint for license status updates
 		add_action( 'rest_api_init', array( __CLASS__, 'register_rest_routes' ) );
 		
@@ -163,6 +169,12 @@ class SEOgen_License {
 	 * Handle API key update - register site with Railway
 	 */
 	public static function handle_api_key_update( $old_value, $new_value ) {
+		// Log that hook fired
+		self::log_to_console( 'SEOgen Hook Fired', array(
+			'hook' => 'update_option_seogen_settings',
+			'timestamp' => current_time( 'mysql' )
+		) );
+		
 		// Check if license key changed
 		$old_license_key = isset( $old_value['license_key'] ) ? $old_value['license_key'] : '';
 		$new_license_key = isset( $new_value['license_key'] ) ? $new_value['license_key'] : '';
