@@ -62,14 +62,21 @@ class SEOgen_License {
 	 * Verify webhook secret key
 	 */
 	public static function verify_webhook_secret( $request ) {
-		$secret_header = $request->get_header( 'X-SEOgen-Secret' );
 		$stored_secret = get_option( 'seogen_webhook_secret' );
 		
 		if ( empty( $stored_secret ) ) {
 			return new WP_Error( 'no_secret', 'Webhook secret not configured', array( 'status' => 500 ) );
 		}
 		
-		if ( ! hash_equals( $stored_secret, $secret_header ) ) {
+		// Check for secret in body first (for manual testing), then header
+		$params = $request->get_json_params();
+		$provided_secret = isset( $params['secret'] ) ? $params['secret'] : $request->get_header( 'X-SEOgen-Secret' );
+		
+		if ( empty( $provided_secret ) ) {
+			return new WP_Error( 'no_secret_provided', 'No webhook secret provided', array( 'status' => 403 ) );
+		}
+		
+		if ( ! hash_equals( $stored_secret, $provided_secret ) ) {
 			return new WP_Error( 'invalid_secret', 'Invalid webhook secret', array( 'status' => 403 ) );
 		}
 		
@@ -81,7 +88,7 @@ class SEOgen_License {
 	 */
 	public static function handle_license_webhook( $request ) {
 		$params = $request->get_json_params();
-		$license_status = isset( $params['license_status'] ) ? sanitize_text_field( $params['license_status'] ) : '';
+		$license_status = isset( $params['status'] ) ? sanitize_text_field( $params['status'] ) : '';
 		
 		$log_data = array(
 			'timestamp' => current_time( 'mysql' ),
