@@ -23,9 +23,20 @@ class SEOgen_License {
 	 * Initialize license management
 	 */
 	public static function init() {
+		// Check for pending registration
+		$pending_registration = get_transient( 'seogen_trigger_registration' );
+		if ( $pending_registration && is_array( $pending_registration ) ) {
+			delete_transient( 'seogen_trigger_registration' );
+			self::handle_api_key_update( 
+				$pending_registration['old_value'], 
+				$pending_registration['new_value'] 
+			);
+		}
+		
 		// Log initialization
 		self::log_to_console( 'SEOgen License Init', array(
 			'class_loaded' => true,
+			'pending_registration' => ! empty( $pending_registration ),
 			'timestamp' => current_time( 'mysql' )
 		) );
 		
