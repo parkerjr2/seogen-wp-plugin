@@ -22,7 +22,10 @@ trait SEOgen_Admin_Import {
 		$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
 		$hub_label = isset( $item['hub_label'] ) ? $item['hub_label'] : '';
 		
+		error_log( '[IMPORT] import_service_hub_from_result - hub_key: ' . $hub_key . ', hub_label: ' . $hub_label );
+		
 		if ( empty( $hub_key ) ) {
+			error_log( '[IMPORT] ERROR: Missing hub_key in item data' );
 			return array(
 				'success' => false,
 				'error' => 'Missing hub_key in item data',
@@ -36,7 +39,10 @@ trait SEOgen_Admin_Import {
 		$blocks = isset( $result_json['blocks'] ) ? $result_json['blocks'] : array();
 		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : 'service_hub';
 		
+		error_log( '[IMPORT] Service Hub data - title: ' . $title . ', blocks: ' . count( $blocks ) );
+		
 		if ( empty( $blocks ) ) {
+			error_log( '[IMPORT] ERROR: No blocks in result_json' );
 			return array(
 				'success' => false,
 				'error' => 'No blocks in result_json',
@@ -45,6 +51,7 @@ trait SEOgen_Admin_Import {
 		
 		// Build Gutenberg content
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
+		error_log( '[IMPORT] Built Gutenberg content, length: ' . strlen( $gutenberg_markup ) );
 		
 		// Apply Service Hub quality improvements (FAQ dedup, framing, heading variation)
 		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub_label );
@@ -71,6 +78,7 @@ trait SEOgen_Admin_Import {
 		
 		// Check for existing Service Hub
 		$existing_post_id = $this->find_service_hub_post_id( $hub_key );
+		error_log( '[IMPORT] Existing Service Hub post_id: ' . $existing_post_id );
 		
 		// Create/update post
 		$post_data = array(
@@ -82,19 +90,24 @@ trait SEOgen_Admin_Import {
 		);
 		
 		if ( $existing_post_id > 0 ) {
+			error_log( '[IMPORT] Updating existing Service Hub post_id: ' . $existing_post_id );
 			$post_data['ID'] = $existing_post_id;
 			unset( $post_data['post_name'] );
 			$post_id = wp_update_post( $post_data, true );
 		} else {
+			error_log( '[IMPORT] Creating new Service Hub post' );
 			$post_id = wp_insert_post( $post_data, true );
 		}
 		
 		if ( is_wp_error( $post_id ) ) {
+			error_log( '[IMPORT] ERROR creating/updating Service Hub: ' . $post_id->get_error_message() );
 			return array(
 				'success' => false,
 				'error' => $post_id->get_error_message(),
 			);
 		}
+		
+		error_log( '[IMPORT] Service Hub post created/updated successfully, post_id: ' . $post_id );
 		
 		// Save metadata
 		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
@@ -114,6 +127,8 @@ trait SEOgen_Admin_Import {
 		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
 			$this->apply_page_builder_settings( $post_id );
 		}
+		
+		error_log( '[IMPORT] Service Hub import complete - post_id: ' . $post_id . ', title: ' . $title );
 		
 		return array(
 			'success' => true,
