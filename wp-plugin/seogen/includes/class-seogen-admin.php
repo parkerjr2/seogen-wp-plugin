@@ -3110,8 +3110,12 @@ class SEOgen_Admin {
 			'auto_publish'    => ( isset( $_POST['auto_publish'] ) && '1' === (string) wp_unslash( $_POST['auto_publish'] ) ) ? '1' : '0',
 		);
 
+		error_log( '[SEOgen Bulk Validate] Form data: services=' . strlen( $form['services'] ) . ' chars, service_areas=' . strlen( $form['service_areas'] ) . ' chars' );
+
 		$services = $this->parse_bulk_lines( $form['services'] );
 		$areas = $this->parse_service_areas( $form['service_areas'] );
+		
+		error_log( '[SEOgen Bulk Validate] Parsed: ' . count( $services ) . ' services, ' . count( $areas ) . ' areas' );
 		$unique = array();
 		$preview = array();
 		foreach ( $services as $service ) {
@@ -3143,7 +3147,11 @@ class SEOgen_Admin {
 
 		$user_id = get_current_user_id();
 		$validate_key = $this->get_bulk_validate_transient_key( $user_id );
-		set_transient(
+		
+		error_log( '[SEOgen Bulk Validate] Final preview count: ' . count( $preview ) . ' rows' );
+		error_log( '[SEOgen Bulk Validate] Transient key: ' . $validate_key );
+		
+		$result = set_transient(
 			$validate_key,
 			array(
 				'form' => $form,
@@ -3151,6 +3159,8 @@ class SEOgen_Admin {
 			),
 			30 * MINUTE_IN_SECONDS
 		);
+		
+		error_log( '[SEOgen Bulk Validate] Transient set result: ' . ( $result ? 'SUCCESS' : 'FAILED' ) );
 
 		wp_safe_redirect( admin_url( 'admin.php?page=hyper-local-bulk' ) );
 		exit;
