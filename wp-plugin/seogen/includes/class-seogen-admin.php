@@ -1905,14 +1905,13 @@ class SEOgen_Admin {
 					'city'  => sanitize_text_field( (string) $parts[0] ),
 					'state' => '', // Empty state for city/neighborhood-only entries
 				);
-			} elseif ( 2 === count( $parts ) ) {
-				// Standard format: City, ST
+			} elseif ( count( $parts ) >= 2 ) {
+				// Standard format: City, ST (or City, ST, extra - just use first 2)
 				$areas[] = array(
 					'city'  => sanitize_text_field( (string) $parts[0] ),
 					'state' => sanitize_text_field( (string) $parts[1] ),
 				);
 			}
-			// Skip lines that don't match either format
 		}
 		return $areas;
 	}
@@ -2838,6 +2837,10 @@ class SEOgen_Admin {
 			console.log('[SEOgen Bulk] Validated data:', <?php echo wp_json_encode( $validated ); ?>);
 			console.log('[SEOgen Bulk] Has rows:', <?php echo is_array( $validated ) && isset( $validated['rows'] ) && is_array( $validated['rows'] ) ? 'true' : 'false'; ?>);
 			console.log('[SEOgen Bulk] Row count:', <?php echo is_array( $validated ) && isset( $validated['rows'] ) ? count( $validated['rows'] ) : 0; ?>);
+			<?php if ( is_array( $validated ) && isset( $validated['form'] ) ) : ?>
+			console.log('[SEOgen Bulk] Form services:', <?php echo wp_json_encode( isset( $validated['form']['services'] ) ? $validated['form']['services'] : '' ); ?>);
+			console.log('[SEOgen Bulk] Form service_areas:', <?php echo wp_json_encode( isset( $validated['form']['service_areas'] ) ? $validated['form']['service_areas'] : '' ); ?>);
+			<?php endif; ?>
 			</script>
 
 			<?php if ( is_array( $current_job ) ) : ?>
