@@ -2532,10 +2532,33 @@ class SEOgen_Admin {
 		$content = get_post_field( 'post_content', $template_id );
 		if ( is_wp_error( $content ) ) {
 			return '';
+		}
+		
+		return $content;
+	}
+	
+	private function get_settings() {
+		$defaults = array(
+			'api_url'      => self::API_BASE_URL,
+			'license_key'  => '',
+			'design_preset' => 'theme_default',
+			'show_h1_in_content' => '0',
+			'hero_style' => 'minimal',
+			'cta_style' => 'button_only',
+			'enable_mobile_sticky_cta' => '0',
 		);
-		update_post_meta( $post_id, '_elementor_page_settings', $page_settings );
-		update_post_meta( $post_id, '_elementor_template_type', 'wp-page' );
-		update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
+
+		$settings = get_option( self::OPTION_NAME, array() );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+
+		// Always override api_url with constant
+		$settings = wp_parse_args( $settings, $defaults );
+		$settings['api_url'] = self::API_BASE_URL;
+
+		return $settings;
+	}
 
 	public function render_field_api_url() {
 		$settings = $this->get_settings();
