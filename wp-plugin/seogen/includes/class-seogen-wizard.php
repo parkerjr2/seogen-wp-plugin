@@ -1211,7 +1211,6 @@ class SEOgen_Wizard {
 			// Create new post
 			$post_id = wp_insert_post( $post_data, true );
 		}
-		$post_id = wp_insert_post( $post_data );
 		
 		if ( is_wp_error( $post_id ) ) {
 			return array(
