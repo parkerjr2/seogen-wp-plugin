@@ -49,6 +49,10 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_save_cities', array( $this, 'handle_save_cities' ) );
 		add_action( 'admin_post_hyper_local_delete_city', array( $this, 'handle_delete_city' ) );
 		
+		// Deactivation/reactivation handling
+		add_action( 'admin_notices', array( $this, 'show_reactivation_notice' ) );
+		add_action( 'admin_post_seogen_republish_pages', array( $this, 'handle_republish_pages' ) );
+		
 		// AJAX handlers for async city hub generation
 		add_action( 'wp_ajax_seogen_start_city_hub_batch', array( $this, 'ajax_start_city_hub_batch' ) );
 		add_action( 'wp_ajax_seogen_check_city_hub_progress', array( $this, 'ajax_check_city_hub_progress' ) );

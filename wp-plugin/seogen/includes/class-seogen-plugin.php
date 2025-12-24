@@ -618,8 +618,58 @@ class SEOgen_Plugin {
 		flush_rewrite_rules();
 	}
 
+	public function activate() {
+		flush_rewrite_rules();
+		
+		// Check if pages were unpublished and set notice
+		$unpublished_count = get_option( 'seogen_unpublished_count', 0 );
+		if ( $unpublished_count > 0 ) {
+			set_transient( 'seogen_reactivation_notice', $unpublished_count, 60 );
+		}
+	}
+
 	public function deactivate() {
 		flush_rewrite_rules();
+		
+		// Unpublish all generated pages to prevent subscription bypass
+		$this->unpublish_generated_pages();
+	}
+	
+	/**
+	 * Unpublish all generated pages when plugin is deactivated
+	 */
+	private function unpublish_generated_pages() {
+		global $wpdb;
+		
+		// Query all posts with the _hyper_local_managed meta key
+		$generated_post_ids = $wpdb->get_col(
+			"SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_hyper_local_managed' AND meta_value = '1'"
+		);
+		
+		if ( empty( $generated_post_ids ) ) {
+			return;
+		}
+		
+		$unpublished_count = 0;
+		
+		// Change all published posts to draft
+		foreach ( $generated_post_ids as $post_id ) {
+			$post = get_post( $post_id );
+			
+			if ( $post && $post->post_status === 'publish' ) {
+				wp_update_post( array(
+					'ID' => $post_id,
+					'post_status' => 'draft',
+				) );
+				$unpublished_count++;
+			}
+		}
+		
+		// Store count and timestamp for reactivation notice
+		if ( $unpublished_count > 0 ) {
+			update_option( 'seogen_unpublished_count', $unpublished_count );
+			update_option( 'seogen_unpublished_at', current_time( 'mysql' ) );
+		}
 	}
 
 	public function register_post_type() {
