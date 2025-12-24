@@ -2227,6 +2227,21 @@ class SEOgen_Admin {
 
 		$sanitized['disable_theme_header_footer'] = ( isset( $input['disable_theme_header_footer'] ) && '1' === (string) $input['disable_theme_header_footer'] ) ? '1' : '0';
 
+		// Trigger license registration if license key changed
+		if ( class_exists( 'SEOgen_License' ) ) {
+			$old_settings = get_option( self::OPTION_NAME, array() );
+			$old_key = isset( $old_settings['license_key'] ) ? $old_settings['license_key'] : '';
+			$new_key = isset( $sanitized['license_key'] ) ? $sanitized['license_key'] : '';
+			
+			if ( $old_key !== $new_key && ! empty( $new_key ) ) {
+				// Trigger registration on next page load
+				set_transient( 'seogen_trigger_registration', array(
+					'old_value' => $old_settings,
+					'new_value' => $sanitized
+				), 60 );
+			}
+		}
+
 		return $sanitized;
 	}
 
