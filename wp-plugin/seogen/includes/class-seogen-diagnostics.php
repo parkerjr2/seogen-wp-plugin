@@ -16,9 +16,9 @@ class SEOgen_Diagnostics {
 	
 	public function add_diagnostics_page() {
 		add_submenu_page(
-			'hyper-local',
+			'hyper-local-troubleshooting',
 			__( 'Generate Page', 'seogen' ),
-			__( '— Generate Page', 'seogen' ),
+			__( 'Generate Page', 'seogen' ),
 			'manage_options',
 			'hyper-local-generate',
 			array( $this, 'render_diagnostics_page' )

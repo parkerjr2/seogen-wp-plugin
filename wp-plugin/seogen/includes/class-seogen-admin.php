@@ -1529,26 +1529,36 @@ class SEOgen_Admin {
 
 	public function register_menu() {
 		add_menu_page(
-			__( 'Hyper Local Settings', 'seogen' ),
+			__( 'Hyper Local Dashboard', 'seogen' ),
 			__( 'Hyper Local', 'seogen' ),
 			'manage_options',
 			'hyper-local',
-			array( $this, 'render_settings_page' ),
+			array( $this, 'render_dashboard_page' ),
 			'dashicons-chart-area',
 			59
 		);
 
-		// 1. Settings
+		// 1. Dashboard
+		add_submenu_page(
+			'hyper-local',
+			__( 'Dashboard', 'seogen' ),
+			__( 'Dashboard', 'seogen' ),
+			'manage_options',
+			'hyper-local',
+			array( $this, 'render_dashboard_page' )
+		);
+
+		// 2. Settings
 		add_submenu_page(
 			'hyper-local',
 			__( 'Settings', 'seogen' ),
 			__( 'Settings', 'seogen' ),
 			'manage_options',
-			'hyper-local',
+			'hyper-local-settings',
 			array( $this, 'render_settings_page' )
 		);
 
-		// 2. Business Info
+		// 3. Business Info
 		add_submenu_page(
 			'hyper-local',
 			__( 'Business Info', 'seogen' ),
@@ -1558,7 +1568,7 @@ class SEOgen_Admin {
 			array( $this, 'render_business_setup_page' )
 		);
 
-		// 3. Services
+		// 4. Services
 		add_submenu_page(
 			'hyper-local',
 			__( 'Services', 'seogen' ),
@@ -1568,7 +1578,7 @@ class SEOgen_Admin {
 			array( $this, 'render_services_page' )
 		);
 
-		// 4. Service Hubs
+		// 5. Service Hubs
 		add_submenu_page(
 			'hyper-local',
 			__( 'Service Hubs', 'seogen' ),
@@ -1578,7 +1588,7 @@ class SEOgen_Admin {
 			array( $this, 'render_service_hubs_page' )
 		);
 
-		// 5. Generate Service Pages (formerly Bulk Generate)
+		// 6. Generate Service Pages (formerly Bulk Generate)
 		add_submenu_page(
 			'hyper-local',
 			__( 'Generate Service Pages', 'seogen' ),
@@ -1588,7 +1598,7 @@ class SEOgen_Admin {
 			array( $this, 'render_bulk_generate_page' )
 		);
 
-		// 6. City Hubs
+		// 7. City Hubs
 		add_submenu_page(
 			'hyper-local',
 			__( 'City Hubs', 'seogen' ),
@@ -1598,16 +1608,16 @@ class SEOgen_Admin {
 			array( $this, 'render_city_hubs_page' )
 		);
 
-		// 7. View Service Pages
+		// 8. View Pages
 		add_submenu_page(
 			'hyper-local',
-			__( 'View Service Pages', 'seogen' ),
-			__( 'View Service Pages', 'seogen' ),
+			__( 'View Pages', 'seogen' ),
+			__( 'View Pages', 'seogen' ),
 			'edit_posts',
 			'edit.php?post_type=service_page'
 		);
 
-		// 8. Troubleshooting (parent)
+		// 9. Troubleshooting (parent - submenu items added by other classes)
 		add_submenu_page(
 			'hyper-local',
 			__( 'Troubleshooting', 'seogen' ),
@@ -2710,6 +2720,84 @@ class SEOgen_Admin {
 		SEOgen_Troubleshooting::render_page();
 	}
 
+	public function render_dashboard_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$settings = $this->get_settings();
+		$status   = $this->check_api_health( $settings['api_url'] );
+		$has_license_key = ( isset( $settings['license_key'] ) && '' !== trim( (string) $settings['license_key'] ) );
+		?>
+		<div class="wrap">
+			<h1><?php echo esc_html__( 'Hyper Local Dashboard', 'seogen' ); ?></h1>
+			
+			<!-- Quick Start Guide -->
+			<div style="background:#e7f5ff;border-left:4px solid #2271b1;padding:20px;margin:20px 0;">
+				<h2 style="margin-top:0;"><?php echo esc_html__( '🚀 Quick Start Guide', 'seogen' ); ?></h2>
+				<p style="font-size:16px;margin-bottom:15px;"><strong><?php echo esc_html__( 'Follow these steps to generate your pages:', 'seogen' ); ?></strong></p>
+				
+				<ol style="font-size:14px;line-height:1.8;">
+					<li><strong>Settings:</strong> Configure your API connection and license key</li>
+					<li><strong>Business Info:</strong> Enter your business details (name, phone, address, etc.)</li>
+					<li><strong>Services:</strong> Add all services you offer</li>
+					<li><strong>Service Hubs:</strong> Create hub categories to organize your services</li>
+					<li><strong>Generate Service Pages:</strong> Bulk generate pages for all service/city combinations</li>
+					<li><strong>City Hubs:</strong> Generate city-specific hub pages (optional)</li>
+				</ol>
+				
+				<p style="margin-top:15px;">
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-settings' ) ); ?>" class="button button-primary button-large">
+						<?php echo esc_html__( 'Start Setup →', 'seogen' ); ?>
+					</a>
+				</p>
+			</div>
+
+			<!-- Status Overview -->
+			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
+				<h2><?php echo esc_html__( 'System Status', 'seogen' ); ?></h2>
+				
+				<p>
+					<strong><?php echo esc_html__( 'License Key:', 'seogen' ); ?></strong>
+					<?php if ( $has_license_key ) : ?>
+						<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Set', 'seogen' ); ?></span>
+					<?php else : ?>
+						<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Missing', 'seogen' ); ?></span>
+					<?php endif; ?>
+				</p>
+
+				<p>
+					<strong><?php echo esc_html__( 'API Connection:', 'seogen' ); ?></strong>
+					<?php if ( ! empty( $status['ok'] ) ) : ?>
+						<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Connected', 'seogen' ); ?></span>
+					<?php else : ?>
+						<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Not Connected', 'seogen' ); ?></span>
+					<?php endif; ?>
+				</p>
+				<?php if ( empty( $status['ok'] ) && ! empty( $status['error'] ) ) : ?>
+					<p class="description"><?php echo esc_html( $status['error'] ); ?></p>
+				<?php endif; ?>
+			</div>
+
+			<!-- Quick Actions -->
+			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
+				<h2><?php echo esc_html__( 'Quick Actions', 'seogen' ); ?></h2>
+				<p>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-bulk' ) ); ?>" class="button button-secondary">
+						<?php echo esc_html__( 'Generate Service Pages', 'seogen' ); ?>
+					</a>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-city-hubs' ) ); ?>" class="button button-secondary">
+						<?php echo esc_html__( 'Generate City Hubs', 'seogen' ); ?>
+					</a>
+					<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=service_page' ) ); ?>" class="button button-secondary">
+						<?php echo esc_html__( 'View All Pages', 'seogen' ); ?>
+					</a>
+				</p>
+			</div>
+		</div>
+		<?php
+	}
+
 	public function render_settings_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -2721,48 +2809,7 @@ class SEOgen_Admin {
 		?>
 		<div class="wrap">
 			<?php $this->render_test_connection_notice(); ?>
-			<h1><?php echo esc_html__( 'Hyper Local Settings', 'seogen' ); ?></h1>
-			
-			<!-- Quick Start Guide -->
-			<div style="background:#e7f5ff;border-left:4px solid #2271b1;padding:20px;margin:20px 0;">
-				<h2 style="margin-top:0;"><?php echo esc_html__( '🚀 Quick Start Guide', 'seogen' ); ?></h2>
-				<p style="font-size:16px;margin-bottom:15px;"><strong><?php echo esc_html__( 'Follow these steps to generate your pages:', 'seogen' ); ?></strong></p>
-				
-				<ol style="font-size:14px;line-height:1.8;">
-					<li><strong>Business Info:</strong> Enter your business details (name, phone, address, etc.)</li>
-					<li><strong>Services:</strong> Add all services you offer</li>
-					<li><strong>Service Hubs:</strong> Create hub categories to organize your services</li>
-					<li><strong>Generate Service Pages:</strong> Bulk generate pages for all service/city combinations</li>
-					<li><strong>City Hubs:</strong> Generate city-specific hub pages (optional)</li>
-				</ol>
-				
-				<p style="margin-top:15px;">
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-business-setup' ) ); ?>" class="button button-primary button-large">
-						<?php echo esc_html__( 'Start Setup →', 'seogen' ); ?>
-					</a>
-				</p>
-			</div>
-
-			<p>
-				<strong><?php echo esc_html__( 'License Key:', 'seogen' ); ?></strong>
-				<?php if ( $has_license_key ) : ?>
-					<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Set', 'seogen' ); ?></span>
-				<?php else : ?>
-					<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Missing', 'seogen' ); ?></span>
-				<?php endif; ?>
-			</p>
-
-			<p>
-				<strong><?php echo esc_html__( 'API Connection:', 'seogen' ); ?></strong>
-				<?php if ( ! empty( $status['ok'] ) ) : ?>
-					<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Connected', 'seogen' ); ?></span>
-				<?php else : ?>
-					<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Not Connected', 'seogen' ); ?></span>
-				<?php endif; ?>
-			</p>
-			<?php if ( empty( $status['ok'] ) && ! empty( $status['error'] ) ) : ?>
-				<p class="description"><?php echo esc_html( $status['error'] ); ?></p>
-			<?php endif; ?>
+			<h1><?php echo esc_html__( 'Settings', 'seogen' ); ?></h1>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="seogen_test_connection" />
