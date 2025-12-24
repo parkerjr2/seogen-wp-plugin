@@ -17,7 +17,7 @@ class SEOgen_License {
 	/**
 	 * Railway backend URL
 	 */
-	const BACKEND_URL = 'https://your-railway-backend.com'; // TODO: Update with actual Railway URL
+	const BACKEND_URL = 'https://seogen-production.up.railway.app';
 	
 	/**
 	 * Initialize license management
