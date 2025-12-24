@@ -826,9 +826,12 @@ class SEOgen_Wizard {
 		$state[ $imported_key ] = $imported_item_ids;
 		
 		// Check if current phase is complete
+		// IMPORTANT: Only transition when job is complete AND all results have been imported
+		// This prevents transitioning before all Service Hubs are imported
 		$is_phase_complete = ( $job_status === 'completed' || $job_status === 'complete' );
+		$has_more_results = ! empty( $new_cursor );
 		
-		if ( $is_phase_complete ) {
+		if ( $is_phase_complete && ! $has_more_results ) {
 			// Mark phase as completed
 			$state['generation']['phases'][ $current_phase ]['status'] = 'completed';
 			
@@ -1099,6 +1102,7 @@ class SEOgen_Wizard {
 	
 	/**
 	 * Import a page from API result
+	 * Delegates to admin import methods to ensure identical quality to individual generation
 	 */
 	private function import_page_from_api_result( $item, $admin ) {
 		$result_json = isset( $item['result_json'] ) ? $item['result_json'] : null;
@@ -1110,231 +1114,26 @@ class SEOgen_Wizard {
 			);
 		}
 		
-		$title = isset( $result_json['title'] ) ? $result_json['title'] : '';
-		$slug = isset( $result_json['slug'] ) ? $result_json['slug'] : '';
-		$meta_description = isset( $result_json['meta_description'] ) ? $result_json['meta_description'] : '';
-		$blocks = isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ? $result_json['blocks'] : array();
 		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
-		$canonical_key = isset( $item['canonical_key'] ) ? $item['canonical_key'] : '';
 		
-		error_log( '[WIZARD] import_page_from_api_result - title: ' . $title . ', page_mode: ' . $page_mode . ', hub_key from item: ' . ( isset( $item['hub_key'] ) ? $item['hub_key'] : 'NOT SET' ) );
-		
-		// Get settings and config
-		$settings_method = new ReflectionMethod( $admin, 'get_settings' );
-		$settings_method->setAccessible( true );
-		$settings = $settings_method->invoke( $admin );
-		
+		// Get business config
 		$config_method = new ReflectionMethod( $admin, 'get_business_config' );
 		$config_method->setAccessible( true );
 		$config = $config_method->invoke( $admin );
 		
-		// Build Gutenberg content
-		$build_method = new ReflectionMethod( $admin, 'build_gutenberg_content_from_blocks' );
-		$build_method->setAccessible( true );
-		$content = $build_method->invoke( $admin, $blocks, $page_mode );
-		
-		// Apply quality improvements based on page mode - EXACT same as individual generation
-		if ( $page_mode === 'service_hub' ) {
-			$hub_label = isset( $item['hub_label'] ) ? $item['hub_label'] : '';
-			if ( $hub_label ) {
-				$quality_method = new ReflectionMethod( $admin, 'apply_service_hub_quality_improvements' );
-				$quality_method->setAccessible( true );
-				$content = $quality_method->invoke( $admin, $content, $hub_label );
-			}
-		} elseif ( $page_mode === 'city_hub' ) {
-			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
-			$city_name = isset( $item['city'] ) ? $item['city'] : '';
-			$city_state = isset( $item['state'] ) ? $item['state'] : '';
-			$city = array( 'name' => $city_name, 'state' => $city_state );
-			$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
-			
-			if ( $hub_key && $city_name ) {
-				$quality_method = new ReflectionMethod( $admin, 'apply_city_hub_quality_improvements' );
-				$quality_method->setAccessible( true );
-				$content = $quality_method->invoke( $admin, $content, $hub_key, $city, $vertical );
-			}
+		// Route to appropriate admin import method based on page_mode
+		// This ensures wizard produces IDENTICAL pages to individual generation
+		switch ( $page_mode ) {
+			case 'service_hub':
+				return $admin->import_service_hub_from_result( $result_json, $config, $item );
+				
+			case 'city_hub':
+				return $admin->import_city_hub_from_result( $result_json, $config, $item );
+				
+			case 'service_city':
+			default:
+				return $admin->import_service_city_from_result( $result_json, $config, $item );
 		}
-		
-		// Prepend header template - EXACT same as individual generation
-		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
-		if ( $header_template_id > 0 ) {
-			$template_method = new ReflectionMethod( $admin, 'get_template_content' );
-			$template_method->setAccessible( true );
-			$header_content = $template_method->invoke( $admin, $header_template_id );
-			if ( '' !== $header_content ) {
-				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
-				$content = $css_block . $header_content . $content;
-			}
-		}
-		
-		// Append footer template - EXACT same as individual generation
-		$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
-		if ( $footer_template_id > 0 ) {
-			$template_method = new ReflectionMethod( $admin, 'get_template_content' );
-			$template_method->setAccessible( true );
-			$footer_content = $template_method->invoke( $admin, $footer_template_id );
-			if ( '' !== $footer_content ) {
-				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
-				$content = $content . $footer_css_block . $footer_content;
-			}
-		}
-		
-		// Check for existing page based on page mode
-		$existing_post_id = 0;
-		if ( $page_mode === 'service_hub' ) {
-			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
-			error_log( '[WIZARD] Checking for existing Service Hub: hub_key=' . $hub_key . ', title=' . $title );
-			if ( $hub_key ) {
-				$find_hub_method = new ReflectionMethod( $admin, 'find_service_hub_post_id' );
-				$find_hub_method->setAccessible( true );
-				$existing_post_id = $find_hub_method->invoke( $admin, $hub_key );
-				error_log( '[WIZARD] Found existing Service Hub post_id: ' . $existing_post_id );
-			}
-		} elseif ( $page_mode === 'city_hub' ) {
-			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
-			$city_slug = isset( $item['city_slug'] ) ? $item['city_slug'] : '';
-			if ( $hub_key && $city_slug ) {
-				$find_city_hub_method = new ReflectionMethod( $admin, 'find_city_hub_post_id' );
-				$find_city_hub_method->setAccessible( true );
-				$existing_post_id = $find_city_hub_method->invoke( $admin, $hub_key, $city_slug );
-				error_log( '[WIZARD] Found existing City Hub post_id: ' . $existing_post_id );
-			}
-		}
-		
-		// Determine post parent for city hubs
-		$post_parent = 0;
-		if ( $page_mode === 'city_hub' ) {
-			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
-			if ( $hub_key ) {
-				$find_hub_method = new ReflectionMethod( $admin, 'find_service_hub_post_id' );
-				$find_hub_method->setAccessible( true );
-				$post_parent = $find_hub_method->invoke( $admin, $hub_key );
-			}
-		}
-		
-		// Create or update post
-		$post_data = array(
-			'post_type'    => 'service_page',
-			'post_status'  => 'draft',
-			'post_title'   => $title,
-			'post_name'    => sanitize_title( $slug ),
-			'post_content' => $content,
-			'post_parent'  => $post_parent,
-		);
-		
-		if ( $existing_post_id > 0 ) {
-			// Update existing post
-			error_log( '[WIZARD] Updating existing post ID ' . $existing_post_id . ': ' . $title );
-			$post_data['ID'] = $existing_post_id;
-			unset( $post_data['post_name'] ); // Avoid slug conflicts on update
-			$post_id = wp_update_post( $post_data, true );
-		} else {
-			// Create new post
-			error_log( '[WIZARD] Creating new post: ' . $title );
-			$post_id = wp_insert_post( $post_data, true );
-		}
-		
-		if ( is_wp_error( $post_id ) ) {
-			return array(
-				'success' => false,
-				'error' => $post_id->get_error_message(),
-			);
-		}
-		
-		$post_id = (int) $post_id;
-		
-		// Save ALL metadata - EXACT same as individual generation
-		update_post_meta( $post_id, '_hyper_local_managed', '1' );
-		update_post_meta( $post_id, '_seogen_page_mode', $page_mode );
-		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
-		update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
-		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
-		update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
-		update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
-		
-		if ( isset( $config['vertical'] ) ) {
-			update_post_meta( $post_id, '_seogen_vertical', $config['vertical'] );
-		}
-		
-		// Page-mode specific metadata
-		if ( $page_mode === 'service_hub' ) {
-			update_post_meta( $post_id, '_hl_page_type', 'service_hub' );
-			if ( isset( $item['hub_key'] ) ) {
-				update_post_meta( $post_id, '_seogen_hub_key', $item['hub_key'] );
-			}
-			if ( isset( $item['hub_slug'] ) ) {
-				update_post_meta( $post_id, '_seogen_hub_slug', $item['hub_slug'] );
-			}
-		} elseif ( $page_mode === 'city_hub' ) {
-			if ( isset( $item['hub_key'] ) ) {
-				update_post_meta( $post_id, '_seogen_hub_key', $item['hub_key'] );
-			}
-			if ( isset( $item['hub_slug'] ) ) {
-				update_post_meta( $post_id, '_seogen_hub_slug', $item['hub_slug'] );
-			}
-			if ( isset( $item['city'] ) && isset( $item['state'] ) ) {
-				update_post_meta( $post_id, '_seogen_city', $item['city'] . ', ' . $item['state'] );
-			}
-			if ( isset( $item['city_slug'] ) ) {
-				update_post_meta( $post_id, '_seogen_city_slug', $item['city_slug'] );
-			}
-		} else {
-			// service_city mode
-			if ( isset( $item['service'] ) ) {
-				update_post_meta( $post_id, '_hyper_local_service_name', $item['service'] );
-			}
-			if ( isset( $item['city'] ) ) {
-				update_post_meta( $post_id, '_hyper_local_city_name', $item['city'] );
-			}
-			if ( isset( $item['state'] ) && ! empty( $item['state'] ) ) {
-				update_post_meta( $post_id, '_hyper_local_state', $item['state'] );
-			}
-		}
-		
-		// Apply SEO plugin meta - EXACT same as individual generation
-		$focus_keyword = '';
-		if ( $page_mode === 'service_hub' ) {
-			$hub_label = isset( $item['hub_label'] ) ? $item['hub_label'] : '';
-			$focus_keyword = $hub_label . ' Services';
-		} elseif ( $page_mode === 'city_hub' ) {
-			$hub_label = isset( $item['hub_label'] ) ? $item['hub_label'] : '';
-			$city_name = isset( $item['city'] ) ? $item['city'] : '';
-			$focus_keyword = $hub_label . ' ' . $city_name;
-		} else {
-			$service = isset( $item['service'] ) ? $item['service'] : '';
-			$city = isset( $item['city'] ) ? $item['city'] : '';
-			$focus_keyword = $service . ' ' . $city;
-		}
-		
-		if ( $focus_keyword ) {
-			$seo_method = new ReflectionMethod( $admin, 'apply_seo_plugin_meta' );
-			$seo_method->setAccessible( true );
-			$seo_method->invoke( $admin, $post_id, $focus_keyword, $title, $meta_description, true );
-		}
-		
-		// Apply page builder settings - EXACT same as individual generation
-		if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
-			$apply_method = new ReflectionMethod( $admin, 'apply_page_builder_settings' );
-			$apply_method->setAccessible( true );
-			$apply_method->invoke( $admin, $post_id );
-		}
-		
-		// Update slug for city hubs - EXACT same as individual generation
-		if ( $page_mode === 'city_hub' ) {
-			$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, 'draft', 'service_page', $post_parent );
-			if ( $unique_slug ) {
-				wp_update_post( array(
-					'ID' => $post_id,
-					'post_name' => $unique_slug,
-				) );
-			}
-		}
-		
-		return array(
-			'success' => true,
-			'post_id' => $post_id,
-			'title' => $title,
-		);
 	}
 	
 	/**

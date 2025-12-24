@@ -7,11 +7,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
 	use SEOgen_Admin_City_Hub_Helpers;
 	use SEOgen_Admin_Cities;
+	use SEOgen_Admin_Import;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
