@@ -572,6 +572,11 @@ class SEOgen_Wizard {
 		$result = $this->start_phase_service_hubs();
 		
 		if ( ! $result['success'] ) {
+			// Get settings for debugging
+			$settings = get_option( 'seogen_settings', array() );
+			$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : '';
+			$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
+			
 			// Reset generation state on failure
 			$this->update_wizard_state( array(
 				'generation' => array(
@@ -580,7 +585,12 @@ class SEOgen_Wizard {
 			) );
 			wp_send_json_error( array( 
 				'message' => $result['error'],
-				'debug_info' => 'Phase 1 failed to start'
+				'debug_info' => 'Phase 1 failed to start',
+				'debug_settings' => array(
+					'api_url' => $api_url ? 'SET (' . strlen( $api_url ) . ' chars)' : 'EMPTY',
+					'license_key' => $license_key ? 'SET (' . strlen( $license_key ) . ' chars)' : 'EMPTY',
+					'settings_option_exists' => ! empty( $settings ),
+				),
 			) );
 		}
 		
