@@ -608,7 +608,11 @@ class SEOgen_Wizard {
 		
 		$api_url = isset( $settings['api_url'] ) ? trim( $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
-		$vertical = isset( $settings['vertical'] ) ? trim( $settings['vertical'] ) : '';
+		$vertical = isset( $business_config['vertical'] ) ? trim( $business_config['vertical'] ) : '';
+		
+		error_log( '[WIZARD] start_phase_service_hubs - api_url: ' . ( $api_url ? 'SET (' . strlen( $api_url ) . ' chars)' : 'EMPTY' ) );
+		error_log( '[WIZARD] start_phase_service_hubs - license_key: ' . ( $license_key ? 'SET (' . strlen( $license_key ) . ' chars)' : 'EMPTY' ) );
+		error_log( '[WIZARD] start_phase_service_hubs - settings option: ' . wp_json_encode( $settings ) );
 		
 		if ( empty( $api_url ) || empty( $license_key ) ) {
 			return array(
