@@ -1173,11 +1173,6 @@ class SEOgen_Wizard {
 			$post_data['post_parent'] = $post_parent;
 		}
 		
-		// Apply template setting if header/footer should be disabled
-		if ( ! empty( $settings['disable_theme_header_footer'] ) && class_exists( '\Elementor\Plugin' ) ) {
-			$post_data['page_template'] = 'elementor_header_footer';
-		}
-		
 		$post_id = wp_insert_post( $post_data );
 		
 		if ( is_wp_error( $post_id ) ) {
