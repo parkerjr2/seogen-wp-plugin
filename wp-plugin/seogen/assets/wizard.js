@@ -616,25 +616,45 @@
 			$log.prepend(
 				'<div style="padding: 4px 0;">' + message + '</div>'
 			);
+			// Keep log scrolled to top to show latest
+			$log.scrollTop(0);
 		},
 		
 		showBatchResults: function(results) {
 			var self = this;
 			
+			if (!results || !Array.isArray(results)) {
+				return;
+			}
+			
 			results.forEach(function(result) {
-				var icon = result.success ? '✓' : '✗';
-				var color = result.success ? '#46b450' : '#dc3232';
-				var text = result.title || 'Page';
+				var icon = '●';
+				var color = '#999';
+				var text = result.service || result.city || 'Page';
 				
-				if (!result.success && result.error) {
+				if (result.status === 'success') {
+					icon = '✓';
+					color = '#46b450';
+					text += ' - Created';
+				} else if (result.status === 'skipped') {
+					icon = '○';
+					color = '#ffb900';
+					text += ' - Skipped (already exists)';
+				} else if (result.status === 'error') {
+					icon = '✗';
+					color = '#dc3232';
+					text += ' - Error';
+					if (result.error) {
+						text += ': ' + result.error;
+					}
+				} else if (result.error) {
+					icon = '✗';
+					color = '#dc3232';
 					text += ' - ' + result.error;
 				}
 				
 				self.addActivityLog('<span style="color: ' + color + ';">' + icon + ' ' + text + '</span>');
 			});
-			
-			// Keep log scrolled to top to show latest
-			$log.scrollTop(0);
 		},
 		
 		pollGenerationProgress: function() {
