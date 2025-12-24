@@ -2918,15 +2918,6 @@ class SEOgen_Admin {
 			</form>
 
 			echo '<h2>' . esc_html__( 'Settings', 'seogen' ) . '</h2>';
-		echo '<form method="post" action="options.php">';
-		settings_fields( 'seogen_settings_group' );
-		do_settings_sections( 'seogen_settings_group' );
-		submit_button();
-		echo '</form>';
-		
-		// Display license status
-		$this->render_license_status_section();
-			
 			<?php
 			$next_url = $this->get_next_setup_page_url( 'hyper-local-settings' );
 			if ( $next_url ) :
