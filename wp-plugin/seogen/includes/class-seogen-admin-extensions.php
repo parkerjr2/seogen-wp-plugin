@@ -168,7 +168,16 @@ trait SEOgen_Admin_Extensions {
 					</tr>
 				</table>
 
-				<?php submit_button( __( 'Save Business Configuration', 'seogen' ) ); ?>
+				<p class="submit">
+					<?php submit_button( __( 'Save Changes', 'seogen' ), 'primary', 'submit', false ); ?>
+					<?php
+					// Get admin instance to call navigation helper
+					global $seogen_admin_instance;
+					if ( $seogen_admin_instance && method_exists( $seogen_admin_instance, 'render_save_continue_button' ) ) {
+						$seogen_admin_instance->render_save_continue_button( 'hyper-local-business-setup' );
+					}
+					?>
+				</p>
 			</form>
 		</div>
 		<?php
@@ -180,6 +189,9 @@ trait SEOgen_Admin_Extensions {
 		}
 
 		check_admin_referer( 'hyper_local_save_business_config', 'hyper_local_business_config_nonce' );
+		
+		// Check for save & continue redirect
+		$redirect_url = isset( $_POST['_seogen_redirect'] ) ? esc_url_raw( wp_unslash( $_POST['_seogen_redirect'] ) ) : '';
 
 		$config = array(
 			'vertical' => isset( $_POST['vertical'] ) ? sanitize_text_field( wp_unslash( $_POST['vertical'] ) ) : '',
@@ -203,11 +215,15 @@ trait SEOgen_Admin_Extensions {
 
 		update_option( self::BUSINESS_CONFIG_OPTION, $config );
 
-		wp_redirect( add_query_arg( array(
-			'page' => 'hyper-local-business-setup',
-			'hl_notice' => 'created',
-			'hl_msg' => rawurlencode( 'Business configuration saved successfully.' ),
-		), admin_url( 'admin.php' ) ) );
+		// Redirect to next page if save & continue, otherwise back to business setup
+		if ( ! empty( $redirect_url ) ) {
+			wp_redirect( $redirect_url );
+		} else {
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-business-setup',
+				'updated' => 'true',
+			), admin_url( 'admin.php' ) ) );
+		}
 		exit;
 	}
 
