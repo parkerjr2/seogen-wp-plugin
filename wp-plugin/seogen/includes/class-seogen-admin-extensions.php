@@ -251,72 +251,66 @@ trait SEOgen_Admin_Extensions {
 			<p><?php esc_html_e( 'Configure the services your business offers and the cities you serve.', 'seogen' ); ?></p>
 			
 			<style>
-				.hl-two-column-layout {
-					display: flex;
-					gap: 30px;
-					margin-top: 20px;
+				.hl-section {
+					margin-bottom: 40px;
+					padding: 20px;
+					background: #fff;
+					border: 1px solid #c3c4c7;
+					box-shadow: 0 1px 1px rgba(0,0,0,.04);
 				}
-				.hl-column {
-					flex: 1;
-					min-width: 0;
-				}
-				@media (max-width: 1200px) {
-					.hl-two-column-layout {
-						flex-direction: column;
-					}
-				}
-				.hl-column h2 {
+				.hl-section h2 {
 					margin-top: 0;
 					border-bottom: 2px solid #2271b1;
 					padding-bottom: 10px;
 					margin-bottom: 15px;
+					font-size: 1.3em;
 				}
-				.hl-column h3 {
+				.hl-section h3 {
 					margin-top: 25px;
 					margin-bottom: 10px;
+					font-size: 1.1em;
 				}
-				.hl-column .wp-list-table {
+				.hl-section .wp-list-table {
 					table-layout: fixed;
 					width: 100%;
 				}
-				.hl-column .wp-list-table th,
-				.hl-column .wp-list-table td {
+				.hl-section .wp-list-table th,
+				.hl-section .wp-list-table td {
 					word-wrap: break-word;
 					overflow-wrap: break-word;
-					padding: 8px 10px;
+					padding: 10px 12px;
 				}
-				.hl-column .wp-list-table input[type="text"],
-				.hl-column .wp-list-table select {
-					width: 95%;
+				.hl-section .wp-list-table input[type="text"],
+				.hl-section .wp-list-table select {
+					width: 98%;
 					max-width: 100%;
 					box-sizing: border-box;
 				}
 				.hl-services-table th:nth-child(1),
-				.hl-services-table td:nth-child(1) { width: 28%; }
+				.hl-services-table td:nth-child(1) { width: 30%; }
 				.hl-services-table th:nth-child(2),
-				.hl-services-table td:nth-child(2) { width: 28%; }
+				.hl-services-table td:nth-child(2) { width: 30%; }
 				.hl-services-table th:nth-child(3),
-				.hl-services-table td:nth-child(3) { width: 24%; }
+				.hl-services-table td:nth-child(3) { width: 25%; }
 				.hl-services-table th:nth-child(4),
-				.hl-services-table td:nth-child(4) { width: 20%; text-align: center; }
+				.hl-services-table td:nth-child(4) { width: 15%; text-align: center; }
 				.hl-cities-table th:nth-child(1),
-				.hl-cities-table td:nth-child(1) { width: 50%; }
+				.hl-cities-table td:nth-child(1) { width: 45%; }
 				.hl-cities-table th:nth-child(2),
-				.hl-cities-table td:nth-child(2) { width: 30%; }
+				.hl-cities-table td:nth-child(2) { width: 40%; }
 				.hl-cities-table th:nth-child(3),
-				.hl-cities-table td:nth-child(3) { width: 20%; text-align: center; }
+				.hl-cities-table td:nth-child(3) { width: 15%; text-align: center; }
 				.hl-section-divider {
 					border: 0;
 					border-top: 1px solid #dcdcde;
-					margin: 20px 0;
+					margin: 25px 0;
 				}
 			</style>
 			
-			<div class="hl-two-column-layout">
-				<!-- LEFT COLUMN: SERVICES -->
-				<div class="hl-column">
-					<h2><?php esc_html_e( 'Services', 'seogen' ); ?></h2>
-					<p><?php esc_html_e( 'Configure the services your business offers, grouped by hub category.', 'seogen' ); ?></p>
+			<!-- SERVICES SECTION -->
+			<div class="hl-section">
+				<h2><?php esc_html_e( 'Services', 'seogen' ); ?></h2>
+				<p><?php esc_html_e( 'Configure the services your business offers, grouped by hub category.', 'seogen' ); ?></p>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'hyper_local_save_services', 'hyper_local_services_nonce' ); ?>
@@ -370,14 +364,14 @@ trait SEOgen_Admin_Extensions {
 				<p><?php esc_html_e( 'Add multiple services at once. Format: "hub_key: Service Name" (one per line). If hub_key is omitted, the first hub will be used.', 'seogen' ); ?></p>
 				<textarea name="bulk_services" rows="10" class="large-text" placeholder="residential: Outlet Installation&#10;commercial: Panel Upgrade&#10;Lighting Repair"></textarea>
 
-					<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
-				</form>
-			</div>
-			
-			<!-- RIGHT COLUMN: CITIES -->
-			<div class="hl-column">
-				<h2><?php esc_html_e( 'Cities', 'seogen' ); ?></h2>
-				<p><?php esc_html_e( 'Add and manage the cities your business serves.', 'seogen' ); ?></p>
+				<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
+			</form>
+		</div>
+		
+		<!-- CITIES SECTION -->
+		<div class="hl-section">
+			<h2><?php esc_html_e( 'Cities', 'seogen' ); ?></h2>
+			<p><?php esc_html_e( 'Add and manage the cities your business serves.', 'seogen' ); ?></p>
 				
 				<?php
 				$cities = get_option( 'hyper_local_cities_cache', array() );
@@ -427,12 +421,11 @@ trait SEOgen_Admin_Extensions {
 					<p><?php esc_html_e( 'Add multiple cities at once. Format: "City Name, State" (one per line).', 'seogen' ); ?></p>
 					<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Austin, TX&#10;Dallas, TX&#10;Houston, TX"></textarea>
 					
-					<?php submit_button( __( 'Save Cities', 'seogen' ) ); ?>
-				</form>
-			</div>
+				<?php submit_button( __( 'Save Cities', 'seogen' ) ); ?>
+			</form>
 		</div>
 		
-		<p style="margin-top: 30px;">
+		<p style="margin-top: 20px;">
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-service-hubs' ) ); ?>" class="button button-secondary">
 				<?php echo esc_html__( 'Next Step: Service Hubs →', 'seogen' ); ?>
 			</a>
