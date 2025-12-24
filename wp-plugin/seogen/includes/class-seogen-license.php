@@ -163,16 +163,26 @@ class SEOgen_License {
 	 * Handle API key update - register site with Railway
 	 */
 	public static function handle_api_key_update( $old_value, $new_value ) {
-		// Check if API key changed
-		$old_api_key = isset( $old_value['api_key'] ) ? $old_value['api_key'] : '';
-		$new_api_key = isset( $new_value['api_key'] ) ? $new_value['api_key'] : '';
+		// Check if license key changed
+		$old_license_key = isset( $old_value['license_key'] ) ? $old_value['license_key'] : '';
+		$new_license_key = isset( $new_value['license_key'] ) ? $new_value['license_key'] : '';
 		
-		if ( $old_api_key === $new_api_key ) {
+		$log_data = array(
+			'old_key_exists' => ! empty( $old_license_key ),
+			'new_key_exists' => ! empty( $new_license_key ),
+			'keys_match' => ( $old_license_key === $new_license_key ),
+		);
+		
+		if ( $old_license_key === $new_license_key ) {
+			$log_data['action'] = 'skipped - no change';
+			self::log_to_console( 'SEOgen License Key Update', $log_data );
 			return; // No change
 		}
 		
-		if ( empty( $new_api_key ) ) {
-			return; // API key removed
+		if ( empty( $new_license_key ) ) {
+			$log_data['action'] = 'skipped - key removed';
+			self::log_to_console( 'SEOgen License Key Update', $log_data );
+			return; // License key removed
 		}
 		
 		// Generate or retrieve webhook secret
@@ -180,21 +190,27 @@ class SEOgen_License {
 		if ( empty( $webhook_secret ) ) {
 			$webhook_secret = wp_generate_password( 32, false );
 			update_option( 'seogen_webhook_secret', $webhook_secret );
+			$log_data['secret_generated'] = true;
+		} else {
+			$log_data['secret_exists'] = true;
 		}
 		
+		$log_data['action'] = 'registering';
+		self::log_to_console( 'SEOgen License Key Update', $log_data );
+		
 		// Register site with Railway backend
-		self::register_site_with_backend( $new_api_key, $webhook_secret );
+		self::register_site_with_backend( $new_license_key, $webhook_secret );
 	}
 	
 	/**
 	 * Register site with Railway backend
 	 */
-	private static function register_site_with_backend( $api_key, $webhook_secret ) {
+	private static function register_site_with_backend( $license_key, $webhook_secret ) {
 		$site_url = get_site_url();
 		
 		$request_data = array(
 			'site_url' => $site_url,
-			'api_key' => $api_key,
+			'license_key' => $license_key,
 			'secret_key' => $webhook_secret,
 			'plugin_version' => SEOGEN_VERSION,
 			'wordpress_version' => get_bloginfo( 'version' ),
