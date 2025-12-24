@@ -8,15 +8,12 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
-require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-navigation.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
-	use SEOgen_Admin_Helpers;
 	use SEOgen_Admin_City_Hub_Helpers;
 	use SEOgen_Admin_Cities;
 	use SEOgen_Admin_Import;
-	use SEOgen_Admin_Navigation;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
@@ -2072,9 +2069,6 @@ class SEOgen_Admin {
 			self::OPTION_NAME,
 			array( $this, 'sanitize_settings' )
 		);
-		
-		// Handle redirect after save
-		add_action( 'admin_init', array( $this, 'handle_settings_redirect' ), 20 );
 
 		add_settings_section(
 			'seogen_settings_section_main',
@@ -2829,11 +2823,8 @@ class SEOgen_Admin {
 				<?php
 				settings_fields( 'seogen_settings_group' );
 				do_settings_sections( 'seogen-settings' );
+				submit_button();
 				?>
-				<p class="submit">
-					<?php submit_button( __( 'Save Changes', 'seogen' ), 'primary', 'submit', false ); ?>
-					<?php $this->render_save_continue_button( 'hyper-local-settings' ); ?>
-				</p>
 			</form>
 		</div>
 		<?php
