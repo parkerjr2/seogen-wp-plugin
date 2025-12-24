@@ -28,8 +28,8 @@ class SEOgen_Services_Diagnostic {
 	public function add_admin_menu() {
 		add_submenu_page(
 			'hyper-local',
-			__( 'Services Diagnostic', 'seogen' ),
-			__( 'Services Diagnostic', 'seogen' ),
+			__( 'Services Diagnostics', 'seogen' ),
+			__( '— Services Diagnostics', 'seogen' ),
 			'manage_options',
 			'seogen-services-diagnostic',
 			array( $this, 'render_admin_page' )

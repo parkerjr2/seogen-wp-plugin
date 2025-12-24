@@ -27,7 +27,7 @@ class SEOgen_Meta_Inspector {
 		add_submenu_page(
 			'hyper-local',
 			__( 'Meta Inspector', 'seogen' ),
-			__( 'Meta Inspector', 'seogen' ),
+			__( '— Meta Inspector', 'seogen' ),
 			'manage_options',
 			'seogen-meta-inspector',
 			array( $this, 'render_admin_page' )

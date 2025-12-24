@@ -28,7 +28,7 @@ class SEOgen_Clear_Cache {
 		add_submenu_page(
 			'hyper-local',
 			__( 'Clear Cache', 'seogen' ),
-			__( 'Clear Cache', 'seogen' ),
+			__( '— Clear Cache', 'seogen' ),
 			'manage_options',
 			'seogen-clear-cache',
 			array( $this, 'render_admin_page' )

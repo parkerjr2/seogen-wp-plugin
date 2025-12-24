@@ -1538,25 +1538,27 @@ class SEOgen_Admin {
 			59
 		);
 
-		// Rename the first submenu item from "Hyper Local" to "Settings"
+		// 1. Settings
 		add_submenu_page(
 			'hyper-local',
-			__( 'Hyper Local Settings', 'seogen' ),
+			__( 'Settings', 'seogen' ),
 			__( 'Settings', 'seogen' ),
 			'manage_options',
 			'hyper-local',
 			array( $this, 'render_settings_page' )
 		);
 
+		// 2. Business Info
 		add_submenu_page(
 			'hyper-local',
-			__( 'Business Setup (Step 0)', 'seogen' ),
-			__( 'Business Setup', 'seogen' ),
+			__( 'Business Info', 'seogen' ),
+			__( 'Business Info', 'seogen' ),
 			'manage_options',
 			'hyper-local-business-setup',
 			array( $this, 'render_business_setup_page' )
 		);
 
+		// 3. Services
 		add_submenu_page(
 			'hyper-local',
 			__( 'Services', 'seogen' ),
@@ -1566,48 +1568,53 @@ class SEOgen_Admin {
 			array( $this, 'render_services_page' )
 		);
 
+		// 4. Service Hubs
 		add_submenu_page(
 			'hyper-local',
-			__( 'Service Hubs (Step 3.5)', 'seogen' ),
+			__( 'Service Hubs', 'seogen' ),
 			__( 'Service Hubs', 'seogen' ),
 			'manage_options',
 			'hyper-local-service-hubs',
 			array( $this, 'render_service_hubs_page' )
 		);
 
+		// 5. Generate Service Pages (formerly Bulk Generate)
 		add_submenu_page(
 			'hyper-local',
-			__( 'City Hubs (Step 4)', 'seogen' ),
+			__( 'Generate Service Pages', 'seogen' ),
+			__( 'Generate Service Pages', 'seogen' ),
+			'manage_options',
+			'hyper-local-bulk',
+			array( $this, 'render_bulk_generate_page' )
+		);
+
+		// 6. City Hubs
+		add_submenu_page(
+			'hyper-local',
+			__( 'City Hubs', 'seogen' ),
 			__( 'City Hubs', 'seogen' ),
 			'manage_options',
 			'hyper-local-city-hubs',
 			array( $this, 'render_city_hubs_page' )
 		);
 
+		// 7. View Service Pages
 		add_submenu_page(
 			'hyper-local',
-			__( 'Service Pages', 'seogen' ),
-			__( 'Service Pages', 'seogen' ),
+			__( 'View Service Pages', 'seogen' ),
+			__( 'View Service Pages', 'seogen' ),
 			'edit_posts',
 			'edit.php?post_type=service_page'
 		);
 
+		// 8. Troubleshooting (parent)
 		add_submenu_page(
 			'hyper-local',
-			__( 'Generate Page', 'seogen' ),
-			__( 'Generate Page', 'seogen' ),
+			__( 'Troubleshooting', 'seogen' ),
+			__( 'Troubleshooting', 'seogen' ),
 			'manage_options',
-			'hyper-local-generate',
-			array( $this, 'render_generate_page' )
-		);
-
-		add_submenu_page(
-			'hyper-local',
-			__( 'Bulk Generate', 'seogen' ),
-			__( 'Bulk Generate', 'seogen' ),
-			'manage_options',
-			'hyper-local-bulk',
-			array( $this, 'render_bulk_generate_page' )
+			'hyper-local-troubleshooting',
+			array( $this, 'render_troubleshooting_page' )
 		);
 	}
 
@@ -2699,6 +2706,10 @@ class SEOgen_Admin {
 		);
 	}
 
+	public function render_troubleshooting_page() {
+		SEOgen_Troubleshooting::render_page();
+	}
+
 	public function render_settings_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -2711,6 +2722,26 @@ class SEOgen_Admin {
 		<div class="wrap">
 			<?php $this->render_test_connection_notice(); ?>
 			<h1><?php echo esc_html__( 'Hyper Local Settings', 'seogen' ); ?></h1>
+			
+			<!-- Quick Start Guide -->
+			<div style="background:#e7f5ff;border-left:4px solid #2271b1;padding:20px;margin:20px 0;">
+				<h2 style="margin-top:0;"><?php echo esc_html__( '🚀 Quick Start Guide', 'seogen' ); ?></h2>
+				<p style="font-size:16px;margin-bottom:15px;"><strong><?php echo esc_html__( 'Follow these steps to generate your pages:', 'seogen' ); ?></strong></p>
+				
+				<ol style="font-size:14px;line-height:1.8;">
+					<li><strong>Business Info:</strong> Enter your business details (name, phone, address, etc.)</li>
+					<li><strong>Services:</strong> Add all services you offer</li>
+					<li><strong>Service Hubs:</strong> Create hub categories to organize your services</li>
+					<li><strong>Generate Service Pages:</strong> Bulk generate pages for all service/city combinations</li>
+					<li><strong>City Hubs:</strong> Generate city-specific hub pages (optional)</li>
+				</ol>
+				
+				<p style="margin-top:15px;">
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-business-setup' ) ); ?>" class="button button-primary button-large">
+						<?php echo esc_html__( 'Start Setup →', 'seogen' ); ?>
+					</a>
+				</p>
+			</div>
 
 			<p>
 				<strong><?php echo esc_html__( 'License Key:', 'seogen' ); ?></strong>

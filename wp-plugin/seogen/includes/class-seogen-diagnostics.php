@@ -16,11 +16,11 @@ class SEOgen_Diagnostics {
 	
 	public function add_diagnostics_page() {
 		add_submenu_page(
-			'hyper-local-settings',
-			__( 'Diagnostics', 'seogen' ),
-			__( 'Diagnostics', 'seogen' ),
+			'hyper-local',
+			__( 'Generate Page', 'seogen' ),
+			__( '— Generate Page', 'seogen' ),
 			'manage_options',
-			'seogen-diagnostics',
+			'hyper-local-generate',
 			array( $this, 'render_diagnostics_page' )
 		);
 	}

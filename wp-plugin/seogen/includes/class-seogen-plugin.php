@@ -77,6 +77,7 @@ class SEOgen_Plugin {
 		add_action( 'save_post_service_page', array( 'SEOgen_City_Hub_Link', 'purge_city_hub_transient_for_post' ), 10, 1 );
 		add_action( 'transition_post_status', array( $this, 'handle_post_status_transition' ), 10, 3 );
 
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-troubleshooting.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-meta-inspector.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-services-diagnostic.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-diagnostics.php';
