@@ -14,6 +14,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 trait SEOgen_Admin_Navigation {
 	
 	/**
+	 * Get next page URL in setup sequence
+	 * 
+	 * @param string $current_page Current page slug
+	 * @return string|null URL of next page or null if last page
+	 */
+	private function get_next_setup_page_url( $current_page ) {
+		$sequence = array(
+			'hyper-local-settings' => 'hyper-local-business-setup',
+			'hyper-local-business-setup' => 'hyper-local-services',
+			'hyper-local-services' => 'hyper-local-service-hubs',
+			'hyper-local-service-hubs' => 'hyper-local-bulk',
+			'hyper-local-bulk' => 'hyper-local-city-hubs',
+			'hyper-local-city-hubs' => null, // Last page
+		);
+		
+		if ( isset( $sequence[ $current_page ] ) && $sequence[ $current_page ] !== null ) {
+			return admin_url( 'admin.php?page=' . $sequence[ $current_page ] );
+		}
+		
+		return null;
+	}
+	
+	/**
 	 * Handle redirect after settings save
 	 */
 	public function handle_settings_redirect() {
