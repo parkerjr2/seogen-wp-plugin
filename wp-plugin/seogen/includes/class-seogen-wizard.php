@@ -785,6 +785,10 @@ class SEOgen_Wizard {
 			foreach ( $results_response['items'] as $item ) {
 				$item_id = isset( $item['id'] ) ? $item['id'] : '';
 				$item_status = isset( $item['status'] ) ? $item['status'] : '';
+				$page_mode = isset( $item['page_mode'] ) ? $item['page_mode'] : '';
+				$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+				
+				error_log( '[WIZARD] Processing item - id: ' . $item_id . ', status: ' . $item_status . ', page_mode: ' . $page_mode . ', hub_key: ' . $hub_key );
 				
 				// Skip if already imported
 				if ( in_array( $item_id, $imported_item_ids ) ) {
@@ -793,9 +797,11 @@ class SEOgen_Wizard {
 				}
 				
 				if ( $item_status === 'completed' && isset( $item['result_json'] ) ) {
+					error_log( '[WIZARD] Calling import_page_from_api_result for item: ' . $item_id );
 					$import_result = $this->import_page_from_api_result( $item, $admin );
 					
 					if ( $import_result['success'] ) {
+						error_log( '[WIZARD] Import SUCCESS - post_id: ' . $import_result['post_id'] . ', title: ' . $import_result['title'] );
 						$newly_imported++;
 						$imported_item_ids[] = $item_id; // Track as imported
 						$batch_results[] = array(
@@ -804,12 +810,14 @@ class SEOgen_Wizard {
 							'post_id' => $import_result['post_id'],
 						);
 					} else {
+						error_log( '[WIZARD] Import FAILED - error: ' . $import_result['error'] );
 						$batch_results[] = array(
 							'success' => false,
 							'error' => $import_result['error'],
 						);
 					}
 				} elseif ( $item_status === 'failed' ) {
+					error_log( '[WIZARD] Item failed generation: ' . $item_id );
 					$imported_item_ids[] = $item_id; // Track failed items too
 					$batch_results[] = array(
 						'success' => false,
