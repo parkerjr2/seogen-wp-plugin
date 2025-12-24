@@ -457,7 +457,7 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 				</div>
 			</div>
 			
-			<p class="submit">
+			<p class="seogen-wizard-actions">
 				<button type="button" class="button button-secondary button-large seogen-wizard-back">
 					<?php esc_html_e( '← Back', 'seogen' ); ?>
 				</button>
@@ -465,7 +465,10 @@ $steps_completed = isset( $state['steps_completed'] ) ? $state['steps_completed'
 					<?php esc_html_e( 'Start Generation', 'seogen' ); ?>
 				</button>
 				<button type="button" class="button button-secondary button-large seogen-wizard-skip-generation">
-					<?php esc_html_e( 'Skip for Now', 'seogen' ); ?>
+					<?php esc_html_e( 'Skip Generation →', 'seogen' ); ?>
+				</button>
+				<button type="button" class="button button-link-delete seogen-wizard-cancel-generation" style="margin-left: 10px;">
+					<?php esc_html_e( 'Cancel Generation', 'seogen' ); ?>
 				</button>
 			</p>
 		</div>

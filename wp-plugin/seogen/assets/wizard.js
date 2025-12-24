@@ -104,6 +104,13 @@
 				e.preventDefault();
 				self.skipGeneration();
 			});
+			
+			$('.seogen-wizard-cancel-generation').on('click', function(e) {
+				e.preventDefault();
+				if (confirm('Are you sure you want to cancel the current generation? This will reset the wizard.')) {
+					self.cancelGeneration();
+				}
+			});
 		},
 		
 		loadCurrentStep: function() {
@@ -791,6 +798,32 @@
 		
 		hideValidationMessage: function($container) {
 			$container.find('.seogen-wizard-validation-message').hide();
+		},
+		
+		cancelGeneration: function() {
+			var self = this;
+			
+			console.log('[WIZARD] Canceling generation...');
+			
+			$.ajax({
+				url: seogenWizard.ajaxurl,
+				method: 'POST',
+				data: {
+					action: 'seogen_wizard_reset',
+					nonce: seogenWizard.nonce
+				},
+				success: function(response) {
+					if (response.success) {
+						console.log('[WIZARD] Generation canceled, reloading...');
+						location.reload();
+					} else {
+						alert(response.data.message || 'Failed to cancel generation');
+					}
+				},
+				error: function() {
+					alert('An error occurred while canceling generation');
+				}
+			});
 		}
 	};
 	
