@@ -984,6 +984,8 @@ class SEOgen_Wizard {
 		
 		foreach ( $services as $service ) {
 			$service_name = is_array( $service ) ? $service['name'] : $service;
+			$hub_key = is_array( $service ) && isset( $service['hub_key'] ) ? $service['hub_key'] : '';
+			
 			foreach ( $cities as $city ) {
 				$city_name = is_array( $city ) ? $city['city'] : $city;
 				$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
@@ -991,6 +993,7 @@ class SEOgen_Wizard {
 				$api_items[] = array(
 					'page_mode' => 'service_city',
 					'service' => $service_name,
+					'hub_key' => $hub_key,
 					'city' => $city_name,
 					'state' => $state,
 					'vertical' => $vertical,
@@ -1040,7 +1043,12 @@ class SEOgen_Wizard {
 			);
 		}
 		
-		// Build City Hub items
+		// Get hub categories for city hub generation
+		$hub_categories = isset( $business_config['hub_categories'] ) && is_array( $business_config['hub_categories'] )
+			? $business_config['hub_categories']
+			: array( 'residential', 'commercial' );
+		
+		// Build City Hub items - one per city per hub
 		$api_items = array();
 		$business_name = isset( $business_config['business_name'] ) ? $business_config['business_name'] : '';
 		$phone = isset( $business_config['phone'] ) ? $business_config['phone'] : '';
@@ -1053,20 +1061,22 @@ class SEOgen_Wizard {
 			$city_name = is_array( $city ) ? $city['city'] : $city;
 			$state = is_array( $city ) && isset( $city['state'] ) ? $city['state'] : '';
 			
-			$api_items[] = array(
-				'page_mode' => 'city_hub',
-				'city' => $city_name,
-				'state' => $state,
-				'vertical' => $vertical,
-				'business_name' => $business_name,
-				'company_name' => $business_name,
-				'phone' => $phone,
-				'email' => $email,
-				'address' => $address,
-				'cta_text' => $cta_text,
-				'service_area_label' => $service_area_label,
-				'service' => '',
-			);
+			foreach ( $hub_categories as $hub_key ) {
+				$api_items[] = array(
+					'page_mode' => 'city_hub',
+					'hub_key' => $hub_key,
+					'city' => $city_name,
+					'state' => $state,
+					'vertical' => $vertical,
+					'business_name' => $business_name,
+					'company_name' => $business_name,
+					'phone' => $phone,
+					'email' => $email,
+					'address' => $address,
+					'cta_text' => $cta_text,
+					'service_area_label' => $service_area_label,
+				);
+			}
 		}
 		
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
