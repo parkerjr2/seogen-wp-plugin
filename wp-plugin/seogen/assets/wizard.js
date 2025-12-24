@@ -549,10 +549,14 @@
 					nonce: seogenWizard.nonce
 				},
 				success: function(response) {
+					console.log('[WIZARD] processBatch response:', response);
+					
 					if (response.success) {
 						var data = response.data;
+						console.log('[WIZARD] Batch data:', data);
 						
 						if (data.status === 'phase_transition') {
+							console.log('[WIZARD] Phase transition:', data.message);
 							// Phase completed, transitioning to next
 							self.addActivityLog('✓ ' + data.message);
 							
@@ -562,6 +566,7 @@
 							}, 2000);
 							
 						} else if (data.status === 'all_complete') {
+							console.log('[WIZARD] All phases complete:', data);
 							// All 3 phases complete!
 							self.updateProgress(data.total_pages, data.total_pages, data.total_pages, 0);
 							self.addActivityLog('✓ All generation complete! Created ' + data.total_pages + ' pages.');
@@ -571,11 +576,16 @@
 							self.onGenerationComplete(data.total_pages);
 							
 						} else if (data.status === 'running') {
+							console.log('[WIZARD] Phase running - completed:', data.completed, 'total:', data.total, 'failed:', data.failed);
+							console.log('[WIZARD] Newly imported this batch:', data.newly_imported);
+							console.log('[WIZARD] Batch results:', data.batch_results);
+							
 							// Update progress for current phase
 							self.updateProgress(data.completed, data.total, data.completed, data.failed);
 							
 							// Show batch results
 							if (data.batch_results && data.batch_results.length > 0) {
+								console.log('[WIZARD] Showing', data.batch_results.length, 'batch results');
 								self.showBatchResults(data.batch_results);
 							}
 							
@@ -590,6 +600,7 @@
 							}, 3000);
 						}
 					} else {
+						console.error('[WIZARD] Batch processing error:', response);
 						alert(response.data.message || 'Generation failed');
 						$('.seogen-wizard-start-generation').removeClass('loading').prop('disabled', false);
 						$('.seogen-wizard-skip-generation').prop('disabled', false);
