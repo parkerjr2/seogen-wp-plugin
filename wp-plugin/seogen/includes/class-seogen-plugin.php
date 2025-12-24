@@ -57,8 +57,12 @@ class SEOgen_Plugin {
 	public function run() {
 		// Include class files BEFORE registering shortcodes that use them
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-license.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-link.php';
+		
+		// Initialize license management
+		SEOgen_License::init();
 		
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );

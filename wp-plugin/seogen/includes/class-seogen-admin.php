@@ -52,6 +52,7 @@ class SEOgen_Admin {
 		// Deactivation/reactivation handling
 		add_action( 'admin_notices', array( $this, 'show_reactivation_notice' ) );
 		add_action( 'admin_post_seogen_republish_pages', array( $this, 'handle_republish_pages' ) );
+		add_action( 'admin_post_seogen_test_license_expiration', array( $this, 'handle_test_license_expiration' ) );
 		
 		// AJAX handlers for async city hub generation
 		add_action( 'wp_ajax_seogen_start_city_hub_batch', array( $this, 'ajax_start_city_hub_batch' ) );
@@ -2725,6 +2726,83 @@ class SEOgen_Admin {
 	}
 
 	/**
+	 * Render license status section
+	 */
+	private function render_license_status_section() {
+		if ( ! class_exists( 'SEOgen_License' ) ) {
+			return;
+		}
+		
+		$license_status = SEOgen_License::get_license_status();
+		$expires_at = SEOgen_License::get_license_expires_at();
+		$is_registered = SEOgen_License::is_site_registered();
+		$webhook_secret = SEOgen_License::get_webhook_secret();
+		
+		echo '<hr style="margin: 40px 0;" />';
+		echo '<h2>' . esc_html__( 'License & Subscription', 'seogen' ) . '</h2>';
+		
+		echo '<table class="form-table">';
+		
+		// Registration status
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'Site Registration', 'seogen' ) . '</th>';
+		echo '<td>';
+		if ( $is_registered ) {
+			echo '<span style="color: #46b450;">✓ ' . esc_html__( 'Registered', 'seogen' ) . '</span>';
+		} else {
+			echo '<span style="color: #dc3232;">✗ ' . esc_html__( 'Not registered', 'seogen' ) . '</span>';
+			echo '<p class="description">' . esc_html__( 'Site will register automatically when you save your API key.', 'seogen' ) . '</p>';
+		}
+		echo '</td>';
+		echo '</tr>';
+		
+		// License status
+		if ( 'unknown' !== $license_status ) {
+			echo '<tr>';
+			echo '<th scope="row">' . esc_html__( 'License Status', 'seogen' ) . '</th>';
+			echo '<td>';
+			
+			if ( 'active' === $license_status ) {
+				echo '<span style="color: #46b450; font-weight: bold;">✓ ' . esc_html__( 'Active', 'seogen' ) . '</span>';
+			} elseif ( 'expired' === $license_status ) {
+				echo '<span style="color: #dc3232; font-weight: bold;">✗ ' . esc_html__( 'Expired', 'seogen' ) . '</span>';
+			} else {
+				echo '<span style="color: #ffb900; font-weight: bold;">⚠ ' . esc_html( ucfirst( $license_status ) ) . '</span>';
+			}
+			
+			if ( ! empty( $expires_at ) ) {
+				echo '<p class="description">' . esc_html__( 'Expires:', 'seogen' ) . ' ' . esc_html( date( 'F j, Y', strtotime( $expires_at ) ) ) . '</p>';
+			}
+			
+			echo '</td>';
+			echo '</tr>';
+		}
+		
+		// Webhook secret (for debugging/setup)
+		if ( ! empty( $webhook_secret ) && current_user_can( 'manage_options' ) ) {
+			echo '<tr>';
+			echo '<th scope="row">' . esc_html__( 'Webhook Secret', 'seogen' ) . '</th>';
+			echo '<td>';
+			echo '<code style="background: #f0f0f1; padding: 5px 10px; display: inline-block; font-size: 12px;">' . esc_html( $webhook_secret ) . '</code>';
+			echo '<p class="description">' . esc_html__( 'This secret is used to secure webhook calls from the backend. It is automatically sent during site registration.', 'seogen' ) . '</p>';
+			echo '</td>';
+			echo '</tr>';
+		}
+		
+		echo '</table>';
+		
+		// Test button for development
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			echo '<p style="margin-top: 20px;">';
+			echo '<a href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seogen_test_license_expiration' ), 'seogen_test_license', 'nonce' ) ) . '" class="button" onclick="return confirm(\'This will unpublish all generated pages. Continue?\');">';
+			echo esc_html__( 'Test License Expiration', 'seogen' );
+			echo '</a>';
+			echo ' <span class="description">' . esc_html__( '(Development only - simulates license expiration)', 'seogen' ) . '</span>';
+			echo '</p>';
+		}
+	}
+	
+	/**
 	 * Get next page URL in setup sequence
 	 */
 	private function get_next_setup_page_url( $current_page ) {
@@ -2841,15 +2919,15 @@ class SEOgen_Admin {
 				<?php submit_button( __( 'Test API Connection', 'seogen' ), 'secondary', 'submit', false ); ?>
 			</form>
 
-			<hr style="margin: 30px 0;">
-
-			<form method="post" action="options.php">
-				<?php
-				settings_fields( 'seogen_settings_group' );
-				do_settings_sections( 'seogen-settings' );
-				submit_button();
-				?>
-			</form>
+			echo '<h2>' . esc_html__( 'Settings', 'seogen' ) . '</h2>';
+		echo '<form method="post" action="options.php">';
+		settings_fields( 'seogen_settings_group' );
+		do_settings_sections( 'seogen_settings_group' );
+		submit_button();
+		echo '</form>';
+		
+		// Display license status
+		$this->render_license_status_section();
 			
 			<?php
 			$next_url = $this->get_next_setup_page_url( 'hyper-local-settings' );
@@ -5387,13 +5465,35 @@ class SEOgen_Admin {
 	 * Show admin notice after reactivation if pages were unpublished
 	 */
 	public function show_reactivation_notice() {
-		$unpublished_count = get_transient( 'seogen_reactivation_notice' );
+		// Check for plugin reactivation notice
+		$reactivation_count = get_transient( 'seogen_reactivation_notice' );
+		if ( $reactivation_count ) {
+			delete_transient( 'seogen_reactivation_notice' );
+			$this->render_reactivation_notice( $reactivation_count, 'plugin' );
+		}
 		
+		// Check for license expiration notice
+		$expired_count = get_transient( 'seogen_license_expired_notice' );
+		if ( $expired_count ) {
+			delete_transient( 'seogen_license_expired_notice' );
+			$this->render_license_expired_notice( $expired_count );
+		}
+		
+		// Check for license renewal notice
+		$renewed_count = get_transient( 'seogen_license_renewed_notice' );
+		if ( $renewed_count ) {
+			delete_transient( 'seogen_license_renewed_notice' );
+			$this->render_reactivation_notice( $renewed_count, 'license' );
+		}
+	}
+	
+	/**
+	 * Render reactivation notice (plugin or license)
+	 */
+	private function render_reactivation_notice( $unpublished_count, $type = 'plugin' ) {
 		if ( ! $unpublished_count ) {
 			return;
 		}
-		
-		delete_transient( 'seogen_reactivation_notice' );
 		
 		$republish_url = wp_nonce_url(
 			admin_url( 'admin-post.php?action=seogen_republish_pages' ),
@@ -5401,17 +5501,56 @@ class SEOgen_Admin {
 			'seogen_nonce'
 		);
 		
+		$title = ( 'license' === $type ) 
+			? __( 'SEOgen License Renewed', 'seogen' )
+			: __( 'SEOgen Plugin Reactivated', 'seogen' );
+		
+		$message = ( 'license' === $type )
+			? _n(
+				'%d page was unpublished when your license expired.',
+				'%d pages were unpublished when your license expired.',
+				$unpublished_count,
+				'seogen'
+			)
+			: _n(
+				'%d page was unpublished when the plugin was deactivated.',
+				'%d pages were unpublished when the plugin was deactivated.',
+				$unpublished_count,
+				'seogen'
+			);
+		
 		?>
 		<div class="notice notice-warning is-dismissible">
 			<p>
-				<strong><?php esc_html_e( 'SEOgen Plugin Reactivated', 'seogen' ); ?></strong>
+				<strong><?php echo esc_html( $title ); ?></strong>
+			</p>
+			<p>
+				<?php printf( esc_html( $message ), $unpublished_count ); ?>
+			</p>
+			<p>
+				<a href="<?php echo esc_url( $republish_url ); ?>" class="button button-primary">
+					<?php esc_html_e( 'Republish Pages', 'seogen' ); ?>
+				</a>
+			</p>
+		</div>
+		<?php
+	}
+	
+	/**
+	 * Render license expired notice
+	 */
+	private function render_license_expired_notice( $unpublished_count ) {
+		?>
+		<div class="notice notice-error is-dismissible">
+			<p>
+				<strong><?php esc_html_e( 'SEOgen License Expired', 'seogen' ); ?></strong>
 			</p>
 			<p>
 				<?php
 				printf(
 					esc_html( _n(
-						'%d page was unpublished when the plugin was deactivated.',
-						'%d pages were unpublished when the plugin was deactivated.',
+						'Your license has expired and %d page has been unpublished.',
+						'Your license has expired and %d pages have been unpublished.',
 						$unpublished_count,
 						'seogen'
 					) ),
@@ -5420,9 +5559,7 @@ class SEOgen_Admin {
 				?>
 			</p>
 			<p>
-				<a href="<?php echo esc_url( $republish_url ); ?>" class="button button-primary">
-					<?php esc_html_e( 'Republish Pages', 'seogen' ); ?>
-				</a>
+				<?php esc_html_e( 'Please renew your license to republish your pages.', 'seogen' ); ?>
 			</p>
 		</div>
 		<?php
@@ -5480,6 +5617,33 @@ class SEOgen_Admin {
 					'seogen'
 				),
 				$republished_count
+			) ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+	
+	/**
+	 * Handle test license expiration (for development/testing)
+	 */
+	public function handle_test_license_expiration() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		
+		check_admin_referer( 'seogen_test_license', 'nonce' );
+		
+		if ( ! class_exists( 'SEOgen_License' ) ) {
+			wp_die( 'License class not available' );
+		}
+		
+		$unpublished_count = SEOgen_License::test_license_expiration();
+		
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-settings',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( sprintf(
+				__( 'Test: License expired. %d pages unpublished.', 'seogen' ),
+				$unpublished_count
 			) ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
