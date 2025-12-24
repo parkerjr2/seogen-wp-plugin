@@ -1426,16 +1426,16 @@ class SEOgen_Admin {
 			$this->apply_page_builder_settings( $post_id );
 		}
 
-		$edit_url = admin_url( 'post.php?post=' . (int) $post_id . '&action=edit' );
-		$edit_url = add_query_arg(
-			array(
-				'hl_notice' => 'created',
-				'hl_msg'    => __( 'Draft created successfully.', 'seogen' ),
-			),
-			$edit_url
-		);
-		wp_safe_redirect( $edit_url );
+		$cities = get_option( 'hyper_local_cities_cache' );
+		update_option( 'hyper_local_cities_cache', $cities );
+
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-services',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( 'Cities saved successfully.' ),
+		), admin_url( 'admin.php' ) ) );
 		exit;
+
 	}
 
 	private function render_test_connection_notice() {

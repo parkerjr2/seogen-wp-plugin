@@ -269,6 +269,39 @@ trait SEOgen_Admin_Extensions {
 					margin-top: 0;
 					border-bottom: 2px solid #2271b1;
 					padding-bottom: 10px;
+					margin-bottom: 15px;
+				}
+				.hl-column h3 {
+					margin-top: 25px;
+					margin-bottom: 10px;
+				}
+				.hl-column .wp-list-table {
+					table-layout: fixed;
+					width: 100%;
+				}
+				.hl-column .wp-list-table th,
+				.hl-column .wp-list-table td {
+					word-wrap: break-word;
+					overflow-wrap: break-word;
+				}
+				.hl-services-table th:nth-child(1),
+				.hl-services-table td:nth-child(1) { width: 30%; }
+				.hl-services-table th:nth-child(2),
+				.hl-services-table td:nth-child(2) { width: 25%; }
+				.hl-services-table th:nth-child(3),
+				.hl-services-table td:nth-child(3) { width: 25%; }
+				.hl-services-table th:nth-child(4),
+				.hl-services-table td:nth-child(4) { width: 20%; }
+				.hl-cities-table th:nth-child(1),
+				.hl-cities-table td:nth-child(1) { width: 45%; }
+				.hl-cities-table th:nth-child(2),
+				.hl-cities-table td:nth-child(2) { width: 30%; }
+				.hl-cities-table th:nth-child(3),
+				.hl-cities-table td:nth-child(3) { width: 25%; }
+				.hl-section-divider {
+					border: 0;
+					border-top: 1px solid #dcdcde;
+					margin: 20px 0;
 				}
 			</style>
 			
@@ -282,8 +315,8 @@ trait SEOgen_Admin_Extensions {
 				<?php wp_nonce_field( 'hyper_local_save_services', 'hyper_local_services_nonce' ); ?>
 				<input type="hidden" name="action" value="hyper_local_save_services" />
 
-				<h2><?php esc_html_e( 'Current Services', 'seogen' ); ?></h2>
-				<table class="wp-list-table widefat fixed striped">
+				<h3><?php esc_html_e( 'Current Services', 'seogen' ); ?></h3>
+				<table class="wp-list-table widefat fixed striped hl-services-table">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Service Name', 'seogen' ); ?></th>
@@ -348,7 +381,7 @@ trait SEOgen_Admin_Extensions {
 					<input type="hidden" name="action" value="hyper_local_save_cities" />
 					
 					<h3><?php esc_html_e( 'Current Cities', 'seogen' ); ?></h3>
-					<table class="wp-list-table widefat fixed striped">
+					<table class="wp-list-table widefat fixed striped hl-cities-table">
 						<thead>
 							<tr>
 								<th><?php esc_html_e( 'City Name', 'seogen' ); ?></th>
@@ -380,6 +413,8 @@ trait SEOgen_Admin_Extensions {
 							<?php endif; ?>
 						</tbody>
 					</table>
+					
+					<hr class="hl-section-divider" />
 					
 					<h3><?php esc_html_e( 'Bulk Add Cities', 'seogen' ); ?></h3>
 					<p><?php esc_html_e( 'Add multiple cities at once. Format: "City Name, State" (one per line).', 'seogen' ); ?></p>
