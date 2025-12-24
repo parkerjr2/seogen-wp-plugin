@@ -1162,7 +1162,26 @@ class SEOgen_Wizard {
 			}
 		}
 		
-		// Determine post_parent for city hubs
+		// Check for existing page based on page mode
+		$existing_post_id = 0;
+		if ( $page_mode === 'service_hub' ) {
+			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+			if ( $hub_key ) {
+				$find_hub_method = new ReflectionMethod( $admin, 'find_service_hub_post_id' );
+				$find_hub_method->setAccessible( true );
+				$existing_post_id = $find_hub_method->invoke( $admin, $hub_key );
+			}
+		} elseif ( $page_mode === 'city_hub' ) {
+			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+			$city_slug = isset( $item['city_slug'] ) ? $item['city_slug'] : '';
+			if ( $hub_key && $city_slug ) {
+				$find_city_hub_method = new ReflectionMethod( $admin, 'find_city_hub_post_id' );
+				$find_city_hub_method->setAccessible( true );
+				$existing_post_id = $find_city_hub_method->invoke( $admin, $hub_key, $city_slug );
+			}
+		}
+		
+		// Determine post parent for city hubs
 		$post_parent = 0;
 		if ( $page_mode === 'city_hub' ) {
 			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
@@ -1173,20 +1192,25 @@ class SEOgen_Wizard {
 			}
 		}
 		
-		// Create post_data - EXACT same as individual generation
-		$post_status = ( $page_mode === 'city_hub' ) ? 'draft' : 'publish';
+		// Create or update post
 		$post_data = array(
-			'post_title' => $title,
-			'post_name' => sanitize_title( $slug ),
+			'post_type'    => 'service_page',
+			'post_status'  => 'draft',
+			'post_title'   => $title,
+			'post_name'    => sanitize_title( $slug ),
 			'post_content' => $content,
-			'post_status' => $post_status,
-			'post_type' => 'service_page',
+			'post_parent'  => $post_parent,
 		);
 		
-		if ( $post_parent > 0 ) {
-			$post_data['post_parent'] = $post_parent;
+		if ( $existing_post_id > 0 ) {
+			// Update existing post
+			$post_data['ID'] = $existing_post_id;
+			unset( $post_data['post_name'] ); // Avoid slug conflicts on update
+			$post_id = wp_update_post( $post_data, true );
+		} else {
+			// Create new post
+			$post_id = wp_insert_post( $post_data, true );
 		}
-		
 		$post_id = wp_insert_post( $post_data );
 		
 		if ( is_wp_error( $post_id ) ) {
