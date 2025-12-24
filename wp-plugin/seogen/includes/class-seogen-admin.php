@@ -4951,8 +4951,19 @@ class SEOgen_Admin {
 		$city_slugs_raw = isset( $_POST['city_slugs'] ) ? sanitize_text_field( wp_unslash( $_POST['city_slugs'] ) ) : '';
 		$city_slugs = array_filter( array_map( 'trim', explode( ',', $city_slugs_raw ) ) );
 
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( '[CITY HUB BATCH] Received - hub_key: ' . $hub_key . ', city_slugs_raw: ' . $city_slugs_raw . ', city_slugs count: ' . count( $city_slugs ) );
+		}
+
 		if ( empty( $hub_key ) || empty( $city_slugs ) ) {
-			wp_send_json_error( array( 'message' => 'Missing hub_key or city_slugs' ) );
+			wp_send_json_error( array( 
+				'message' => 'Missing hub_key or city_slugs',
+				'debug' => array(
+					'hub_key' => $hub_key,
+					'city_slugs_raw' => $city_slugs_raw,
+					'city_slugs_count' => count( $city_slugs )
+				)
+			) );
 		}
 
 		// Create batch job
