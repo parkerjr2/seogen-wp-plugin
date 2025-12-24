@@ -66,7 +66,15 @@ class SEOgen_License {
 		$params = $request->get_json_params();
 		$license_status = isset( $params['license_status'] ) ? sanitize_text_field( $params['license_status'] ) : '';
 		
+		$log_data = array(
+			'timestamp' => current_time( 'mysql' ),
+			'received_status' => $license_status,
+			'site_url' => get_site_url(),
+		);
+		
 		if ( empty( $license_status ) ) {
+			$log_data['error'] = 'License status is required';
+			self::log_to_console( 'SEOgen License Webhook Error', $log_data );
 			return new WP_Error( 'missing_status', 'License status is required', array( 'status' => 400 ) );
 		}
 		
@@ -78,15 +86,20 @@ class SEOgen_License {
 			'success' => true,
 			'status' => $license_status,
 			'site_url' => get_site_url(),
+			'timestamp' => current_time( 'mysql' ),
 		);
 		
 		if ( 'expired' === $license_status || 'cancelled' === $license_status ) {
 			// Unpublish all generated pages
 			$unpublished_count = self::unpublish_generated_pages();
 			$result['pages_unpublished'] = $unpublished_count;
+			$log_data['pages_unpublished'] = $unpublished_count;
+			$log_data['action'] = 'unpublished';
 			
 			// Set transient for admin notice
 			set_transient( 'seogen_license_expired_notice', $unpublished_count, 300 );
+			
+			self::log_to_console( 'SEOgen License Expired', $log_data );
 			
 		} elseif ( 'active' === $license_status ) {
 			// Clear any expired notices and set reactivation notice
@@ -95,7 +108,11 @@ class SEOgen_License {
 			$unpublished_count = get_option( 'seogen_unpublished_count', 0 );
 			if ( $unpublished_count > 0 ) {
 				set_transient( 'seogen_license_renewed_notice', $unpublished_count, 300 );
+				$log_data['pages_to_republish'] = $unpublished_count;
 			}
+			$log_data['action'] = 'renewed';
+			
+			self::log_to_console( 'SEOgen License Renewed', $log_data );
 		}
 		
 		return rest_ensure_response( $result );
@@ -175,23 +192,29 @@ class SEOgen_License {
 	private static function register_site_with_backend( $api_key, $webhook_secret ) {
 		$site_url = get_site_url();
 		
+		$request_data = array(
+			'site_url' => $site_url,
+			'api_key' => $api_key,
+			'secret_key' => $webhook_secret,
+			'plugin_version' => SEOGEN_VERSION,
+			'wordpress_version' => get_bloginfo( 'version' ),
+		);
+		
 		$response = wp_remote_post( self::BACKEND_URL . '/api/sites/register', array(
 			'timeout' => 15,
 			'headers' => array(
 				'Content-Type' => 'application/json',
 			),
-			'body' => wp_json_encode( array(
-				'site_url' => $site_url,
-				'api_key' => $api_key,
-				'secret_key' => $webhook_secret,
-				'plugin_version' => SEOGEN_VERSION,
-				'wordpress_version' => get_bloginfo( 'version' ),
-			) ),
+			'body' => wp_json_encode( $request_data ),
 		) );
 		
 		if ( is_wp_error( $response ) ) {
-			// Log error but don't block
-			error_log( '[SEOgen] Failed to register site with backend: ' . $response->get_error_message() );
+			$log_data = array(
+				'error' => $response->get_error_message(),
+				'site_url' => $site_url,
+				'backend_url' => self::BACKEND_URL,
+			);
+			self::log_to_console( 'SEOgen Registration Failed', $log_data );
 			return false;
 		}
 		
@@ -210,10 +233,40 @@ class SEOgen_License {
 			update_option( 'seogen_site_registered', true );
 			update_option( 'seogen_site_registered_at', current_time( 'mysql' ) );
 			
+			$log_data = array(
+				'success' => true,
+				'site_url' => $site_url,
+				'license_status' => isset( $data['license_status'] ) ? $data['license_status'] : 'unknown',
+				'expires_at' => isset( $data['expires_at'] ) ? $data['expires_at'] : 'unknown',
+			);
+			self::log_to_console( 'SEOgen Site Registered', $log_data );
+			
 			return true;
 		}
 		
+		$log_data = array(
+			'error' => 'Registration unsuccessful',
+			'response' => $data,
+			'site_url' => $site_url,
+		);
+		self::log_to_console( 'SEOgen Registration Failed', $log_data );
+		
 		return false;
+	}
+	
+	/**
+	 * Log data to browser console for debugging
+	 */
+	private static function log_to_console( $label, $data ) {
+		add_action( 'admin_footer', function() use ( $label, $data ) {
+			?>
+			<script>
+			console.group('<?php echo esc_js( $label ); ?>');
+			console.log(<?php echo wp_json_encode( $data ); ?>);
+			console.groupEnd();
+			</script>
+			<?php
+		} );
 	}
 	
 	/**
@@ -255,6 +308,14 @@ class SEOgen_License {
 		$unpublished_count = self::unpublish_generated_pages();
 		update_option( 'seogen_license_status', 'expired' );
 		set_transient( 'seogen_license_expired_notice', $unpublished_count, 300 );
+		
+		$log_data = array(
+			'test_mode' => true,
+			'pages_unpublished' => $unpublished_count,
+			'timestamp' => current_time( 'mysql' ),
+			'site_url' => get_site_url(),
+		);
+		self::log_to_console( 'SEOgen Test License Expiration', $log_data );
 		
 		return $unpublished_count;
 	}

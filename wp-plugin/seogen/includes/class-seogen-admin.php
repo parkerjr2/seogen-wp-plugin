@@ -2791,15 +2791,13 @@ class SEOgen_Admin {
 		
 		echo '</table>';
 		
-		// Test button for development
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			echo '<p style="margin-top: 20px;">';
-			echo '<a href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seogen_test_license_expiration' ), 'seogen_test_license', 'nonce' ) ) . '" class="button" onclick="return confirm(\'This will unpublish all generated pages. Continue?\');">';
-			echo esc_html__( 'Test License Expiration', 'seogen' );
-			echo '</a>';
-			echo ' <span class="description">' . esc_html__( '(Development only - simulates license expiration)', 'seogen' ) . '</span>';
-			echo '</p>';
-		}
+		// Test button for testing license expiration flow
+		echo '<p style="margin-top: 20px;">';
+		echo '<a href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seogen_test_license_expiration' ), 'seogen_test_license', 'nonce' ) ) . '" class="button" onclick="return confirm(\'This will unpublish all generated pages. Continue?\');">';
+		echo esc_html__( 'Test License Expiration', 'seogen' );
+		echo '</a>';
+		echo ' <span class="description">' . esc_html__( '(Testing only - simulates license expiration)', 'seogen' ) . '</span>';
+		echo '</p>';
 	}
 	
 	/**
