@@ -4363,6 +4363,18 @@ class SEOgen_Admin {
 		echo '<p class="description">' . esc_html__( 'Hold Ctrl (Cmd on Mac) to select multiple cities.', 'seogen' ) . '</p>';
 		echo '</td>';
 		echo '</tr>';
+		
+		echo '<tr>';
+		echo '<th scope="row"><label for="post_status">' . esc_html__( 'Post Status', 'seogen' ) . '</label></th>';
+		echo '<td>';
+		echo '<select name="post_status" id="post_status">';
+		echo '<option value="draft">' . esc_html__( 'Draft', 'seogen' ) . '</option>';
+		echo '<option value="publish">' . esc_html__( 'Publish', 'seogen' ) . '</option>';
+		echo '</select>';
+		echo '<p class="description">' . esc_html__( 'Choose whether to publish pages immediately or save as drafts.', 'seogen' ) . '</p>';
+		echo '</td>';
+		echo '</tr>';
+		
 		echo '</table>';
 
 		echo '<p class="submit">';
@@ -4401,8 +4413,9 @@ class SEOgen_Admin {
 			$("#create_city_hubs_btn").on("click", function() {
 				var hubKey = $("#hub_key").val();
 				var citySlugs = $("#city_slugs").val();
+				var postStatus = $("#post_status").val();
 				
-				console.log("[CITY HUB] Form values - hubKey:", hubKey, "citySlugs:", citySlugs);
+				console.log("[CITY HUB] Form values - hubKey:", hubKey, "citySlugs:", citySlugs, "postStatus:", postStatus);
 				
 				if (!hubKey) {
 					alert("Please select a hub.");
@@ -4427,10 +4440,10 @@ class SEOgen_Admin {
 				}
 				
 				// Start async batch processing
-				startBatchProcessing(hubKey, citySlugs);
+				startBatchProcessing(hubKey, citySlugs, postStatus);
 			});
 			
-			function startBatchProcessing(hubKey, citySlugs) {
+			function startBatchProcessing(hubKey, citySlugs, postStatus) {
 				$("#city_hub_progress").show();
 				$("#create_city_hubs_btn").prop("disabled", true).text("Generating...");
 				$("#progress_status").text("Starting batch...");
@@ -4439,7 +4452,8 @@ class SEOgen_Admin {
 					action: "seogen_start_city_hub_batch",
 					nonce: "' . wp_create_nonce( 'seogen_city_hub_batch' ) . '",
 					hub_key: hubKey,
-					city_slugs: citySlugs.join(",")
+					city_slugs: citySlugs.join(","),
+					post_status: postStatus
 				};
 				
 				console.log("[CITY HUB] Sending AJAX request:", ajaxData);
@@ -4963,9 +4977,10 @@ class SEOgen_Admin {
 		$hub_key = isset( $_POST['hub_key'] ) ? sanitize_text_field( wp_unslash( $_POST['hub_key'] ) ) : '';
 		$city_slugs_raw = isset( $_POST['city_slugs'] ) ? sanitize_text_field( wp_unslash( $_POST['city_slugs'] ) ) : '';
 		$city_slugs = array_filter( array_map( 'trim', explode( ',', $city_slugs_raw ) ) );
+		$post_status = isset( $_POST['post_status'] ) ? sanitize_text_field( wp_unslash( $_POST['post_status'] ) ) : 'draft';
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( '[CITY HUB BATCH] Received - hub_key: ' . $hub_key . ', city_slugs_raw: ' . $city_slugs_raw . ', city_slugs count: ' . count( $city_slugs ) );
+			error_log( '[CITY HUB BATCH] Received - hub_key: ' . $hub_key . ', city_slugs_raw: ' . $city_slugs_raw . ', city_slugs count: ' . count( $city_slugs ) . ', post_status: ' . $post_status );
 		}
 
 		if ( empty( $hub_key ) || empty( $city_slugs ) ) {
@@ -4974,7 +4989,8 @@ class SEOgen_Admin {
 				'debug' => array(
 					'hub_key' => $hub_key,
 					'city_slugs_raw' => $city_slugs_raw,
-					'city_slugs_count' => count( $city_slugs )
+					'city_slugs_count' => count( $city_slugs ),
+					'post_status' => $post_status
 				)
 			) );
 		}
@@ -4985,6 +5001,7 @@ class SEOgen_Admin {
 			'batch_id' => $batch_id,
 			'hub_key' => $hub_key,
 			'city_slugs' => $city_slugs,
+			'post_status' => $post_status,
 			'total' => count( $city_slugs ),
 			'processed' => 0,
 			'created' => 0,
@@ -5059,9 +5076,10 @@ class SEOgen_Admin {
 		}
 
 		$city_slug = $batch_data['city_slugs'][ $processed ];
+		$post_status = isset( $batch_data['post_status'] ) ? $batch_data['post_status'] : 'draft';
 
 		// Process this city hub
-		$result = $this->process_single_city_hub( $batch_data['hub_key'], $city_slug );
+		$result = $this->process_single_city_hub( $batch_data['hub_key'], $city_slug, $post_status );
 
 		// Update batch data
 		$batch_data['processed']++;
@@ -5094,7 +5112,7 @@ class SEOgen_Admin {
 	/**
 	 * Process a single city hub (extracted from bulk handler)
 	 */
-	private function process_single_city_hub( $hub_key, $city_slug ) {
+	private function process_single_city_hub( $hub_key, $city_slug, $post_status = 'draft' ) {
 		$config = $this->get_business_config();
 		$hubs = $this->get_hubs();
 		$cities = $this->get_cities();
@@ -5221,7 +5239,7 @@ class SEOgen_Admin {
 
 		$postarr = array(
 			'post_type' => 'service_page',
-			'post_status' => 'draft',
+			'post_status' => $post_status,
 			'post_title' => $title,
 			'post_name' => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,

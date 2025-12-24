@@ -145,7 +145,7 @@ trait SEOgen_Admin_Import {
 	 * @param array $item - Item metadata (hub_key, city_slug, etc.)
 	 * @return array - ['success' => bool, 'post_id' => int, 'title' => string, 'error' => string]
 	 */
-	public function import_city_hub_from_result( $result_json, $config, $item ) {
+	public function import_city_hub_from_result( $result_json, $config, $item, $post_status = 'draft' ) {
 		$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
 		$city_slug = isset( $item['city_slug'] ) ? $item['city_slug'] : '';
 		
@@ -213,7 +213,7 @@ trait SEOgen_Admin_Import {
 		// Create/update post with parent relationship
 		$post_data = array(
 			'post_type' => 'service_page',
-			'post_status' => 'publish',
+			'post_status' => $post_status,
 			'post_title' => $title,
 			'post_name' => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,
