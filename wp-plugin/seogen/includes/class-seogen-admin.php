@@ -5382,4 +5382,106 @@ class SEOgen_Admin {
 		}
 		return $data;
 	}
+	
+	/**
+	 * Show admin notice after reactivation if pages were unpublished
+	 */
+	public function show_reactivation_notice() {
+		$unpublished_count = get_transient( 'seogen_reactivation_notice' );
+		
+		if ( ! $unpublished_count ) {
+			return;
+		}
+		
+		delete_transient( 'seogen_reactivation_notice' );
+		
+		$republish_url = wp_nonce_url(
+			admin_url( 'admin-post.php?action=seogen_republish_pages' ),
+			'seogen_republish_pages',
+			'seogen_nonce'
+		);
+		
+		?>
+		<div class="notice notice-warning is-dismissible">
+			<p>
+				<strong><?php esc_html_e( 'SEOgen Plugin Reactivated', 'seogen' ); ?></strong>
+			</p>
+			<p>
+				<?php
+				printf(
+					esc_html( _n(
+						'%d page was unpublished when the plugin was deactivated.',
+						'%d pages were unpublished when the plugin was deactivated.',
+						$unpublished_count,
+						'seogen'
+					) ),
+					$unpublished_count
+				);
+				?>
+			</p>
+			<p>
+				<a href="<?php echo esc_url( $republish_url ); ?>" class="button button-primary">
+					<?php esc_html_e( 'Republish Pages', 'seogen' ); ?>
+				</a>
+			</p>
+		</div>
+		<?php
+	}
+	
+	/**
+	 * Handle republishing all generated pages
+	 */
+	public function handle_republish_pages() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		
+		check_admin_referer( 'seogen_republish_pages', 'seogen_nonce' );
+		
+		global $wpdb;
+		
+		// Query all draft posts with the _hyper_local_managed meta key
+		$generated_post_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT p.ID FROM {$wpdb->posts} p
+				INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+				WHERE pm.meta_key = '_hyper_local_managed' 
+				AND pm.meta_value = '1'
+				AND p.post_status = %s",
+				'draft'
+			)
+		);
+		
+		$republished_count = 0;
+		
+		if ( ! empty( $generated_post_ids ) ) {
+			foreach ( $generated_post_ids as $post_id ) {
+				wp_update_post( array(
+					'ID' => $post_id,
+					'post_status' => 'publish',
+				) );
+				$republished_count++;
+			}
+		}
+		
+		// Clear the unpublished count
+		delete_option( 'seogen_unpublished_count' );
+		delete_option( 'seogen_unpublished_at' );
+		
+		// Redirect with success message
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-settings',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( sprintf(
+				_n(
+					'%d page has been republished successfully.',
+					'%d pages have been republished successfully.',
+					$republished_count,
+					'seogen'
+				),
+				$republished_count
+			) ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
 }
