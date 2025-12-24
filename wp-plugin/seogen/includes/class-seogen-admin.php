@@ -4376,46 +4376,9 @@ class SEOgen_Admin {
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'City Hubs', 'seogen' ) . '</h1>';
 		echo '<p>' . esc_html__( 'Generate city hub pages. City hubs are top-level pages that link to all service+city pages for that location.', 'seogen' ) . '</p>';
-		echo '<p><em>' . esc_html__( 'Note: Cities are now managed on the Services & Cities page.', 'seogen' ) . '</em></p>';
-
-		echo '<h3>' . esc_html__( 'Current Cities', 'seogen' ) . '</h3>';
-		echo '<table class="wp-list-table widefat striped">';
-		echo '<thead><tr>';
-		echo '<th style="width: 30%;">' . esc_html__( 'City Name', 'seogen' ) . '</th>';
-		echo '<th style="width: 10%;">' . esc_html__( 'State', 'seogen' ) . '</th>';
-		echo '<th style="width: 35%;">' . esc_html__( 'Slug', 'seogen' ) . '</th>';
-		echo '<th style="width: 15%;">' . esc_html__( 'Actions', 'seogen' ) . '</th>';
-		echo '</tr></thead>';
-		echo '<tbody>';
+		echo '<div class="notice notice-info inline"><p><strong>' . esc_html__( 'Note:', 'seogen' ) . '</strong> ' . esc_html__( 'Cities are managed on the Services & Cities page. This page is only for generating city hub pages.', 'seogen' ) . '</p></div>';
 		
-		if ( ! empty( $cities ) ) {
-			foreach ( $cities as $idx => $city ) {
-				echo '<tr>';
-				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][name]" value="' . esc_attr( $city['name'] ) . '" style="width: 95%;" required /></td>';
-				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][state]" value="' . esc_attr( $city['state'] ) . '" maxlength="2" style="width: 50px; text-align: center;" required /></td>';
-				echo '<td><input type="text" name="cities[' . esc_attr( $idx ) . '][slug]" value="' . esc_attr( $city['slug'] ) . '" style="width: 95%;" required /></td>';
-				echo '<td>';
-				$delete_url = wp_nonce_url(
-					admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ),
-					'hyper_local_delete_city_' . $idx,
-					'nonce'
-				);
-				echo '<a href="' . esc_url( $delete_url ) . '" class="button button-small" onclick="return confirm(\'Delete this city?\');">' . esc_html__( 'Delete', 'seogen' ) . '</a>';
-				echo '</td>';
-				echo '</tr>';
-			}
-		} else {
-			echo '<tr><td colspan="4">' . esc_html__( 'No cities configured yet. Add cities using the form below.', 'seogen' ) . '</td></tr>';
-		}
-		
-		echo '</tbody></table>';
-		
-		echo '<p class="submit">';
-		echo '<button type="submit" class="button button-primary">' . esc_html__( 'Save Cities', 'seogen' ) . '</button>';
-		echo '</p>';
-		echo '</form>';
-		
-		echo '<hr style="margin: 40px 0;" />';
+		echo '<hr style="margin: 30px 0;" />';
 		
 		echo '<h2>' . esc_html__( 'Generate City Hub Pages', 'seogen' ) . '</h2>';
 
