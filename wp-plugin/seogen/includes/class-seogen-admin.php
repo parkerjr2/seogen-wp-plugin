@@ -53,6 +53,7 @@ class SEOgen_Admin {
 		add_action( 'admin_notices', array( $this, 'show_reactivation_notice' ) );
 		add_action( 'admin_post_seogen_republish_pages', array( $this, 'handle_republish_pages' ) );
 		add_action( 'admin_post_seogen_test_license_expiration', array( $this, 'handle_test_license_expiration' ) );
+		add_action( 'admin_post_seogen_force_registration', array( $this, 'handle_force_registration' ) );
 		
 		// AJAX handlers for async city hub generation
 		add_action( 'wp_ajax_seogen_start_city_hub_batch', array( $this, 'ajax_start_city_hub_batch' ) );
@@ -2813,6 +2814,16 @@ class SEOgen_Admin {
 		echo '</a>';
 		echo ' <span class="description">' . esc_html__( '(Testing only - simulates license expiration)', 'seogen' ) . '</span>';
 		echo '</p>';
+		
+		// Manual registration button
+		if ( ! $is_registered ) {
+			echo '<p style="margin-top: 10px;">';
+			echo '<a href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seogen_force_registration' ), 'seogen_force_registration', 'nonce' ) ) . '" class="button button-primary">';
+			echo esc_html__( 'Register Site Now', 'seogen' );
+			echo '</a>';
+			echo ' <span class="description">' . esc_html__( '(Manually trigger site registration)', 'seogen' ) . '</span>';
+			echo '</p>';
+		}
 	}
 	
 	/**
@@ -5658,6 +5669,35 @@ class SEOgen_Admin {
 				__( 'Test: License expired. %d pages unpublished.', 'seogen' ),
 				$unpublished_count
 			) ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+	
+	/**
+	 * Handle manual site registration
+	 */
+	public function handle_force_registration() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+		
+		check_admin_referer( 'seogen_force_registration', 'nonce' );
+		
+		if ( ! class_exists( 'SEOgen_License' ) ) {
+			wp_die( 'License class not available' );
+		}
+		
+		// Force registration by setting transient
+		$settings = get_option( self::OPTION_NAME, array() );
+		set_transient( 'seogen_trigger_registration', array(
+			'old_value' => array(),
+			'new_value' => $settings
+		), 60 );
+		
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-settings',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( __( 'Site registration triggered. Refresh the page to see results.', 'seogen' ) ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
 	}
