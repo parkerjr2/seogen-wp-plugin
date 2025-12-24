@@ -1113,9 +1113,12 @@ class SEOgen_Wizard {
 	 * Delegates to admin import methods to ensure identical quality to individual generation
 	 */
 	private function import_page_from_api_result( $item, $admin ) {
+		error_log( '[WIZARD] import_page_from_api_result CALLED' );
+		
 		$result_json = isset( $item['result_json'] ) ? $item['result_json'] : null;
 		
 		if ( ! is_array( $result_json ) ) {
+			error_log( '[WIZARD] ERROR: result_json is not an array' );
 			return array(
 				'success' => false,
 				'error' => 'Invalid result data',
@@ -1123,6 +1126,7 @@ class SEOgen_Wizard {
 		}
 		
 		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
+		error_log( '[WIZARD] Routing to import method for page_mode: ' . $page_mode );
 		
 		// Get business config
 		$config_method = new ReflectionMethod( $admin, 'get_business_config' );
@@ -1133,13 +1137,16 @@ class SEOgen_Wizard {
 		// This ensures wizard produces IDENTICAL pages to individual generation
 		switch ( $page_mode ) {
 			case 'service_hub':
+				error_log( '[WIZARD] Calling import_service_hub_from_result' );
 				return $admin->import_service_hub_from_result( $result_json, $config, $item );
 				
 			case 'city_hub':
+				error_log( '[WIZARD] Calling import_city_hub_from_result' );
 				return $admin->import_city_hub_from_result( $result_json, $config, $item );
 				
 			case 'service_city':
 			default:
+				error_log( '[WIZARD] Calling import_service_city_from_result' );
 				return $admin->import_service_city_from_result( $result_json, $config, $item );
 		}
 	}
