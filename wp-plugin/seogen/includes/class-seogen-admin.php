@@ -1947,7 +1947,150 @@ class SEOgen_Admin {
 	 * @param array $job Job data
 	 */
 	private function generate_city_hub_content( $job_id, $job ) {
-		seogen_generate_city_hub_content( $job_id, $job );
+		$config = $this->get_business_config();
+		$hubs = $this->get_hubs();
+		$services = $this->get_services();
+		$settings = $this->get_settings();
+		
+		if ( empty( $hubs ) || ! isset( $job['city_hub_map'] ) ) {
+			return;
+		}
+		
+		$default_hub = $hubs[0];
+		$hub_key = isset( $default_hub['key'] ) ? $default_hub['key'] : '';
+		
+		// Get services for this hub
+		$services_for_hub = array();
+		foreach ( $services as $service ) {
+			if ( isset( $service['hub_key'], $service['name'], $service['slug'] ) && $service['hub_key'] === $hub_key ) {
+				$services_for_hub[] = array(
+					'name' => $service['name'],
+					'slug' => $service['slug'],
+				);
+			}
+		}
+		
+		$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : '';
+		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
+		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
+		
+		foreach ( $job['city_hub_map'] as $city_slug => $city_hub_id ) {
+			// Parse city and state from slug
+			$parts = explode( '-', $city_slug );
+			if ( count( $parts ) < 2 ) {
+				continue;
+			}
+			
+			$state = strtoupper( array_pop( $parts ) );
+			$city_name = ucwords( str_replace( '-', ' ', implode( '-', $parts ) ) );
+			
+			$city = array(
+				'name' => $city_name,
+				'state' => $state,
+				'slug' => $city_slug,
+			);
+			
+			// Use the same payload structure as City Hubs page
+			$payload = array(
+				'license_key' => $license_key,
+				'data' => array(
+					'page_mode' => 'city_hub',
+					'vertical' => $config['vertical'],
+					'business_name' => $config['business_name'],
+					'phone' => $config['phone'],
+					'cta_text' => $config['cta_text'],
+					'service_area_label' => $config['service_area_label'],
+					'hub_key' => $default_hub['key'],
+					'hub_label' => $default_hub['label'],
+					'hub_slug' => $default_hub['slug'],
+					'city' => $city['name'],
+					'state' => $city['state'],
+					'city_slug' => $city['slug'],
+					'services_for_hub' => $services_for_hub,
+				),
+				'preview' => false,
+			);
+			
+			$url = trailingslashit( $api_url ) . 'generate-page';
+			$response = wp_remote_post(
+				$url,
+				array(
+					'timeout' => 90,
+					'headers' => array( 'Content-Type' => 'application/json' ),
+					'body' => wp_json_encode( $payload ),
+				)
+			);
+			
+			if ( is_wp_error( $response ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ERROR generating city hub: ' . $response->get_error_message() . PHP_EOL, FILE_APPEND );
+				continue;
+			}
+			
+			$code = wp_remote_retrieve_response_code( $response );
+			$body = wp_remote_retrieve_body( $response );
+			
+			if ( 200 !== $code ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ERROR generating city hub: HTTP ' . $code . PHP_EOL, FILE_APPEND );
+				continue;
+			}
+			
+			$data = json_decode( $body, true );
+			if ( ! is_array( $data ) || ! isset( $data['blocks'] ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ERROR: Invalid city hub response' . PHP_EOL, FILE_APPEND );
+				continue;
+			}
+			
+			$title = isset( $data['title'] ) ? $data['title'] : "{$default_hub['label']} in {$city['name']}, {$city['state']}";
+			$blocks = $data['blocks'];
+			$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : '';
+			$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
+			
+			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
+			
+			// Apply City Hub quality improvements
+			$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+			$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city, $vertical );
+			
+			// Add header/footer templates
+			$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
+			if ( $header_template_id > 0 ) {
+				$header_content = $this->get_template_content( $header_template_id );
+				if ( '' !== $header_content ) {
+					$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
+				}
+			}
+			
+			$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+			if ( $footer_template_id > 0 ) {
+				$footer_content = $this->get_template_content( $footer_template_id );
+				if ( '' !== $footer_content ) {
+					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
+				}
+			}
+			
+			// Update the existing city hub placeholder
+			$postarr = array(
+				'ID' => $city_hub_id,
+				'post_content' => $gutenberg_markup,
+			);
+			
+			$result = wp_update_post( $postarr, true );
+			
+			if ( is_wp_error( $result ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ERROR updating city hub: ' . $result->get_error_message() . PHP_EOL, FILE_APPEND );
+				continue;
+			}
+			
+			// Update meta
+			update_post_meta( $city_hub_id, '_is_placeholder', '0' );
+			update_post_meta( $city_hub_id, '_hyper_local_source_json', wp_json_encode( $data ) );
+			
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Successfully generated city hub: ' . $city['name'] . ', ' . $city['state'] . ' (ID: ' . $city_hub_id . ')' . PHP_EOL, FILE_APPEND );
+		}
+		
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Completed city hub content generation for job: ' . $job_id . PHP_EOL, FILE_APPEND );
 	}
 
 	private function parse_bulk_lines( $raw_lines ) {
