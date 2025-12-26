@@ -116,8 +116,8 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		}
 		wp_reset_postdata();
 		
-		// Build title: "Residential Electrical in Tulsa, OK | Company Name"
-		// Format matches backend city hub generation: "{hub_label} {trade_name} in {city}, {state}"
+		// Build title: "Residential Electrical in Catoosa, OK | M Electric"
+		// Format: "{hub_label} {trade_name} in {city}, {state} | {company_name}"
 		$title = sprintf(
 			'%s %s in %s, %s',
 			$hub_label,

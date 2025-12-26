@@ -3826,12 +3826,25 @@ class SEOgen_Admin {
 					$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
 					$post_status = $auto_publish ? 'publish' : 'draft';
 
+					// Assign parent city hub ID for service pages
+					$city_hub_parent_id = 0;
+					if ( isset( $job['city_hub_map'], $item['city'], $item['state'] ) ) {
+						$city_name = $item['city'];
+						$state_code = $item['state'];
+						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
+						if ( isset( $job['city_hub_map'][ $city_slug ] ) ) {
+							$city_hub_parent_id = (int) $job['city_hub_map'][ $city_slug ];
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Assigning city hub parent: ' . $city_slug . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
+						}
+					}
+
 					$postarr = array(
 						'post_type'    => 'service_page',
 						'post_status'  => $post_status,
 						'post_title'   => $title,
 						'post_name'    => sanitize_title( $slug ),
 						'post_content' => $gutenberg_markup,
+						'post_parent'  => $city_hub_parent_id,
 					);
 
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . ' status=' . $post_status . PHP_EOL, FILE_APPEND );
