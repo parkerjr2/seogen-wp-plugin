@@ -8,6 +8,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/city-hub-helper.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
@@ -1899,6 +1900,17 @@ class SEOgen_Admin {
 		return 0;
 	}
 
+	/**
+	 * Create placeholder city hub pages before bulk job starts
+	 * 
+	 * @param array $job_rows Array of job rows
+	 * @param array $form Form data
+	 * @return array Map of city_slug => post_id
+	 */
+	private function create_city_hub_placeholders( $job_rows, $form ) {
+		return seogen_create_city_hub_placeholders( $job_rows, $form );
+	}
+
 	private function parse_bulk_lines( $raw_lines ) {
 		$raw_lines = (string) $raw_lines;
 		$lines = preg_split( '/\r\n|\r|\n/', $raw_lines );
@@ -3505,6 +3517,10 @@ class SEOgen_Admin {
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
 
+		// Create placeholder city hub pages before starting bulk job
+		$city_hub_map = $this->create_city_hub_placeholders( $job_rows, $form );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Created ' . count( $city_hub_map ) . ' city hub placeholders: ' . wp_json_encode( $city_hub_map ) . PHP_EOL, FILE_APPEND );
+
 		$job = array(
 			'id'         => $job_id,
 			'status'     => 'running',
@@ -3527,6 +3543,7 @@ class SEOgen_Admin {
 				'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
 			),
 			'rows'       => $job_rows,
+			'city_hub_map' => $city_hub_map,
 		);
 
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
@@ -4302,12 +4319,27 @@ class SEOgen_Admin {
 				$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
 				$post_status = $auto_publish ? 'publish' : 'draft';
 
+				// Get parent city hub ID from job mapping
+				$city_hub_parent_id = 0;
+				if ( isset( $job['city_hub_map'] ) && is_array( $job['city_hub_map'] ) ) {
+					$city_name = isset( $result_json['city'] ) ? (string) $result_json['city'] : '';
+					$state_code = isset( $result_json['state'] ) ? (string) $result_json['state'] : '';
+					if ( '' !== $city_name && '' !== $state_code ) {
+						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
+						if ( isset( $job['city_hub_map'][ $city_slug ] ) ) {
+							$city_hub_parent_id = (int) $job['city_hub_map'][ $city_slug ];
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Using city hub parent: city_slug=' . $city_slug . ' parent_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+						}
+					}
+				}
+
 				$postarr = array(
 					'post_type'    => 'service_page',
 					'post_status'  => $post_status,
 					'post_title'   => $title,
 					'post_name'    => sanitize_title( $slug ),
 					'post_content' => $gutenberg_markup,
+					'post_parent'  => $city_hub_parent_id,
 				);
 
 				// Apply template setting to postarr if header/footer should be disabled
