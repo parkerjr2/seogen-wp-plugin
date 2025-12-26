@@ -704,7 +704,7 @@ class SEOgen_Plugin {
 			'capability_type'    => 'page',
 			'map_meta_cap'       => true,
 			'rewrite'            => array(
-				'slug'         => 'service-area',
+				'slug'         => '/',
 				'with_front'   => false,
 				'hierarchical' => true,
 			),
