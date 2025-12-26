@@ -48,15 +48,45 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 	$hub_slug = isset( $default_hub['slug'] ) ? $default_hub['slug'] : '';
 	$hub_key = isset( $default_hub['key'] ) ? $default_hub['key'] : '';
 	
+	file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub data: label=' . $hub_label . ' slug=' . $hub_slug . ' key=' . $hub_key . PHP_EOL, FILE_APPEND );
+	
 	// Get vertical for trade name
-	$vertical = isset( $config['vertical'] ) ? $config['vertical'] : 'electrical';
+	$vertical = isset( $config['vertical'] ) ? strtolower( $config['vertical'] ) : 'electrician';
+	
+	// Map vertical to trade name - matches backend vertical_profiles.py
 	$trade_name_map = array(
-		'electrical' => 'electrician',
-		'plumbing' => 'plumber',
-		'hvac' => 'hvac technician',
-		'roofing' => 'roofer',
+		'roofer' => 'Roofing',
+		'roofing' => 'Roofing',
+		'electrician' => 'Electrical',
+		'electrical' => 'Electrical',
+		'plumber' => 'Plumbing',
+		'plumbing' => 'Plumbing',
+		'hvac' => 'HVAC',
+		'hvac technician' => 'HVAC',
+		'landscaper' => 'Landscaping',
+		'landscaping' => 'Landscaping',
+		'handyman' => 'Handyman Services',
+		'handyman services' => 'Handyman Services',
+		'painter' => 'Painting',
+		'painting' => 'Painting',
+		'concrete' => 'Concrete',
+		'siding' => 'Siding',
+		'locksmith' => 'Locksmith Services',
+		'locksmith services' => 'Locksmith Services',
+		'cleaning' => 'Cleaning Services',
+		'cleaning services' => 'Cleaning Services',
+		'garage-door' => 'Garage Door',
+		'garage door' => 'Garage Door',
+		'windows' => 'Window Services',
+		'window services' => 'Window Services',
+		'pest-control' => 'Pest Control',
+		'pest control' => 'Pest Control',
+		'other' => 'Home Services',
+		'home services' => 'Home Services',
 	);
-	$trade_name = isset( $trade_name_map[ $vertical ] ) ? $trade_name_map[ $vertical ] : 'contractor';
+	$trade_name = isset( $trade_name_map[ $vertical ] ) ? $trade_name_map[ $vertical ] : 'Home Services';
+	
+	file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Vertical: ' . $vertical . ' Trade name: ' . $trade_name . PHP_EOL, FILE_APPEND );
 	
 	// Find the service hub parent page by hub_slug
 	$service_hub_parent_id = 0;
@@ -121,7 +151,7 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		$title = sprintf(
 			'%s %s in %s, %s',
 			$hub_label,
-			ucfirst( $trade_name ),
+			$trade_name,
 			$city_data['city'],
 			$city_data['state']
 		);
