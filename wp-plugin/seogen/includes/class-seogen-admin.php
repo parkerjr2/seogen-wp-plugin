@@ -1956,39 +1956,65 @@ class SEOgen_Admin {
 			return;
 		}
 		
-		$default_hub = $hubs[0];
-		$hub_key = isset( $default_hub['key'] ) ? $default_hub['key'] : '';
-		
-		// Get services for this hub
-		$services_for_hub = array();
-		foreach ( $services as $service ) {
-			if ( isset( $service['hub_key'], $service['name'], $service['slug'] ) && $service['hub_key'] === $hub_key ) {
-				$services_for_hub[] = array(
-					'name' => $service['name'],
-					'slug' => $service['slug'],
-				);
+		// Create a map of hub_key => hub data for lookup
+		$hub_data_map = array();
+		foreach ( $hubs as $hub ) {
+			if ( isset( $hub['key'] ) ) {
+				$hub_data_map[ $hub['key'] ] = $hub;
 			}
 		}
 		
 		$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : '';
 		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
-		$hub_post_id = $this->find_service_hub_post_id( $hub_key );
 		
-		foreach ( $job['city_hub_map'] as $city_slug => $city_hub_id ) {
-			// Parse city and state from slug
-			$parts = explode( '-', $city_slug );
-			if ( count( $parts ) < 2 ) {
+		foreach ( $job['city_hub_map'] as $hub_city_key => $city_hub_id ) {
+			// Parse hub_key and city_slug from the map key (format: "hub_key|city_slug")
+			$parts = explode( '|', $hub_city_key );
+			if ( count( $parts ) !== 2 ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Invalid hub_city_key format: ' . $hub_city_key . PHP_EOL, FILE_APPEND );
 				continue;
 			}
 			
-			$state = strtoupper( array_pop( $parts ) );
-			$city_name = ucwords( str_replace( '-', ' ', implode( '-', $parts ) ) );
+			$hub_key = $parts[0];
+			$city_slug = $parts[1];
+			
+			// Get hub data for this hub_key
+			if ( ! isset( $hub_data_map[ $hub_key ] ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Hub not found for key: ' . $hub_key . PHP_EOL, FILE_APPEND );
+				continue;
+			}
+			
+			$hub = $hub_data_map[ $hub_key ];
+			$hub_label = isset( $hub['label'] ) ? $hub['label'] : 'Services';
+			$hub_slug = isset( $hub['slug'] ) ? $hub['slug'] : '';
+			
+			// Get services for this specific hub
+			$services_for_hub = array();
+			foreach ( $services as $service ) {
+				if ( isset( $service['hub_key'], $service['name'], $service['slug'] ) && $service['hub_key'] === $hub_key ) {
+					$services_for_hub[] = array(
+						'name' => $service['name'],
+						'slug' => $service['slug'],
+					);
+				}
+			}
+			
+			// Parse city and state from city_slug
+			$city_parts = explode( '-', $city_slug );
+			if ( count( $city_parts ) < 2 ) {
+				continue;
+			}
+			
+			$state = strtoupper( array_pop( $city_parts ) );
+			$city_name = ucwords( str_replace( '-', ' ', implode( '-', $city_parts ) ) );
 			
 			$city = array(
 				'name' => $city_name,
 				'state' => $state,
 				'slug' => $city_slug,
 			);
+			
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Generating city hub content: hub_key=' . $hub_key . ' hub_label=' . $hub_label . ' city=' . $city_name . ', ' . $state . PHP_EOL, FILE_APPEND );
 			
 			// Use the same payload structure as City Hubs page
 			$payload = array(
@@ -2000,9 +2026,9 @@ class SEOgen_Admin {
 					'phone' => $config['phone'],
 					'cta_text' => $config['cta_text'],
 					'service_area_label' => $config['service_area_label'],
-					'hub_key' => $default_hub['key'],
-					'hub_label' => $default_hub['label'],
-					'hub_slug' => $default_hub['slug'],
+					'hub_key' => $hub_key,
+					'hub_label' => $hub_label,
+					'hub_slug' => $hub_slug,
 					'city' => $city['name'],
 					'state' => $city['state'],
 					'city_slug' => $city['slug'],
