@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: Hyper Local
- * Plugin URI: https://github.com/parkerjr2/seogen-wp-plugin
- * Description: Hyper Local WordPress plugin skeleton.
- * Version: 0.1.0
+ * Plugin URI: https://hyperlocalseo.io
+ * Description: AI-powered local SEO content generation for service businesses. Automatically create and manage service pages, city hubs, and location-specific content at scale.
+ * Version: 1.0.0
  * Author: Hyper Local
  * License: GPLv2 or later
  * Text Domain: seogen
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SEOGEN_VERSION', '0.4.0' );
+define( 'SEOGEN_VERSION', '1.0.0' );
 define( 'SEOGEN_PLUGIN_FILE', __FILE__ );
 define( 'SEOGEN_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SEOGEN_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
