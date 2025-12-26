@@ -4003,10 +4003,13 @@ class SEOgen_Admin {
 					
 					if ( 'failed' === $item_status ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Item failed: ' . $error . PHP_EOL, FILE_APPEND );
-						if ( isset( $job['rows'][ $idx ] ) ) {
+						// CRITICAL: Never overwrite 'success' status - page is already imported
+						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = '' !== $error ? $error : __( 'Generation failed.', 'seogen' );
 							$job['rows'][ $idx ]['post_id'] = 0;
+						} elseif ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Not overwriting success status with failed for idx=' . $idx . PHP_EOL, FILE_APPEND );
 						}
 						// Only ack permanently failed items (attempts >= 2) so retries can be re-fetched
 						$item_attempts = isset( $item['attempts'] ) ? (int) $item['attempts'] : 0;
@@ -4021,10 +4024,13 @@ class SEOgen_Admin {
 					
 					if ( ! is_array( $result_json ) ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: result_json not array' . PHP_EOL, FILE_APPEND );
-						if ( isset( $job['rows'][ $idx ] ) ) {
+						// CRITICAL: Never overwrite 'success' status - page is already imported
+						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = __( 'Invalid result data from API.', 'seogen' );
 							$job['rows'][ $idx ]['post_id'] = 0;
+						} elseif ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Not overwriting success status with invalid result for idx=' . $idx . PHP_EOL, FILE_APPEND );
 						}
 						$acked_ids[] = $item_id;
 						continue;
@@ -4140,10 +4146,12 @@ class SEOgen_Admin {
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Post created/updated: post_id=' . ( is_wp_error( $post_id ) ? 'ERROR' : $post_id ) . PHP_EOL, FILE_APPEND );
 
 					if ( is_wp_error( $post_id ) ) {
-						if ( isset( $job['rows'][ $idx ] ) ) {
+						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = $post_id->get_error_message();
 							$job['rows'][ $idx ]['post_id'] = 0;
+						} elseif ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Not overwriting success status with wp_error for idx=' . $idx . PHP_EOL, FILE_APPEND );
 						}
 						$acked_ids[] = $item_id;
 						continue;
