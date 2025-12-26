@@ -3456,8 +3456,31 @@ class SEOgen_Admin {
 
 		$job_id = sanitize_key( 'hl_job_' . wp_generate_password( 12, false, false ) );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Generated job_id=' . $job_id . PHP_EOL, FILE_APPEND );
+	
+		$form = $validated['form'];
+		$update_existing = ( isset( $form['update_existing'] ) && '1' === (string) $form['update_existing'] );
+	
+		// Filter out existing pages BEFORE creating job rows
 		$job_rows = array();
+		$api_items = array();
+		$filtered_count = 0;
+	
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering ' . count( $validated['rows'] ) . ' rows, update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
+	
 		foreach ( $validated['rows'] as $row ) {
+			$canonical_key = isset( $row['key'] ) ? (string) $row['key'] : '';
+		
+			// Check if this page already exists
+			if ( ! $update_existing && '' !== $canonical_key ) {
+				$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
+				if ( $existing_id > 0 ) {
+					$filtered_count++;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering out existing page: key=' . $canonical_key . ' post_id=' . $existing_id . PHP_EOL, FILE_APPEND );
+					continue;
+				}
+			}
+		
+			// Only add to job rows if not filtered out
 			$job_rows[] = array(
 				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
@@ -3468,9 +3491,20 @@ class SEOgen_Admin {
 				'message'      => '',
 				'post_id'      => 0,
 			);
+		
+			$api_items[] = array(
+				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
+				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
+				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
+				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
+				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
+				'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
+				'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
+			);
 		}
+	
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
 
-		$form = $validated['form'];
 		$job = array(
 			'id'         => $job_id,
 			'status'     => 'running',
@@ -3495,43 +3529,9 @@ class SEOgen_Admin {
 			'rows'       => $job_rows,
 		);
 
-		$api_items = array();
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Building API items from ' . count( $job_rows ) . ' job_rows' . PHP_EOL, FILE_APPEND );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Job inputs: ' . wp_json_encode( $job['inputs'] ) . PHP_EOL, FILE_APPEND );
 		
-		// Filter out items that already exist in WordPress (unless update_existing is enabled)
-		$update_existing = ( isset( $form['update_existing'] ) && '1' === (string) $form['update_existing'] );
-		$filtered_count = 0;
-		
-		foreach ( $job_rows as $idx => $row ) {
-			$canonical_key = isset( $row['key'] ) ? (string) $row['key'] : '';
-			
-			// Check if this page already exists
-			if ( ! $update_existing && '' !== $canonical_key ) {
-				$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
-				if ( $existing_id > 0 ) {
-					// Mark as skipped in job rows
-					$job['rows'][ $idx ]['status'] = 'skipped';
-					$job['rows'][ $idx ]['message'] = __( 'Page already exists; skipped generation.', 'seogen' );
-					$job['rows'][ $idx ]['post_id'] = $existing_id;
-					$job['skipped']++;
-					$filtered_count++;
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering out existing page: key=' . $canonical_key . ' post_id=' . $existing_id . PHP_EOL, FILE_APPEND );
-					continue;
-				}
-			}
-			
-			$api_items[] = array(
-				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
-				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
-				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
-				'company_name' => isset( $job['inputs']['company_name'] ) ? (string) $job['inputs']['company_name'] : '',
-				'phone'        => isset( $job['inputs']['phone'] ) ? (string) $job['inputs']['phone'] : '',
-				'email'        => isset( $job['inputs']['email'] ) ? (string) $job['inputs']['email'] : '',
-				'address'      => isset( $job['inputs']['address'] ) ? (string) $job['inputs']['address'] : '',
-			);
-		}
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Sending ' . count( $api_items ) . ' items to API.' . PHP_EOL, FILE_APPEND );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API items being sent: ' . wp_json_encode( $api_items ) . PHP_EOL, FILE_APPEND );
 
@@ -3555,8 +3555,11 @@ class SEOgen_Admin {
 		$job['api_job_id'] = sanitize_text_field( (string) $created['data']['job_id'] );
 
 		foreach ( $job['rows'] as $i => $row ) {
-			$job['rows'][ $i ]['status'] = 'pending';
-			$job['rows'][ $i ]['message'] = __( 'Queued on API.', 'seogen' );
+			// Only reset status to 'pending' if it's not already 'skipped'
+			if ( 'skipped' !== $job['rows'][ $i ]['status'] ) {
+				$job['rows'][ $i ]['status'] = 'pending';
+				$job['rows'][ $i ]['message'] = __( 'Queued on API.', 'seogen' );
+			}
 		}
 		$this->save_bulk_job( $job_id, $job );
 		delete_transient( $validate_key );
