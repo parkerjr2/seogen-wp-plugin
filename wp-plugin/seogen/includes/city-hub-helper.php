@@ -231,8 +231,12 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		
 		// Add meta fields to identify this as a city hub placeholder
 		update_post_meta( $post_id, '_page_type', 'city_hub' );
+		update_post_meta( $post_id, '_seogen_page_mode', 'city_hub' );
 		update_post_meta( $post_id, '_city_slug', $city_slug );
+		update_post_meta( $post_id, '_seogen_city_slug', $city_slug );
+		update_post_meta( $post_id, '_seogen_city', $city_data['city'] . ', ' . $city_data['state'] );
 		update_post_meta( $post_id, '_seogen_hub_slug', $hub_slug );
+		update_post_meta( $post_id, '_seogen_hub_key', $hub_key );
 		update_post_meta( $post_id, '_is_placeholder', '1' );
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
 		
