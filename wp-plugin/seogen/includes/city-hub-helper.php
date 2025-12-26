@@ -33,9 +33,8 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 	$config = get_option( 'hyper_local_business_config', array() );
 	$company_name = isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '';
 	
-	// Get hubs to find the default hub and service hub parent
-	$hubs_option = get_option( 'hyper_local_hubs', array() );
-	$hubs = is_array( $hubs_option ) ? $hubs_option : array();
+	// Get hubs from business config
+	$hubs = isset( $config['hubs'] ) && is_array( $config['hubs'] ) ? $config['hubs'] : array();
 	
 	// Get the first hub as default (or you could make this configurable)
 	$default_hub = ! empty( $hubs ) ? $hubs[0] : null;
