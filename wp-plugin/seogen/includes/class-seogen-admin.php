@@ -4033,6 +4033,10 @@ class SEOgen_Admin {
 					$post_id = 0;
 					$existing_id = ( '' !== $canonical_key ) ? $this->find_existing_post_id_by_key( $canonical_key ) : 0;
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Existing post check: canonical_key=' . $canonical_key . ' existing_id=' . $existing_id . ' update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
+					// Enhanced duplicate detection logging
+					if ( $existing_id > 0 ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] DUPLICATE DETECTED: Post ' . $existing_id . ' already exists for key=' . $canonical_key . ' - will ' . ( $update_existing ? 'UPDATE' : 'SKIP' ) . PHP_EOL, FILE_APPEND );
+					}
 					if ( $existing_id > 0 && ! $update_existing ) {
 						$post_id = $existing_id;
 						if ( isset( $job['rows'][ $idx ] ) ) {
@@ -4119,8 +4123,11 @@ class SEOgen_Admin {
 					);
 
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . ' status=' . $post_status . PHP_EOL, FILE_APPEND );
-					// Always check for existing page right before creating to prevent duplicates
+					// CRITICAL: Always check for existing page right before creating to prevent duplicates
+					// This is the final safety check before wp_insert_post
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FINAL DUPLICATE CHECK: Searching for key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					$final_existing_id = $this->find_existing_post_id_by_key( $canonical_key );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FINAL DUPLICATE CHECK RESULT: existing_id=' . $final_existing_id . PHP_EOL, FILE_APPEND );
 					if ( $final_existing_id > 0 ) {
 						// Update existing page instead of creating duplicate
 						$postarr['ID'] = $final_existing_id;
@@ -4303,6 +4310,11 @@ class SEOgen_Admin {
 			$status_updated = false;
 			foreach ( $job['rows'] as $idx => $row ) {
 				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
+				// CRITICAL: Never update status if already 'success' - page is already imported
+				// This prevents HTTP 0 errors from overwriting successful imports
+				if ( 'success' === $row_status ) {
+					continue;
+				}
 				// If row shows pending/skipped but job is complete, verify against actual WordPress posts
 				if ( in_array( $row_status, array( 'pending', 'skipped' ), true ) ) {
 					$canonical_key = isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) 
@@ -4689,8 +4701,11 @@ class SEOgen_Admin {
 				}
 
 				$post_id = 0;
-				// Always check for existing page right before creating to prevent duplicates
+				// CRITICAL: Always check for existing page right before creating to prevent duplicates
+				// This is the final safety check before wp_insert_post
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK: Searching for key=' . $key . PHP_EOL, FILE_APPEND );
 				$final_existing_id = $this->find_existing_post_id_by_key( $key );
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK RESULT: existing_id=' . $final_existing_id . PHP_EOL, FILE_APPEND );
 				if ( $final_existing_id > 0 ) {
 					// Update existing page instead of creating duplicate
 					$postarr['ID'] = $final_existing_id;
