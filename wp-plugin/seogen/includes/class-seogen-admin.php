@@ -1352,12 +1352,38 @@ class SEOgen_Admin {
 			}
 		}
 
+		// Create city hub placeholder if it doesn't exist
+		$city_hub_parent_id = 0;
+		if ( isset( $inputs['city'], $inputs['state'] ) ) {
+			$city = sanitize_text_field( $inputs['city'] );
+			$state = sanitize_text_field( $inputs['state'] );
+			$city_slug = sanitize_title( $city . '-' . strtolower( $state ) );
+			
+			// Create a single row for city hub creation
+			$job_rows = array(
+				array(
+					'city' => $city,
+					'state' => strtoupper( $state ),
+				)
+			);
+			
+			$form = array(
+				'company_name' => isset( $inputs['company_name'] ) ? $inputs['company_name'] : '',
+			);
+			
+			$city_hub_map = $this->create_city_hub_placeholders( $job_rows, $form );
+			if ( isset( $city_hub_map[ $city_slug ] ) ) {
+				$city_hub_parent_id = (int) $city_hub_map[ $city_slug ];
+			}
+		}
+
 		$postarr = array(
 			'post_type'    => 'service_page',
 			'post_status'  => 'draft',
 			'post_title'   => $title,
 			'post_name'    => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,
+			'post_parent'  => $city_hub_parent_id,
 		);
 
 		$post_id = wp_insert_post( $postarr, true );
