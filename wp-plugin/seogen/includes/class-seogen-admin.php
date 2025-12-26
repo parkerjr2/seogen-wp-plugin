@@ -2070,10 +2070,11 @@ class SEOgen_Admin {
 				}
 			}
 			
-			// Update the existing city hub placeholder
+			// Update the existing city hub placeholder and publish it
 			$postarr = array(
 				'ID' => $city_hub_id,
 				'post_content' => $gutenberg_markup,
+				'post_status' => 'publish',
 			);
 			
 			$result = wp_update_post( $postarr, true );
