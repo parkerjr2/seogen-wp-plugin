@@ -4065,11 +4065,16 @@ class SEOgen_Admin {
 					);
 
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . ' status=' . $post_status . PHP_EOL, FILE_APPEND );
-					if ( $existing_id > 0 && $update_existing ) {
-						$postarr['ID'] = $existing_id;
+					// Always check for existing page right before creating to prevent duplicates
+					$final_existing_id = $this->find_existing_post_id_by_key( $canonical_key );
+					if ( $final_existing_id > 0 ) {
+						// Update existing page instead of creating duplicate
+						$postarr['ID'] = $final_existing_id;
 						$post_id = wp_update_post( $postarr, true );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Updating existing post instead of creating duplicate: post_id=' . $final_existing_id . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					} else {
 						$post_id = wp_insert_post( $postarr, true );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Creating new post: key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					}
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Post created/updated: post_id=' . ( is_wp_error( $post_id ) ? 'ERROR' : $post_id ) . PHP_EOL, FILE_APPEND );
 
@@ -4630,11 +4635,16 @@ class SEOgen_Admin {
 				}
 
 				$post_id = 0;
-				if ( $existing_id > 0 && $update_existing ) {
-					$postarr['ID'] = $existing_id;
+				// Always check for existing page right before creating to prevent duplicates
+				$final_existing_id = $this->find_existing_post_id_by_key( $key );
+				if ( $final_existing_id > 0 ) {
+					// Update existing page instead of creating duplicate
+					$postarr['ID'] = $final_existing_id;
 					$post_id = wp_update_post( $postarr, true );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Updating existing post instead of creating duplicate: post_id=' . $final_existing_id . ' key=' . $key . PHP_EOL, FILE_APPEND );
 				} else {
 					$post_id = wp_insert_post( $postarr, true );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Creating new post: key=' . $key . PHP_EOL, FILE_APPEND );
 				}
 
 				if ( is_wp_error( $post_id ) ) {
