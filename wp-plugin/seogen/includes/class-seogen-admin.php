@@ -11,6 +11,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-duplicate-cleanup.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/city-hub-helper.php';
 
 class SEOgen_Admin {
@@ -18,6 +19,7 @@ class SEOgen_Admin {
 	use SEOgen_Admin_City_Hub_Helpers;
 	use SEOgen_Admin_Cities;
 	use SEOgen_Admin_Import;
+	use SEOgen_Admin_Duplicate_Cleanup;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';
@@ -63,6 +65,10 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_seogen_start_city_hub_batch', array( $this, 'ajax_start_city_hub_batch' ) );
 		add_action( 'wp_ajax_seogen_check_city_hub_progress', array( $this, 'ajax_check_city_hub_progress' ) );
 		add_action( 'wp_ajax_seogen_process_city_hub_item', array( $this, 'ajax_process_city_hub_item' ) );
+		
+		// AJAX handler for duplicate cleanup
+		add_action( 'wp_ajax_seogen_cleanup_duplicates', array( $this, 'ajax_cleanup_duplicates' ) );
+		add_action( 'admin_menu', array( $this, 'add_duplicate_cleanup_menu' ), 104 );
 		
 		// Ensure bulk actions work for service_page post type
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
