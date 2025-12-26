@@ -9,12 +9,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 function seogen_generate_city_hub_content( $job_id, $job ) {
-	$settings = get_option( 'seogen_settings', array() );
+	// Get settings using the correct option name
+	$settings = get_option( 'hyper_local_settings', array() );
 	$api_url = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
 	$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
 	
 	if ( '' === $api_url || '' === $license_key ) {
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ERROR: Cannot generate city hubs - missing API settings' . PHP_EOL, FILE_APPEND );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ERROR: Cannot generate city hubs - missing API settings (api_url=' . $api_url . ', license_key=' . ( $license_key ? 'SET' : 'EMPTY' ) . ')' . PHP_EOL, FILE_APPEND );
 		return;
 	}
 	
