@@ -8,26 +8,49 @@
  */
 function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 	$city_hub_map = array();
-	$unique_cities = array();
+	$unique_hub_cities = array();
 	
-	// Extract unique cities from job rows
-	foreach ( $job_rows as $row ) {
-		$city = isset( $row['city'] ) ? trim( (string) $row['city'] ) : '';
-		$state = isset( $row['state'] ) ? trim( (string) $row['state'] ) : '';
-		
-		if ( '' !== $city && '' !== $state ) {
-			$city_slug = sanitize_title( $city . '-' . strtolower( $state ) );
-			if ( ! isset( $unique_cities[ $city_slug ] ) ) {
-				$unique_cities[ $city_slug ] = array(
-					'city' => $city,
-					'state' => strtoupper( $state ),
-					'slug' => $city_slug,
-				);
+	// Get all services to determine hub assignments
+	$services = get_option( 'hyper_local_services_cache', array() );
+	$service_hub_map = array();
+	if ( is_array( $services ) ) {
+		foreach ( $services as $service ) {
+			if ( isset( $service['slug'], $service['hub_key'] ) ) {
+				$service_hub_map[ $service['slug'] ] = $service['hub_key'];
 			}
 		}
 	}
 	
-	file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found ' . count( $unique_cities ) . ' unique cities for city hub creation' . PHP_EOL, FILE_APPEND );
+	// Extract unique hub+city combinations from job rows
+	foreach ( $job_rows as $row ) {
+		$city = isset( $row['city'] ) ? trim( (string) $row['city'] ) : '';
+		$state = isset( $row['state'] ) ? trim( (string) $row['state'] ) : '';
+		$service = isset( $row['service'] ) ? trim( (string) $row['service'] ) : '';
+		
+		if ( '' !== $city && '' !== $state && '' !== $service ) {
+			$city_slug = sanitize_title( $city . '-' . strtolower( $state ) );
+			$service_slug = sanitize_title( $service );
+			
+			// Determine which hub this service belongs to
+			$hub_key = isset( $service_hub_map[ $service_slug ] ) ? $service_hub_map[ $service_slug ] : '';
+			
+			if ( '' !== $hub_key ) {
+				// Create unique key for hub+city combination
+				$hub_city_key = $hub_key . '|' . $city_slug;
+				
+				if ( ! isset( $unique_hub_cities[ $hub_city_key ] ) ) {
+					$unique_hub_cities[ $hub_city_key ] = array(
+						'city' => $city,
+						'state' => strtoupper( $state ),
+						'city_slug' => $city_slug,
+						'hub_key' => $hub_key,
+					);
+				}
+			}
+		}
+	}
+	
+	file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found ' . count( $unique_hub_cities ) . ' unique hub+city combinations for city hub creation' . PHP_EOL, FILE_APPEND );
 	
 	// Get business config to retrieve hub information
 	$config = get_option( 'hyper_local_business_config', array() );
@@ -36,19 +59,18 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 	// Get hubs from business config
 	$hubs = isset( $config['hubs'] ) && is_array( $config['hubs'] ) ? $config['hubs'] : array();
 	
-	// Get the first hub as default (or you could make this configurable)
-	$default_hub = ! empty( $hubs ) ? $hubs[0] : null;
-	
-	if ( ! $default_hub ) {
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: No hubs configured, cannot create city hub placeholders with proper titles' . PHP_EOL, FILE_APPEND );
+	if ( empty( $hubs ) ) {
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: No hubs configured, cannot create city hub placeholders' . PHP_EOL, FILE_APPEND );
 		return array();
 	}
 	
-	$hub_label = isset( $default_hub['label'] ) ? $default_hub['label'] : 'Services';
-	$hub_slug = isset( $default_hub['slug'] ) ? $default_hub['slug'] : '';
-	$hub_key = isset( $default_hub['key'] ) ? $default_hub['key'] : '';
-	
-	file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub data: label=' . $hub_label . ' slug=' . $hub_slug . ' key=' . $hub_key . PHP_EOL, FILE_APPEND );
+	// Create a map of hub_key => hub data
+	$hub_data_map = array();
+	foreach ( $hubs as $hub ) {
+		if ( isset( $hub['key'] ) ) {
+			$hub_data_map[ $hub['key'] ] = $hub;
+		}
+	}
 	
 	// Get vertical for trade name
 	$vertical = isset( $config['vertical'] ) ? strtolower( $config['vertical'] ) : 'electrician';
@@ -88,46 +110,64 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 	
 	file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Vertical: ' . $vertical . ' Trade name: ' . $trade_name . PHP_EOL, FILE_APPEND );
 	
-	// Find the service hub parent page by hub_slug
-	$service_hub_parent_id = 0;
-	if ( '' !== $hub_slug ) {
-		$hub_query = new WP_Query( array(
-			'post_type' => 'service_page',
-			'post_status' => 'any',
-			'posts_per_page' => 1,
-			'meta_query' => array(
-				'relation' => 'AND',
-				array(
-					'key' => '_seogen_hub_slug',
-					'value' => $hub_slug,
-					'compare' => '='
-				),
-				array(
-					'key' => '_seogen_page_mode',
-					'value' => 'service_hub',
-					'compare' => '='
-				),
-			),
-		) );
+	// Create placeholder page for each unique hub+city combination
+	foreach ( $unique_hub_cities as $hub_city_key => $hub_city_data ) {
+		$hub_key = $hub_city_data['hub_key'];
+		$city_slug = $hub_city_data['city_slug'];
+		$city_data = array(
+			'city' => $hub_city_data['city'],
+			'state' => $hub_city_data['state'],
+			'slug' => $city_slug,
+		);
 		
-		if ( $hub_query->have_posts() ) {
-			$service_hub_parent_id = $hub_query->posts[0]->ID;
-			$hub_title = $hub_query->posts[0]->post_title;
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found service hub parent: ' . $hub_slug . ' (ID: ' . $service_hub_parent_id . ', Title: ' . $hub_title . ')' . PHP_EOL, FILE_APPEND );
-		} else {
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Service hub not found for slug: ' . $hub_slug . PHP_EOL, FILE_APPEND );
+		// Get hub data for this hub_key
+		if ( ! isset( $hub_data_map[ $hub_key ] ) ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Hub not found for key: ' . $hub_key . PHP_EOL, FILE_APPEND );
+			continue;
 		}
-		wp_reset_postdata();
-	}
-	
-	// Create placeholder page for each unique city
-	foreach ( $unique_cities as $city_slug => $city_data ) {
-		// Check if city hub already exists
+		
+		$hub = $hub_data_map[ $hub_key ];
+		$hub_label = isset( $hub['label'] ) ? $hub['label'] : 'Services';
+		$hub_slug = isset( $hub['slug'] ) ? $hub['slug'] : '';
+		
+		// Find the service hub parent page by hub_slug
+		$service_hub_parent_id = 0;
+		if ( '' !== $hub_slug ) {
+			$hub_query = new WP_Query( array(
+				'post_type' => 'service_page',
+				'post_status' => 'any',
+				'posts_per_page' => 1,
+				'meta_query' => array(
+					'relation' => 'AND',
+					array(
+						'key' => '_seogen_hub_slug',
+						'value' => $hub_slug,
+						'compare' => '='
+					),
+					array(
+						'key' => '_seogen_page_mode',
+						'value' => 'service_hub',
+						'compare' => '='
+					),
+				),
+			) );
+			
+			if ( $hub_query->have_posts() ) {
+				$service_hub_parent_id = $hub_query->posts[0]->ID;
+				$hub_title = $hub_query->posts[0]->post_title;
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found service hub parent: ' . $hub_slug . ' (ID: ' . $service_hub_parent_id . ', Title: ' . $hub_title . ')' . PHP_EOL, FILE_APPEND );
+			} else {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Service hub not found for slug: ' . $hub_slug . PHP_EOL, FILE_APPEND );
+			}
+			wp_reset_postdata();
+		}
+		// Check if city hub already exists for this hub+city combination
 		$existing_args = array(
 			'post_type' => 'service_page',
 			'post_status' => 'any',
 			'posts_per_page' => 1,
 			'meta_query' => array(
+				'relation' => 'AND',
 				array(
 					'key' => '_page_type',
 					'value' => 'city_hub',
@@ -138,16 +178,21 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 					'value' => $city_slug,
 					'compare' => '='
 				),
+				array(
+					'key' => '_seogen_hub_slug',
+					'value' => $hub_slug,
+					'compare' => '='
+				),
 			),
 		);
 		
 		$existing_query = new WP_Query( $existing_args );
 		
 		if ( $existing_query->have_posts() ) {
-			// City hub already exists, use it
+			// City hub already exists for this hub+city, use it
 			$existing_post = $existing_query->posts[0];
-			$city_hub_map[ $city_slug ] = $existing_post->ID;
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] City hub already exists: ' . $city_slug . ' (ID: ' . $existing_post->ID . ')' . PHP_EOL, FILE_APPEND );
+			$city_hub_map[ $hub_city_key ] = $existing_post->ID;
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] City hub already exists: ' . $hub_key . '|' . $city_slug . ' (ID: ' . $existing_post->ID . ')' . PHP_EOL, FILE_APPEND );
 			wp_reset_postdata();
 			continue;
 		}
@@ -187,12 +232,13 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		// Add meta fields to identify this as a city hub placeholder
 		update_post_meta( $post_id, '_page_type', 'city_hub' );
 		update_post_meta( $post_id, '_city_slug', $city_slug );
+		update_post_meta( $post_id, '_seogen_hub_slug', $hub_slug );
 		update_post_meta( $post_id, '_is_placeholder', '1' );
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
 		
-		$city_hub_map[ $city_slug ] = $post_id;
+		$city_hub_map[ $hub_city_key ] = $post_id;
 		
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Created city hub placeholder: ' . $city_slug . ' (ID: ' . $post_id . ') - ' . $title . PHP_EOL, FILE_APPEND );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Created city hub placeholder: ' . $hub_key . '|' . $city_slug . ' (ID: ' . $post_id . ') - ' . $title . PHP_EOL, FILE_APPEND );
 	}
 	
 	return $city_hub_map;

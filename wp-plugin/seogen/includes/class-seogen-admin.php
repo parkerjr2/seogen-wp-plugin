@@ -3985,13 +3985,32 @@ class SEOgen_Admin {
 
 					// Assign parent city hub ID for service pages
 					$city_hub_parent_id = 0;
-					if ( isset( $job['city_hub_map'], $item['city'], $item['state'] ) ) {
+					if ( isset( $job['city_hub_map'], $item['city'], $item['state'], $item['service'] ) ) {
 						$city_name = $item['city'];
 						$state_code = $item['state'];
+						$service_name = $item['service'];
 						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
-						if ( isset( $job['city_hub_map'][ $city_slug ] ) ) {
-							$city_hub_parent_id = (int) $job['city_hub_map'][ $city_slug ];
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Assigning city hub parent: ' . $city_slug . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
+						$service_slug = sanitize_title( $service_name );
+						
+						// Look up which hub this service belongs to
+						$services = $this->get_services();
+						$hub_key = '';
+						foreach ( $services as $service ) {
+							if ( isset( $service['slug'] ) && $service['slug'] === $service_slug && isset( $service['hub_key'] ) ) {
+								$hub_key = $service['hub_key'];
+								break;
+							}
+						}
+						
+						if ( '' !== $hub_key ) {
+							// Build hub_city_key to look up the correct city hub
+							$hub_city_key = $hub_key . '|' . $city_slug;
+							if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
+								$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
+								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Assigning city hub parent: ' . $hub_city_key . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
+							} else {
+								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: City hub not found for: ' . $hub_city_key . PHP_EOL, FILE_APPEND );
+							}
 						}
 					}
 
@@ -4528,11 +4547,28 @@ class SEOgen_Admin {
 				if ( isset( $job['city_hub_map'] ) && is_array( $job['city_hub_map'] ) ) {
 					$city_name = isset( $result_json['city'] ) ? (string) $result_json['city'] : '';
 					$state_code = isset( $result_json['state'] ) ? (string) $result_json['state'] : '';
-					if ( '' !== $city_name && '' !== $state_code ) {
+					$service_name = isset( $row['service'] ) ? (string) $row['service'] : '';
+					
+					if ( '' !== $city_name && '' !== $state_code && '' !== $service_name ) {
 						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
-						if ( isset( $job['city_hub_map'][ $city_slug ] ) ) {
-							$city_hub_parent_id = (int) $job['city_hub_map'][ $city_slug ];
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Using city hub parent: city_slug=' . $city_slug . ' parent_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+						$service_slug = sanitize_title( $service_name );
+						
+						// Look up which hub this service belongs to
+						$services = $this->get_services();
+						$hub_key = '';
+						foreach ( $services as $service ) {
+							if ( isset( $service['slug'] ) && $service['slug'] === $service_slug && isset( $service['hub_key'] ) ) {
+								$hub_key = $service['hub_key'];
+								break;
+							}
+						}
+						
+						if ( '' !== $hub_key ) {
+							$hub_city_key = $hub_key . '|' . $city_slug;
+							if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
+								$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
+								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Using city hub parent: hub_city_key=' . $hub_city_key . ' parent_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+							}
 						}
 					}
 				}
