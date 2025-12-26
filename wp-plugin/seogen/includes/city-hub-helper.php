@@ -96,9 +96,15 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 			'post_status' => 'any',
 			'posts_per_page' => 1,
 			'meta_query' => array(
+				'relation' => 'AND',
 				array(
 					'key' => '_seogen_hub_slug',
 					'value' => $hub_slug,
+					'compare' => '='
+				),
+				array(
+					'key' => '_seogen_page_mode',
+					'value' => 'service_hub',
 					'compare' => '='
 				),
 			),
@@ -106,7 +112,8 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		
 		if ( $hub_query->have_posts() ) {
 			$service_hub_parent_id = $hub_query->posts[0]->ID;
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found service hub parent: ' . $hub_slug . ' (ID: ' . $service_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
+			$hub_title = $hub_query->posts[0]->post_title;
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found service hub parent: ' . $hub_slug . ' (ID: ' . $service_hub_parent_id . ', Title: ' . $hub_title . ')' . PHP_EOL, FILE_APPEND );
 		} else {
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Service hub not found for slug: ' . $hub_slug . PHP_EOL, FILE_APPEND );
 		}
