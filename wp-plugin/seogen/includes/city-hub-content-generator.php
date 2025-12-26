@@ -38,6 +38,22 @@ function seogen_generate_city_hub_content( $job_id, $job ) {
 	$hub_slug = isset( $default_hub['slug'] ) ? $default_hub['slug'] : '';
 	$hub_key = isset( $default_hub['key'] ) ? $default_hub['key'] : '';
 	$vertical = isset( $config['vertical'] ) ? $config['vertical'] : 'electrician';
+	$cta_text = isset( $config['cta_text'] ) ? $config['cta_text'] : 'Request a Free Estimate';
+	$service_area_label = isset( $config['service_area_label'] ) ? $config['service_area_label'] : '';
+	
+	// Get services for this hub
+	$services = get_option( 'hyper_local_services_cache', array() );
+	$services_for_hub = array();
+	if ( is_array( $services ) ) {
+		foreach ( $services as $service ) {
+			if ( isset( $service['hub_key'], $service['name'], $service['slug'] ) && $service['hub_key'] === $hub_key ) {
+				$services_for_hub[] = array(
+					'name' => $service['name'],
+					'slug' => $service['slug'],
+				);
+			}
+		}
+	}
 	
 	// Iterate through city hub map and generate content for each
 	foreach ( $job['city_hub_map'] as $city_slug => $city_hub_id ) {
@@ -65,23 +81,24 @@ function seogen_generate_city_hub_content( $job_id, $job ) {
 		$state = strtoupper( array_pop( $parts ) );
 		$city = ucwords( str_replace( '-', ' ', implode( '-', $parts ) ) );
 		
-		// Build API payload for city hub generation
+		// Build API payload for city hub generation - match City Hubs page format
 		$payload = array(
 			'license_key' => $license_key,
-			'page_mode' => 'city_hub',
-			'vertical' => $vertical,
-			'hub_key' => $hub_key,
-			'hub_label' => $hub_label,
-			'hub_slug' => $hub_slug,
-			'city' => $city,
-			'state' => $state,
-			'city_slug' => $city_slug,
-			'company_name' => $company_name,
-			'phone' => $phone,
-			'email' => $email,
-			'address' => $address,
-			'business_name' => $company_name,
-			'cta_text' => 'Request a Free Estimate',
+			'data' => array(
+				'page_mode' => 'city_hub',
+				'vertical' => $vertical,
+				'business_name' => $company_name,
+				'phone' => $phone,
+				'cta_text' => $cta_text,
+				'service_area_label' => $service_area_label,
+				'hub_key' => $hub_key,
+				'hub_label' => $hub_label,
+				'hub_slug' => $hub_slug,
+				'city' => $city,
+				'state' => $state,
+				'city_slug' => $city_slug,
+				'services_for_hub' => $services_for_hub,
+			),
 			'preview' => false,
 		);
 		
