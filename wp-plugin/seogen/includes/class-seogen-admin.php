@@ -1928,7 +1928,7 @@ class SEOgen_Admin {
 			return (int) $query->posts[0];
 		}
 		
-		// Second try: Find by slug (canonical_key format: "service|city|state")
+		// Second try: Find by slug pattern (canonical_key format: "service|city|state")
 		// Convert to slug format: "service-in-city-state"
 		$parts = explode( '|', $canonical_key );
 		if ( count( $parts ) === 3 ) {
@@ -1937,6 +1937,7 @@ class SEOgen_Admin {
 			$state = strtolower( $parts[2] );
 			$expected_slug = $service . '-in-' . $city . '-' . $state;
 			
+			// Try exact slug match first
 			$query = new WP_Query(
 				array(
 					'post_type'      => 'service_page',
@@ -1949,6 +1950,27 @@ class SEOgen_Admin {
 			);
 			if ( ! empty( $query->posts ) ) {
 				return (int) $query->posts[0];
+			}
+			
+			// Third try: Find by title (most reliable for duplicates)
+			// Build expected title from canonical key
+			$service_title = ucwords( str_replace( '-', ' ', $service ) );
+			$city_title = ucwords( str_replace( '-', ' ', $city ) );
+			$state_upper = strtoupper( $state );
+			$expected_title = $service_title . ' in ' . $city_title . ', ' . $state_upper;
+			
+			global $wpdb;
+			$post_id = $wpdb->get_var( $wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts} 
+				WHERE post_type = 'service_page' 
+				AND post_title = %s 
+				AND post_status != 'trash'
+				LIMIT 1",
+				$expected_title
+			) );
+			
+			if ( $post_id ) {
+				return (int) $post_id;
 			}
 		}
 		
