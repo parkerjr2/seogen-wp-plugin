@@ -2754,7 +2754,7 @@ class SEOgen_Admin {
 		$is_registered = SEOgen_License::is_site_registered();
 		$webhook_secret = SEOgen_License::get_webhook_secret();
 		
-		echo '<hr style="margin: 40px 0;" />';
+		echo '<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">';
 		echo '<h2>' . esc_html__( 'License & Subscription', 'seogen' ) . '</h2>';
 		
 		echo '<table class="form-table">';
@@ -2794,26 +2794,7 @@ class SEOgen_Admin {
 			echo '</tr>';
 		}
 		
-		// Webhook secret (for debugging/setup)
-		if ( ! empty( $webhook_secret ) && current_user_can( 'manage_options' ) ) {
-			echo '<tr>';
-			echo '<th scope="row">' . esc_html__( 'Webhook Secret', 'seogen' ) . '</th>';
-			echo '<td>';
-			echo '<code style="background: #f0f0f1; padding: 5px 10px; display: inline-block; font-size: 12px;">' . esc_html( $webhook_secret ) . '</code>';
-			echo '<p class="description">' . esc_html__( 'This secret is used to secure webhook calls from the backend. It is automatically sent during site registration.', 'seogen' ) . '</p>';
-			echo '</td>';
-			echo '</tr>';
-		}
-		
 		echo '</table>';
-		
-		// Test button for testing license expiration flow
-		echo '<p style="margin-top: 20px;">';
-		echo '<a href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seogen_test_license_expiration' ), 'seogen_test_license', 'nonce' ) ) . '" class="button" onclick="return confirm(\'This will unpublish all generated pages. Continue?\');">';
-		echo esc_html__( 'Test License Expiration', 'seogen' );
-		echo '</a>';
-		echo ' <span class="description">' . esc_html__( '(Testing only - simulates license expiration)', 'seogen' ) . '</span>';
-		echo '</p>';
 		
 		// Manual registration button
 		if ( ! $is_registered ) {
@@ -2824,6 +2805,8 @@ class SEOgen_Admin {
 			echo ' <span class="description">' . esc_html__( '(Manually trigger site registration)', 'seogen' ) . '</span>';
 			echo '</p>';
 		}
+		
+		echo '</div>';
 	}
 	
 	/**
@@ -2905,6 +2888,33 @@ class SEOgen_Admin {
 				<?php endif; ?>
 			</div>
 
+			<!-- Page Statistics -->
+			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
+				<h2><?php echo esc_html__( 'Generated Pages', 'seogen' ); ?></h2>
+				<?php
+				$published_count = wp_count_posts( 'service_page' )->publish;
+				$draft_count = wp_count_posts( 'service_page' )->draft;
+				$total_count = $published_count + $draft_count;
+				?>
+				<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 15px;">
+					<div style="text-align: center; padding: 15px; background: #f0f6fc; border-radius: 4px;">
+						<div style="font-size: 32px; font-weight: bold; color: #2271b1;"><?php echo esc_html( number_format( $total_count ) ); ?></div>
+						<div style="font-size: 13px; color: #646970; margin-top: 5px;"><?php echo esc_html__( 'Total Pages', 'seogen' ); ?></div>
+					</div>
+					<div style="text-align: center; padding: 15px; background: #f0f6fc; border-radius: 4px;">
+						<div style="font-size: 32px; font-weight: bold; color: #46b450;"><?php echo esc_html( number_format( $published_count ) ); ?></div>
+						<div style="font-size: 13px; color: #646970; margin-top: 5px;"><?php echo esc_html__( 'Published', 'seogen' ); ?></div>
+					</div>
+					<div style="text-align: center; padding: 15px; background: #f0f6fc; border-radius: 4px;">
+						<div style="font-size: 32px; font-weight: bold; color: #dba617;"><?php echo esc_html( number_format( $draft_count ) ); ?></div>
+						<div style="font-size: 13px; color: #646970; margin-top: 5px;"><?php echo esc_html__( 'Drafts', 'seogen' ); ?></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- License & Subscription -->
+			<?php $this->render_license_status_section(); ?>
+
 			<!-- Quick Actions -->
 			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
 				<h2><?php echo esc_html__( 'Quick Actions', 'seogen' ); ?></h2>
@@ -2951,9 +2961,6 @@ class SEOgen_Admin {
 			</form>
 			
 			<?php
-			// Display license status
-			$this->render_license_status_section();
-			
 			$next_url = $this->get_next_setup_page_url( 'hyper-local-settings' );
 			if ( $next_url ) :
 			?>
@@ -3092,7 +3099,7 @@ class SEOgen_Admin {
 					if(!job){container.innerHTML = '<p><?php echo esc_js( __( 'Job not found.', 'seogen' ) ); ?></p>';return;}
 					var html = '';
 					html += '<p><strong><?php echo esc_js( __( 'Status:', 'seogen' ) ); ?></strong> ' + esc(job.status) + '</p>';
-					html += '<p><strong><?php echo esc_js( __( 'Totals:', 'seogen' ) ); ?></strong> ' + esc(job.processed) + '/' + esc(job.total_rows) + ' | <?php echo esc_js( __( 'Success', 'seogen' ) ); ?>: ' + esc(job.success) + ' | <?php echo esc_js( __( 'Failed', 'seogen' ) ); ?>: ' + esc(job.failed) + ' | <?php echo esc_js( __( 'Skipped', 'seogen' ) ); ?>: ' + esc(job.skipped) + '</p>';
+					html += '<p><strong><?php echo esc_js( __( 'Totals:', 'seogen' ) ); ?></strong> ' + esc(job.processed) + '/' + esc(job.total_rows) + ' | <?php echo esc_js( __( 'New', 'seogen' ) ); ?>: ' + esc(job.success) + ' | <?php echo esc_js( __( 'Failed', 'seogen' ) ); ?>: ' + esc(job.failed) + ' | <?php echo esc_js( __( 'Skipped', 'seogen' ) ); ?>: ' + esc(job.skipped) + '</p>';
 					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
 					(job.rows||[]).forEach(function(r){
 						html += '<tr>';
@@ -3139,11 +3146,26 @@ class SEOgen_Admin {
 					});
 				}
 				function cancelJob(){
+					console.log('[SEOgen] Canceling job:', jobId);
 					var data = new FormData();
 					data.append('action','hyper_local_bulk_job_cancel');
 					data.append('job_id',jobId);
 					data.append('nonce','<?php echo esc_js( $cancel_nonce ); ?>');
-					return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data}).then(function(r){return r.json();}).then(function(){return fetchStatus();});
+					return fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:data})
+						.then(function(r){return r.json();})
+						.then(function(response){
+							console.log('[SEOgen] Cancel response:', response);
+							if(response.success){
+								alert('<?php echo esc_js( __( 'Job canceled successfully.', 'seogen' ) ); ?>');
+							} else {
+								alert('<?php echo esc_js( __( 'Failed to cancel job.', 'seogen' ) ); ?>');
+							}
+							return fetchStatus();
+						})
+						.catch(function(err){
+							console.error('[SEOgen] Cancel error:', err);
+							alert('<?php echo esc_js( __( 'Error canceling job.', 'seogen' ) ); ?>');
+						});
 				}
 				if(refreshBtn){refreshBtn.addEventListener('click',function(e){e.preventDefault();fetchStatus();});}
 				if(cancelBtn){cancelBtn.addEventListener('click',function(e){e.preventDefault();cancelJob();});}
@@ -3477,7 +3499,29 @@ class SEOgen_Admin {
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Building API items from ' . count( $job_rows ) . ' job_rows' . PHP_EOL, FILE_APPEND );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Job inputs: ' . wp_json_encode( $job['inputs'] ) . PHP_EOL, FILE_APPEND );
-		foreach ( $job_rows as $row ) {
+		
+		// Filter out items that already exist in WordPress (unless update_existing is enabled)
+		$update_existing = ( isset( $form['update_existing'] ) && '1' === (string) $form['update_existing'] );
+		$filtered_count = 0;
+		
+		foreach ( $job_rows as $idx => $row ) {
+			$canonical_key = isset( $row['key'] ) ? (string) $row['key'] : '';
+			
+			// Check if this page already exists
+			if ( ! $update_existing && '' !== $canonical_key ) {
+				$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
+				if ( $existing_id > 0 ) {
+					// Mark as skipped in job rows
+					$job['rows'][ $idx ]['status'] = 'skipped';
+					$job['rows'][ $idx ]['message'] = __( 'Page already exists; skipped generation.', 'seogen' );
+					$job['rows'][ $idx ]['post_id'] = $existing_id;
+					$job['skipped']++;
+					$filtered_count++;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering out existing page: key=' . $canonical_key . ' post_id=' . $existing_id . PHP_EOL, FILE_APPEND );
+					continue;
+				}
+			}
+			
 			$api_items[] = array(
 				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
@@ -3488,6 +3532,7 @@ class SEOgen_Admin {
 				'address'      => isset( $job['inputs']['address'] ) ? (string) $job['inputs']['address'] : '',
 			);
 		}
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Sending ' . count( $api_items ) . ' items to API.' . PHP_EOL, FILE_APPEND );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API items being sent: ' . wp_json_encode( $api_items ) . PHP_EOL, FILE_APPEND );
 
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Calling API with ' . count( $api_items ) . ' items' . PHP_EOL, FILE_APPEND );
@@ -3643,6 +3688,11 @@ class SEOgen_Admin {
 					// Skip items already successfully imported in local job state
 					if ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] && 'completed' === $item_status ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: already imported (local status=success)' . PHP_EOL, FILE_APPEND );
+						// Mark as skipped in the row for accurate counting
+						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
+							$job['rows'][ $idx ]['status'] = 'skipped';
+							$job['rows'][ $idx ]['message'] = __( 'Already imported in previous run.', 'seogen' );
+						}
 						$acked_ids[] = $item_id;
 						continue;
 					}
@@ -3684,6 +3734,7 @@ class SEOgen_Admin {
 
 					$post_id = 0;
 					$existing_id = ( '' !== $canonical_key ) ? $this->find_existing_post_id_by_key( $canonical_key ) : 0;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Existing post check: canonical_key=' . $canonical_key . ' existing_id=' . $existing_id . ' update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
 					if ( $existing_id > 0 && ! $update_existing ) {
 						$post_id = $existing_id;
 						if ( isset( $job['rows'][ $idx ] ) ) {
@@ -3691,6 +3742,7 @@ class SEOgen_Admin {
 							$job['rows'][ $idx ]['message'] = __( 'Existing page found for key; skipping import.', 'seogen' );
 							$job['rows'][ $idx ]['post_id'] = $existing_id;
 						}
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] SKIPPING existing post: post_id=' . $existing_id . PHP_EOL, FILE_APPEND );
 						$acked_ids[] = $item_id;
 						continue;
 					}
