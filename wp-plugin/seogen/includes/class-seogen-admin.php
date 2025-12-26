@@ -4,6 +4,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Include the city hub helper
+require_once plugin_dir_path( __FILE__ ) . 'city-hub-helper.php';
+require_once plugin_dir_path( __FILE__ ) . 'city-hub-content-generator.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-extensions.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
@@ -1935,6 +1938,16 @@ class SEOgen_Admin {
 	 */
 	private function create_city_hub_placeholders( $job_rows, $form ) {
 		return seogen_create_city_hub_placeholders( $job_rows, $form );
+	}
+
+	/**
+	 * Generate AI content for city hub placeholder pages
+	 * 
+	 * @param string $job_id Job ID
+	 * @param array $job Job data
+	 */
+	private function generate_city_hub_content( $job_id, $job ) {
+		seogen_generate_city_hub_content( $job_id, $job );
 	}
 
 	private function parse_bulk_lines( $raw_lines ) {
@@ -4076,6 +4089,14 @@ class SEOgen_Admin {
 			} else {
 				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: No updates needed' . PHP_EOL, FILE_APPEND );
 			}
+		}
+		
+		// After service pages are complete, generate city hub content
+		if ( 'complete' === $job_status && ! isset( $job['city_hubs_generated'] ) && isset( $job['city_hub_map'] ) && ! empty( $job['city_hub_map'] ) ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Service pages complete, starting city hub content generation for ' . count( $job['city_hub_map'] ) . ' cities' . PHP_EOL, FILE_APPEND );
+			$this->generate_city_hub_content( $job_id, $job );
+			$job['city_hubs_generated'] = true;
+			$this->save_bulk_job( $job_id, $job );
 		}
 		
 		$rows = array();
