@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Hyper Local
  * Plugin URI: https://hyperlocalseo.io
- * Description: AI-powered local SEO content generation for service businesses. Automatically create and manage service pages, city hubs, and location-specific content at scale.
+ * Description: Rank in Every City You Serve — Without Writing Hundreds of Pages. Hyper Local creates SEO-ready "Service + City" pages inside WordPress, so local businesses can win more searches without agencies or manual work.
  * Version: 1.0.0
  * Author: Hyper Local
  * License: GPLv2 or later
