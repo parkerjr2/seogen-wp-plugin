@@ -3688,6 +3688,15 @@ class SEOgen_Admin {
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering ' . count( $validated['rows'] ) . ' rows, update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
 	
+		// Get services to look up hub_key
+		$services = $this->get_services();
+		$service_hub_map = array();
+		foreach ( $services as $service ) {
+			if ( isset( $service['slug'], $service['hub_key'] ) ) {
+				$service_hub_map[ $service['slug'] ] = $service['hub_key'];
+			}
+		}
+	
 		foreach ( $validated['rows'] as $row ) {
 			$canonical_key = isset( $row['key'] ) ? (string) $row['key'] : '';
 		
@@ -3701,9 +3710,14 @@ class SEOgen_Admin {
 				}
 			}
 		
+			// Look up hub_key for this service
+			$service_name = isset( $row['service'] ) ? (string) $row['service'] : '';
+			$service_slug = sanitize_title( $service_name );
+			$hub_key = isset( $service_hub_map[ $service_slug ] ) ? $service_hub_map[ $service_slug ] : '';
+		
 			// Only add to job rows if not filtered out
 			$job_rows[] = array(
-				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
+				'service'      => $service_name,
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
 				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
 				'key'          => isset( $row['key'] ) ? (string) $row['key'] : '',
@@ -3714,9 +3728,10 @@ class SEOgen_Admin {
 			);
 		
 			$api_items[] = array(
-				'service'      => isset( $row['service'] ) ? (string) $row['service'] : '',
+				'service'      => $service_name,
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
 				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
+				'hub_key'      => $hub_key,
 				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
 				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 				'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
