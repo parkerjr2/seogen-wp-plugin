@@ -1908,6 +1908,7 @@ class SEOgen_Admin {
 			return 0;
 		}
 
+		// First try: Find by meta key
 		$query = new WP_Query(
 			array(
 				'post_type'      => 'service_page',
@@ -1926,6 +1927,31 @@ class SEOgen_Admin {
 		if ( ! empty( $query->posts ) ) {
 			return (int) $query->posts[0];
 		}
+		
+		// Second try: Find by slug (canonical_key format: "service|city|state")
+		// Convert to slug format: "service-in-city-state"
+		$parts = explode( '|', $canonical_key );
+		if ( count( $parts ) === 3 ) {
+			$service = sanitize_title( $parts[0] );
+			$city = sanitize_title( $parts[1] );
+			$state = strtolower( $parts[2] );
+			$expected_slug = $service . '-in-' . $city . '-' . $state;
+			
+			$query = new WP_Query(
+				array(
+					'post_type'      => 'service_page',
+					'post_status'    => 'any',
+					'name'           => $expected_slug,
+					'fields'         => 'ids',
+					'posts_per_page' => 1,
+					'no_found_rows'  => true,
+				)
+			);
+			if ( ! empty( $query->posts ) ) {
+				return (int) $query->posts[0];
+			}
+		}
+		
 		return 0;
 	}
 
