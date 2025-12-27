@@ -2996,11 +2996,22 @@ class SEOgen_Admin {
 		$api_url = self::API_BASE_URL;
 		$validate_url = trailingslashit( $api_url ) . 'validate-license';
 		
+		// Include WordPress REST URL and callback secret for backend-push auto-import
+		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-rest-api.php';
+		$callback_secret = SEOgen_REST_API::get_callback_secret();
+		$rest_base_url = rest_url( SEOgen_REST_API::NAMESPACE . '/' );
+		
+		$payload = array(
+			'license_key' => $license_key,
+			'wordpress_rest_url' => $rest_base_url,
+			'callback_secret' => $callback_secret
+		);
+		
 		$response = wp_remote_post(
 			$validate_url,
 			array(
 				'headers' => array( 'Content-Type' => 'application/json' ),
-				'body'    => wp_json_encode( array( 'license_key' => $license_key ) ),
+				'body'    => wp_json_encode( $payload ),
 				'timeout' => 10,
 			)
 		);
