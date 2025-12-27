@@ -50,6 +50,8 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_delete_service', array( $this, 'handle_delete_service' ) );
 		add_action( 'admin_post_hyper_local_hub_preview', array( $this, 'handle_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
+		add_action( 'wp_ajax_seogen_test_connection', array( $this, 'ajax_test_connection' ) );
+		add_action( 'wp_ajax_seogen_regenerate_secret', array( $this, 'ajax_regenerate_secret' ) );
 		add_action( 'admin_post_hyper_local_city_hub_preview', array( $this, 'handle_city_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_city_hub_create', array( $this, 'handle_city_hub_create' ) );
 		add_action( 'admin_post_hyper_local_save_cities', array( $this, 'handle_save_cities' ) );
@@ -2478,6 +2480,14 @@ class SEOgen_Admin {
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
+		
+		add_settings_field(
+			'seogen_auto_import',
+			__( 'Auto-Import', 'seogen' ),
+			array( $this, 'render_field_auto_import' ),
+			'seogen-settings',
+			'seogen_settings_section_main'
+		);
 
 		add_settings_field(
 			'hyper_local_design_preset',
@@ -3080,6 +3090,100 @@ class SEOgen_Admin {
 		<?php
 	}
 
+	public function render_field_auto_import() {
+		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-rest-api.php';
+		$callback_secret = SEOgen_REST_API::get_callback_secret();
+		$rest_base_url = rest_url( SEOgen_REST_API::NAMESPACE . '/' );
+		
+		?>
+		<div style="background: #f6f7f7; border-left: 4px solid #2271b1; padding: 12px 16px; margin: 8px 0;">
+			<p style="margin: 0 0 12px 0;">
+				<strong><?php esc_html_e( 'Automatic Import', 'seogen' ); ?></strong><br>
+				<span style="color: #646970; font-size: 13px;">
+					<?php esc_html_e( 'Pages are automatically imported to WordPress as they are generated. You can close your browser after starting a bulk job.', 'seogen' ); ?>
+				</span>
+			</p>
+			
+			<p style="margin: 0 0 8px 0; font-size: 13px;">
+				<strong><?php esc_html_e( 'REST API Endpoint:', 'seogen' ); ?></strong><br>
+				<code style="background: #fff; padding: 4px 8px; border-radius: 3px; font-size: 12px;"><?php echo esc_html( $rest_base_url ); ?></code>
+			</p>
+			
+			<div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #dcdcde;">
+				<button type="button" class="button" id="seogen-test-connection" style="margin-right: 8px;">
+					<?php esc_html_e( 'Test Connection', 'seogen' ); ?>
+				</button>
+				<button type="button" class="button" id="seogen-regenerate-secret">
+					<?php esc_html_e( 'Regenerate Secret', 'seogen' ); ?>
+				</button>
+				<span id="seogen-connection-status" style="margin-left: 12px;"></span>
+			</div>
+		</div>
+		
+		<script>
+		jQuery(document).ready(function($) {
+			$('#seogen-test-connection').on('click', function() {
+				var $button = $(this);
+				var $status = $('#seogen-connection-status');
+				
+				$button.prop('disabled', true).text('<?php esc_html_e( 'Testing...', 'seogen' ); ?>');
+				$status.html('<span style="color: #646970;">⏳ Testing connection...</span>');
+				
+				$.post(ajaxurl, {
+					action: 'seogen_test_connection',
+					nonce: '<?php echo esc_js( wp_create_nonce( 'seogen_test_connection' ) ); ?>'
+				}, function(response) {
+					$button.prop('disabled', false).text('<?php esc_html_e( 'Test Connection', 'seogen' ); ?>');
+					
+					if (response.success) {
+						$status.html('<span style="color: #00a32a;">✓ ' + response.data.message + '</span>');
+					} else {
+						$status.html('<span style="color: #d63638;">✗ ' + response.data.message + '</span>');
+					}
+					
+					setTimeout(function() {
+						$status.fadeOut(function() {
+							$(this).html('').show();
+						});
+					}, 5000);
+				});
+			});
+			
+			$('#seogen-regenerate-secret').on('click', function() {
+				if (!confirm('<?php esc_html_e( 'Regenerating the secret will invalidate the old secret. Continue?', 'seogen' ); ?>')) {
+					return;
+				}
+				
+				var $button = $(this);
+				var $status = $('#seogen-connection-status');
+				
+				$button.prop('disabled', true).text('<?php esc_html_e( 'Regenerating...', 'seogen' ); ?>');
+				$status.html('<span style="color: #646970;">⏳ Regenerating secret...</span>');
+				
+				$.post(ajaxurl, {
+					action: 'seogen_regenerate_secret',
+					nonce: '<?php echo esc_js( wp_create_nonce( 'seogen_regenerate_secret' ) ); ?>'
+				}, function(response) {
+					$button.prop('disabled', false).text('<?php esc_html_e( 'Regenerate Secret', 'seogen' ); ?>');
+					
+					if (response.success) {
+						$status.html('<span style="color: #00a32a;">✓ ' + response.data.message + '</span>');
+					} else {
+						$status.html('<span style="color: #d63638;">✗ ' + response.data.message + '</span>');
+					}
+					
+					setTimeout(function() {
+						$status.fadeOut(function() {
+							$(this).html('').show();
+						});
+					}, 5000);
+				});
+			});
+		});
+		</script>
+		<?php
+	}
+	
 	private function check_api_health( $api_url ) {
 		$api_url = (string) $api_url;
 		$api_url = trim( $api_url );
@@ -6291,6 +6395,101 @@ class SEOgen_Admin {
 			</p>
 		</div>
 		<?php
+	}
+	
+	/**
+	 * AJAX handler for testing WordPress REST API connection
+	 */
+	public function ajax_test_connection() {
+		check_ajax_referer( 'seogen_test_connection', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized', 'seogen' ) ) );
+		}
+		
+		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-rest-api.php';
+		
+		$settings = $this->get_settings();
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( empty( $license_key ) ) {
+			wp_send_json_error( array( 'message' => __( 'License key not configured', 'seogen' ) ) );
+		}
+		
+		$callback_secret = SEOgen_REST_API::get_callback_secret();
+		$rest_base_url = rest_url( SEOgen_REST_API::NAMESPACE . '/' );
+		
+		// Test by calling our own ping endpoint
+		$endpoint = $rest_base_url . 'ping';
+		$timestamp = time();
+		$payload = wp_json_encode( array( 'license_key' => $license_key ) );
+		$body_hash = hash( 'sha256', $payload );
+		$message = $timestamp . '.' . $body_hash;
+		$signature = hash_hmac( 'sha256', $message, $callback_secret );
+		
+		$response = wp_remote_post( $endpoint, array(
+			'headers' => array(
+				'Content-Type' => 'application/json',
+				'X-Seogen-Timestamp' => $timestamp,
+				'X-Seogen-Body-SHA256' => $body_hash,
+				'X-Seogen-Signature' => $signature,
+				'X-Seogen-Signature-Version' => '1'
+			),
+			'body' => $payload,
+			'timeout' => 10
+		) );
+		
+		if ( is_wp_error( $response ) ) {
+			wp_send_json_error( array( 'message' => __( 'Connection failed: ', 'seogen' ) . $response->get_error_message() ) );
+		}
+		
+		$status_code = wp_remote_retrieve_response_code( $response );
+		if ( $status_code === 200 ) {
+			wp_send_json_success( array( 'message' => __( 'Connection successful! Auto-import is working.', 'seogen' ) ) );
+		} else {
+			$body = wp_remote_retrieve_body( $response );
+			wp_send_json_error( array( 'message' => sprintf( __( 'Connection failed: HTTP %d', 'seogen' ), $status_code ) ) );
+		}
+	}
+	
+	/**
+	 * AJAX handler for regenerating callback secret
+	 */
+	public function ajax_regenerate_secret() {
+		check_ajax_referer( 'seogen_regenerate_secret', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized', 'seogen' ) ) );
+		}
+		
+		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-rest-api.php';
+		
+		// Regenerate the secret
+		$new_secret = SEOgen_REST_API::generate_callback_secret();
+		
+		// Update backend with new secret
+		$settings = $this->get_settings();
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+		
+		if ( ! empty( $license_key ) ) {
+			$api_url = self::API_BASE_URL;
+			$validate_url = trailingslashit( $api_url ) . 'validate-license';
+			$rest_base_url = rest_url( SEOgen_REST_API::NAMESPACE . '/' );
+			
+			$payload = array(
+				'license_key' => $license_key,
+				'wordpress_rest_url' => $rest_base_url,
+				'callback_secret' => $new_secret
+			);
+			
+			wp_remote_post( $validate_url, array(
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body' => wp_json_encode( $payload ),
+				'timeout' => 10
+			) );
+		}
+		
+		wp_send_json_success( array( 'message' => __( 'Secret regenerated successfully', 'seogen' ) ) );
 	}
 	
 	/**
