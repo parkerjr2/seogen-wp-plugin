@@ -2401,7 +2401,7 @@ class SEOgen_Admin {
 	private function api_get_bulk_job_status( $api_url, $license_key, $api_job_id ) {
 		$url = trailingslashit( (string) $api_url ) . 'bulk-jobs/' . rawurlencode( (string) $api_job_id );
 		$url = add_query_arg( array( 'license_key' => (string) $license_key ), $url );
-		return $this->api_json_request( 'GET', $url, null, 20 );
+		return $this->api_json_request( 'GET', $url, null, 60 );
 	}
 
 	private function api_get_bulk_job_results( $api_url, $license_key, $api_job_id, $cursor, $limit = 10 ) {
@@ -2414,7 +2414,7 @@ class SEOgen_Admin {
 			$args['cursor'] = (string) $cursor;
 		}
 		$url = add_query_arg( $args, $url );
-		return $this->api_json_request( 'GET', $url, null, 30 );
+		return $this->api_json_request( 'GET', $url, null, 60 );
 	}
 
 	private function api_ack_bulk_job_items( $api_url, $license_key, $api_job_id, $item_ids ) {
