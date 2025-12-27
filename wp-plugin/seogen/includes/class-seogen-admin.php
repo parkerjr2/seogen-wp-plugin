@@ -1945,6 +1945,33 @@ class SEOgen_Admin {
 		delete_transient( $lock_key );
 	}
 
+	/**
+	 * Prepare bulk job response data with edit URLs.
+	 * Centralizes response preparation for consistency.
+	 */
+	private function prepare_bulk_job_response( $job ) {
+		$rows_with_urls = array();
+		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+			foreach ( $job['rows'] as $row ) {
+				$row_copy = $row;
+				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
+					$row_copy['edit_url'] = admin_url( 'post.php?post=' . (int) $row['post_id'] . '&action=edit' );
+				}
+				$rows_with_urls[] = $row_copy;
+			}
+		}
+		
+		return array(
+			'status' => isset( $job['status'] ) ? $job['status'] : 'running',
+			'rows' => $rows_with_urls,
+			'total_rows' => isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0,
+			'processed' => isset( $job['processed'] ) ? (int) $job['processed'] : 0,
+			'success' => isset( $job['success'] ) ? (int) $job['success'] : 0,
+			'failed' => isset( $job['failed'] ) ? (int) $job['failed'] : 0,
+			'skipped' => isset( $job['skipped'] ) ? (int) $job['skipped'] : 0,
+		);
+	}
+
 	private function get_bulk_backend_label() {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			return 'Action Scheduler';
