@@ -4353,6 +4353,18 @@ class SEOgen_Admin {
 					);
 
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . ' status=' . $post_status . PHP_EOL, FILE_APPEND );
+				
+				// CRITICAL: Acquire mutex lock to prevent concurrent duplicate creation
+				if ( ! $this->seogen_acquire_mutex( $canonical_key ) ) {
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] MUTEX: Could not acquire lock for key=' . $canonical_key . ', will retry later' . PHP_EOL, FILE_APPEND );
+					if ( isset( $job['rows'][ $idx ] ) && ! $this->seogen_is_row_locked( $job, $idx ) ) {
+						$job['rows'][ $idx ]['status'] = 'pending';
+						$job['rows'][ $idx ]['message'] = __( 'Waiting for concurrent operation to complete.', 'seogen' );
+					}
+					continue;
+				}
+				
+				try {
 					// CRITICAL: Always check for existing page right before creating to prevent duplicates
 					// This is the final safety check before wp_insert_post
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FINAL DUPLICATE CHECK: Searching for key=' . $canonical_key . PHP_EOL, FILE_APPEND );
@@ -4368,6 +4380,10 @@ class SEOgen_Admin {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Creating new post: key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					}
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Post created/updated: post_id=' . ( is_wp_error( $post_id ) ? 'ERROR' : $post_id ) . PHP_EOL, FILE_APPEND );
+				} finally {
+					// Always release mutex lock
+					$this->seogen_release_mutex( $canonical_key );
+				}
 
 					if ( is_wp_error( $post_id ) ) {
 						// CRITICAL: Never overwrite locked/imported rows
@@ -4941,20 +4957,31 @@ class SEOgen_Admin {
 					$postarr['page_template'] = 'elementor_header_footer';
 				}
 
+				// CRITICAL: Acquire mutex lock to prevent concurrent duplicate creation
+				if ( ! $this->seogen_acquire_mutex( $key ) ) {
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND MUTEX: Could not acquire lock for key=' . $key . ', will retry later' . PHP_EOL, FILE_APPEND );
+					continue; // Skip this item, will retry on next batch
+				}
+				
 				$post_id = 0;
-				// CRITICAL: Always check for existing page right before creating to prevent duplicates
-				// This is the final safety check before wp_insert_post
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK: Searching for key=' . $key . PHP_EOL, FILE_APPEND );
-				$final_existing_id = $this->find_existing_post_id_by_key( $key );
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK RESULT: existing_id=' . $final_existing_id . PHP_EOL, FILE_APPEND );
-				if ( $final_existing_id > 0 ) {
-					// Update existing page instead of creating duplicate
-					$postarr['ID'] = $final_existing_id;
-					$post_id = wp_update_post( $postarr, true );
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Updating existing post instead of creating duplicate: post_id=' . $final_existing_id . ' key=' . $key . PHP_EOL, FILE_APPEND );
-				} else {
-					$post_id = wp_insert_post( $postarr, true );
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Creating new post: key=' . $key . PHP_EOL, FILE_APPEND );
+				try {
+					// CRITICAL: Always check for existing page right before creating to prevent duplicates
+					// This is the final safety check before wp_insert_post
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK: Searching for key=' . $key . PHP_EOL, FILE_APPEND );
+					$final_existing_id = $this->find_existing_post_id_by_key( $key );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK RESULT: existing_id=' . $final_existing_id . PHP_EOL, FILE_APPEND );
+					if ( $final_existing_id > 0 ) {
+						// Update existing page instead of creating duplicate
+						$postarr['ID'] = $final_existing_id;
+						$post_id = wp_update_post( $postarr, true );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Updating existing post instead of creating duplicate: post_id=' . $final_existing_id . ' key=' . $key . PHP_EOL, FILE_APPEND );
+					} else {
+						$post_id = wp_insert_post( $postarr, true );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Creating new post: key=' . $key . PHP_EOL, FILE_APPEND );
+					}
+				} finally {
+					// Always release mutex lock
+					$this->seogen_release_mutex( $key );
 				}
 
 				if ( is_wp_error( $post_id ) ) {
