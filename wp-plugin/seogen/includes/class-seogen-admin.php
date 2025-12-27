@@ -1884,6 +1884,67 @@ class SEOgen_Admin {
 		return $message;
 	}
 
+	/**
+	 * Check if a job row is locked (imported and immutable).
+	 * A row is locked if it has status='success' OR locked=true OR has a post_id.
+	 * Locked rows cannot have their status changed.
+	 */
+	private function seogen_is_row_locked( $job, $idx ) {
+		if ( ! isset( $job['rows'][ $idx ] ) || ! is_array( $job['rows'][ $idx ] ) ) {
+			return false;
+		}
+		$row = $job['rows'][ $idx ];
+		// Check if explicitly locked
+		if ( isset( $row['locked'] ) && true === $row['locked'] ) {
+			return true;
+		}
+		// Check if status is success (imported)
+		if ( isset( $row['status'] ) && 'success' === $row['status'] ) {
+			return true;
+		}
+		// Check if has post_id (page was created)
+		if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Lock a job row after successful import.
+	 * Sets locked=true, status='success', and completed_at timestamp.
+	 */
+	private function seogen_lock_row( &$job, $idx, $post_id ) {
+		if ( ! isset( $job['rows'][ $idx ] ) ) {
+			return;
+		}
+		$job['rows'][ $idx ]['locked'] = true;
+		$job['rows'][ $idx ]['status'] = 'success';
+		$job['rows'][ $idx ]['post_id'] = (int) $post_id;
+		$job['rows'][ $idx ]['completed_at'] = time();
+		$job['rows'][ $idx ]['message'] = __( 'Imported.', 'seogen' );
+	}
+
+	/**
+	 * Acquire a mutex lock for a canonical key to prevent duplicate page creation.
+	 * Returns true if lock acquired, false if already locked.
+	 */
+	private function seogen_acquire_mutex( $canonical_key ) {
+		$lock_key = 'seogen_lock_' . md5( $canonical_key );
+		if ( get_transient( $lock_key ) ) {
+			return false; // Already locked
+		}
+		set_transient( $lock_key, 1, 60 ); // Lock for 60 seconds
+		return true;
+	}
+
+	/**
+	 * Release a mutex lock for a canonical key.
+	 */
+	private function seogen_release_mutex( $canonical_key ) {
+		$lock_key = 'seogen_lock_' . md5( $canonical_key );
+		delete_transient( $lock_key );
+	}
+
 	private function get_bulk_backend_label() {
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			return 'Action Scheduler';
@@ -4005,13 +4066,17 @@ class SEOgen_Admin {
 					
 					if ( 'failed' === $item_status ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Item failed: ' . $error . PHP_EOL, FILE_APPEND );
-						// CRITICAL: Never overwrite 'success' status - page is already imported
-						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
+						// CRITICAL: Never overwrite locked/imported rows
+						if ( $this->seogen_is_row_locked( $job, $idx ) ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Row ' . $idx . ' is locked, not changing status to failed' . PHP_EOL, FILE_APPEND );
+							if ( ! isset( $job['rows'][ $idx ]['notes'] ) ) {
+								$job['rows'][ $idx ]['notes'] = array();
+							}
+							$job['rows'][ $idx ]['notes'][] = 'protected_from_api_failure';
+						} elseif ( isset( $job['rows'][ $idx ] ) ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = '' !== $error ? $error : __( 'Generation failed.', 'seogen' );
 							$job['rows'][ $idx ]['post_id'] = 0;
-						} elseif ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] ) {
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Not overwriting success status with failed for idx=' . $idx . PHP_EOL, FILE_APPEND );
 						}
 						// Only ack permanently failed items (attempts >= 2) so retries can be re-fetched
 						$item_attempts = isset( $item['attempts'] ) ? (int) $item['attempts'] : 0;
@@ -4026,13 +4091,17 @@ class SEOgen_Admin {
 					
 					if ( ! is_array( $result_json ) ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping item: result_json not array' . PHP_EOL, FILE_APPEND );
-						// CRITICAL: Never overwrite 'success' status - page is already imported
-						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
+						// CRITICAL: Never overwrite locked/imported rows
+						if ( $this->seogen_is_row_locked( $job, $idx ) ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Row ' . $idx . ' is locked, not changing status for invalid result' . PHP_EOL, FILE_APPEND );
+							if ( ! isset( $job['rows'][ $idx ]['notes'] ) ) {
+								$job['rows'][ $idx ]['notes'] = array();
+							}
+							$job['rows'][ $idx ]['notes'][] = 'protected_from_invalid_result';
+						} elseif ( isset( $job['rows'][ $idx ] ) ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = __( 'Invalid result data from API.', 'seogen' );
 							$job['rows'][ $idx ]['post_id'] = 0;
-						} elseif ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] ) {
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Not overwriting success status with invalid result for idx=' . $idx . PHP_EOL, FILE_APPEND );
 						}
 						$acked_ids[] = $item_id;
 						continue;
@@ -4148,12 +4217,17 @@ class SEOgen_Admin {
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Post created/updated: post_id=' . ( is_wp_error( $post_id ) ? 'ERROR' : $post_id ) . PHP_EOL, FILE_APPEND );
 
 					if ( is_wp_error( $post_id ) ) {
-						if ( isset( $job['rows'][ $idx ] ) && 'success' !== $job['rows'][ $idx ]['status'] ) {
+						// CRITICAL: Never overwrite locked/imported rows
+						if ( $this->seogen_is_row_locked( $job, $idx ) ) {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Row ' . $idx . ' is locked, not changing status for wp_error' . PHP_EOL, FILE_APPEND );
+							if ( ! isset( $job['rows'][ $idx ]['notes'] ) ) {
+								$job['rows'][ $idx ]['notes'] = array();
+							}
+							$job['rows'][ $idx ]['notes'][] = 'protected_from_wp_error';
+						} elseif ( isset( $job['rows'][ $idx ] ) ) {
 							$job['rows'][ $idx ]['status'] = 'failed';
 							$job['rows'][ $idx ]['message'] = $post_id->get_error_message();
 							$job['rows'][ $idx ]['post_id'] = 0;
-						} elseif ( isset( $job['rows'][ $idx ] ) && 'success' === $job['rows'][ $idx ]['status'] ) {
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PROTECTED: Not overwriting success status with wp_error for idx=' . $idx . PHP_EOL, FILE_APPEND );
 						}
 						$acked_ids[] = $item_id;
 						continue;
