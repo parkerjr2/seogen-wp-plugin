@@ -4098,20 +4098,26 @@ class SEOgen_Admin {
 			}
 
 			$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
-			
-			// Dynamic batch size: fetch more items when job is complete or has many pending items
 			$api_status = isset( $status['data']['status'] ) ? (string) $status['data']['status'] : '';
-			$total_items = isset( $status['data']['total_items'] ) ? (int) $status['data']['total_items'] : 0;
-			$completed_items = isset( $status['data']['completed'] ) ? (int) $status['data']['completed'] : 0;
-			$local_success_count = 0;
+		
+			// FIXED: Compute pending_import_count from actual row states, not subtraction
+			$pending_import_count = 0;
 			if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 				foreach ( $job['rows'] as $row ) {
-					if ( isset( $row['status'] ) && 'success' === $row['status'] ) {
-						$local_success_count++;
+					$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
+					$row_locked = isset( $row['locked'] ) && true === $row['locked'];
+					$has_post_id = isset( $row['post_id'] ) && (int) $row['post_id'] > 0;
+				
+					// Count as pending if: status is pending/queued/processing, OR (no post_id AND not locked AND not success/skipped)
+					if ( in_array( $row_status, array( 'pending', 'queued', 'processing' ), true ) ) {
+						$pending_import_count++;
+					} elseif ( ! $has_post_id && ! $row_locked && 'success' !== $row_status && 'skipped' !== $row_status ) {
+						$pending_import_count++;
 					}
 				}
 			}
-			$pending_import_count = $completed_items - $local_success_count;
+			$pending_import_count = max( 0, $pending_import_count );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] pending_import_count=' . $pending_import_count . ' api_status=' . $api_status . PHP_EOL, FILE_APPEND );
 			
 			// Use larger batch size when:
 			// 1. Job is complete (fetch all remaining)
