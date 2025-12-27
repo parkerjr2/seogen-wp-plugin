@@ -187,9 +187,34 @@ function seogen_generate_city_hub_content( $job_id, $job ) {
 		$title = isset( $data['title'] ) ? $data['title'] : '';
 		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
 		
+		// Get trade name from vertical for focus keyword
+		$trade_name_map = array(
+			'roofer' => 'Roofing',
+			'roofing' => 'Roofing',
+			'electrician' => 'Electrical',
+			'electrical' => 'Electrical',
+			'plumber' => 'Plumbing',
+			'plumbing' => 'Plumbing',
+			'hvac' => 'HVAC',
+			'hvac technician' => 'HVAC',
+			'landscaper' => 'Landscaping',
+			'landscaping' => 'Landscaping',
+			'handyman' => 'Handyman Services',
+			'painter' => 'Painting',
+			'painting' => 'Painting',
+			'concrete' => 'Concrete',
+			'siding' => 'Siding',
+			'locksmith' => 'Locksmith Services',
+			'cleaning' => 'Cleaning Services',
+			'garage-door' => 'Garage Door',
+			'garage door' => 'Garage Door',
+			'windows' => 'Window Services',
+		);
+		$trade_name = isset( $trade_name_map[ strtolower( $vertical ) ] ) ? $trade_name_map[ strtolower( $vertical ) ] : 'Services';
+		
 		// Focus keyword should be the full service category (e.g., "Residential Electrical")
 		// NOT "Residential Tulsa" - we want to rank for the service, not service+city
-		$focus_keyword = $hub_label;
+		$focus_keyword = $hub_label . ' ' . $trade_name;
 		
 		// Ensure meta description follows Google best practices:
 		// - 155-160 characters optimal length
