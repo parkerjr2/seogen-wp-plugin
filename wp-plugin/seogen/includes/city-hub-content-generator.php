@@ -183,6 +183,13 @@ function seogen_generate_city_hub_content( $job_id, $job ) {
 		update_post_meta( $city_hub_id, '_is_placeholder', '0' );
 		update_post_meta( $city_hub_id, '_hyper_local_source_json', wp_json_encode( $data ) );
 		
+		// Apply SEO plugin metadata (Yoast/RankMath)
+		$title = isset( $data['title'] ) ? $data['title'] : '';
+		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
+		$focus_keyword = $hub_label . ' ' . $city;
+		
+		seogen_apply_seo_meta( $city_hub_id, $focus_keyword, $title, $meta_description );
+		
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Successfully generated city hub content: ' . $city . ', ' . $state . ' (ID: ' . $city_hub_id . ')' . PHP_EOL, FILE_APPEND );
 	}
 	
@@ -247,4 +254,46 @@ function seogen_build_gutenberg_blocks( $blocks, $page_mode ) {
 	}
 	
 	return $output;
+}
+
+/**
+ * Apply SEO plugin metadata (Yoast/RankMath)
+ * Standalone helper function for city hub content generator
+ */
+function seogen_apply_seo_meta( $post_id, $focus_keyword, $title, $meta_description ) {
+	$post_id = (int) $post_id;
+	if ( $post_id <= 0 ) {
+		return;
+	}
+	
+	$focus_keyword = sanitize_text_field( wp_strip_all_tags( (string) $focus_keyword ) );
+	$title = sanitize_text_field( wp_strip_all_tags( (string) $title ) );
+	$meta_description = sanitize_text_field( wp_strip_all_tags( (string) $meta_description ) );
+	
+	// Check for Yoast SEO
+	if ( defined( 'WPSEO_VERSION' ) || class_exists( 'WPSEO_Options' ) ) {
+		if ( '' !== $focus_keyword ) {
+			update_post_meta( $post_id, '_yoast_wpseo_focuskw', $focus_keyword );
+		}
+		if ( '' !== $title ) {
+			update_post_meta( $post_id, '_yoast_wpseo_title', $title );
+		}
+		if ( '' !== $meta_description ) {
+			update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
+		}
+		return;
+	}
+	
+	// Check for Rank Math
+	if ( defined( 'RANK_MATH_VERSION' ) || class_exists( '\\RankMath\\Helper' ) || function_exists( 'rank_math' ) ) {
+		if ( '' !== $focus_keyword ) {
+			update_post_meta( $post_id, 'rank_math_focus_keyword', $focus_keyword );
+		}
+		if ( '' !== $title ) {
+			update_post_meta( $post_id, 'rank_math_title', $title );
+		}
+		if ( '' !== $meta_description ) {
+			update_post_meta( $post_id, 'rank_math_description', $meta_description );
+		}
+	}
 }
