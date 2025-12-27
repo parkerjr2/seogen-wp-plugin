@@ -4496,6 +4496,14 @@ class SEOgen_Admin {
 					$job['api_cursor'] = sanitize_text_field( (string) $results['data']['next_cursor'] );
 				}
 				
+				// Mark results exhausted if no items and no cursor
+				if ( empty( $results['data']['items'] ) && ( ! isset( $results['data']['next_cursor'] ) || null === $results['data']['next_cursor'] || '' === $results['data']['next_cursor'] ) ) {
+					$job['results_exhausted'] = true;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] results exhausted, marking flag' . PHP_EOL, FILE_APPEND );
+				} else {
+					$job['results_exhausted'] = false;
+				}
+				
 				// If job is complete and we still have a cursor, schedule immediate re-poll to fetch remaining items
 				if ( ( 'complete' === $api_status || 'completed' === $api_status ) && isset( $results['data']['next_cursor'] ) && '' !== $results['data']['next_cursor'] ) {
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Job complete but more items to fetch, will continue polling' . PHP_EOL, FILE_APPEND );
