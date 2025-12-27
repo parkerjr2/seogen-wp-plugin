@@ -3432,6 +3432,25 @@ class SEOgen_Admin {
 				console.log('[SEOgen] Job ID:', jobId);
 				var refreshBtn = document.getElementById('hyper-local-bulk-refresh');
 				var cancelBtn = document.getElementById('hyper-local-bulk-cancel');
+				
+				// CLIENT-SIDE IMMUTABLE STATUS PROTECTION
+				var clientRowLock = {}; // key -> { locked: true, status: 'success', edit_url, message, ts }
+				
+				function getRowKey(r){
+					// Prefer canonical_key if present
+					if(r.canonical_key && String(r.canonical_key).trim()){
+						return String(r.canonical_key).toLowerCase().trim();
+					}
+					// Build key from service|city|state|hub_key
+					var parts = [
+						String(r.service||'').toLowerCase().trim(),
+						String(r.city||'').toLowerCase().trim(),
+						String(r.state||'').toLowerCase().trim()
+					];
+					if(r.hub_key){parts.push(String(r.hub_key).toLowerCase().trim());}
+					return parts.filter(function(p){return p.length>0;}).join('|');
+				}
+				
 				function esc(s){return String(s).replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]);});}
 				function render(job){
 					if(!job){container.innerHTML = '<p><?php echo esc_js( __( 'Job not found.', 'seogen' ) ); ?></p>';return;}
@@ -3440,6 +3459,35 @@ class SEOgen_Admin {
 					html += '<p><strong><?php echo esc_js( __( 'Totals:', 'seogen' ) ); ?></strong> ' + esc(job.processed) + '/' + esc(job.total_rows) + ' | <?php echo esc_js( __( 'New', 'seogen' ) ); ?>: ' + esc(job.success) + ' | <?php echo esc_js( __( 'Failed', 'seogen' ) ); ?>: ' + esc(job.failed) + ' | <?php echo esc_js( __( 'Skipped', 'seogen' ) ); ?>: ' + esc(job.skipped) + '</p>';
 					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
 					(job.rows||[]).forEach(function(r){
+						var key = getRowKey(r);
+						var incomingStatus = String(r.status||'');
+						var incomingMessage = String(r.message||'');
+						var incomingEditUrl = r.edit_url||'';
+						
+						// Lock row if it's successfully imported
+						if(incomingStatus === 'success' || incomingEditUrl || (r.post_id && r.post_id > 0)){
+							if(!clientRowLock[key] || !clientRowLock[key].locked){
+								clientRowLock[key] = {
+									locked: true,
+									status: 'success',
+									edit_url: incomingEditUrl,
+									message: incomingMessage || 'Imported.',
+									ts: Date.now()
+								};
+								console.log('[SEOgen] Locking row key=' + key + ' status=success');
+							}
+						}
+						
+						// Prevent downgrade if row is locked
+						if(clientRowLock[key] && clientRowLock[key].locked){
+							if(incomingStatus !== 'success'){
+								console.log('[SEOgen] Prevented downgrade key=' + key + ' from=' + incomingStatus + ' to=success');
+								r.status = 'success';
+								r.message = clientRowLock[key].message || incomingMessage;
+								r.edit_url = clientRowLock[key].edit_url || incomingEditUrl;
+							}
+						}
+						
 						html += '<tr>';
 						html += '<td>' + esc(r.service||'') + '</td>';
 						html += '<td>' + esc(r.city||'') + '</td>';
@@ -3457,6 +3505,7 @@ class SEOgen_Admin {
 					container.innerHTML = html;
 				}
 				var pollInterval = null;
+				var connectionErrorCount = 0;
 				function fetchStatus(){
 					console.log('[SEOgen] fetchStatus called for job:', jobId);
 					var data = new FormData();
@@ -3470,16 +3519,32 @@ class SEOgen_Admin {
 					}).then(function(res){
 						console.log('[SEOgen] Response data:', res);
 						if(res && res.success){
+							connectionErrorCount = 0; // Reset error count on success
 							render(res.data);
+							// Only stop polling if job is explicitly complete
+							if(res.data && (res.data.status === 'complete' || res.data.status === 'done' || res.data.status === 'canceled')){
+								console.log('[SEOgen] Job finished with status:', res.data.status);
+								if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+							}
 							return res.data;
 						}
-						console.error('[SEOgen] Job fetch failed, stopping polling');
-						if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
-						render(null);
+						// Server returned error but don't wipe table - just warn
+						console.warn('[SEOgen] Temporary connection issue; retrying...');
+						connectionErrorCount++;
+						// Only stop polling after many consecutive failures
+						if(connectionErrorCount > 10){
+							console.error('[SEOgen] Too many consecutive failures, stopping polling');
+							if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+						}
 						return null;
 					}).catch(function(err){
-						console.error('[SEOgen] Fetch error:', err);
-						if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+						console.warn('[SEOgen] Fetch error (transient):', err, '- retrying...');
+						connectionErrorCount++;
+						// Don't wipe table on transient errors - keep polling
+						if(connectionErrorCount > 10){
+							console.error('[SEOgen] Too many consecutive failures, stopping polling');
+							if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+						}
 						return null;
 					});
 				}
