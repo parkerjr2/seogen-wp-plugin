@@ -4149,13 +4149,24 @@ class SEOgen_Admin {
 		} elseif ( $pending_import_count > 50 ) {
 			$batch_size = 50; // Catch up faster if falling behind
 		} elseif ( $pending_import_count > 20 ) {
-			$batch_size = 25;
 		}
 		
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' batch_size=' . $batch_size . ' api_status=' . $api_status . ' pending_import=' . $pending_import_count . PHP_EOL, FILE_APPEND );
 			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, $batch_size );
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
-			$acked_ids = array();
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
+		
+		// CRITICAL: Detect transport errors on results and return cached state
+		if ( is_wp_error( $results ) || empty( $results['ok'] ) || ( isset( $results['code'] ) && 0 === (int) $results['code'] ) ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] transport error on api_get_bulk_job_results, returning cached job state' . PHP_EOL, FILE_APPEND );
+			
+			$response_data = $this->prepare_bulk_job_response( $job );
+			$response_data['warning'] = 'Temporary connection issue. Retrying...';
+			
+			wp_send_json_success( $response_data );
+			return;
+		}
+		
+		$acked_ids = array();
 			if ( ! empty( $results['ok'] ) && is_array( $results['data'] ) && isset( $results['data']['items'] ) && is_array( $results['data']['items'] ) ) {
 				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Processing ' . count( $results['data']['items'] ) . ' result items. Job has ' . count( $job['rows'] ) . ' rows.' . PHP_EOL, FILE_APPEND );
 				$update_existing = ( isset( $job['update_existing'] ) && '1' === (string) $job['update_existing'] );
