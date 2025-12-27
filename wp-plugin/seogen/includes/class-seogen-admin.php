@@ -4081,6 +4081,14 @@ class SEOgen_Admin {
 
 		if ( $is_api_mode && '' !== $api_url && '' !== $license_key ) {
 			$status = $this->api_get_bulk_job_status( $api_url, $license_key, $job['api_job_id'] );
+			// CRITICAL: Detect transport errors and return cached state
+			if ( is_wp_error( $status ) || empty( $status['ok'] ) || ( isset( $status['code'] ) && 0 === (int) $status['code'] ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] transport error on api_get_bulk_job_status, returning cached job state' . PHP_EOL, FILE_APPEND );
+				$response_data = $this->prepare_bulk_job_response( $job );
+				$response_data['warning'] = 'Temporary connection issue. Retrying...';
+				wp_send_json_success( $response_data );
+				return;
+			}
 			if ( ! empty( $status['ok'] ) && is_array( $status['data'] ) ) {
 				$job['status'] = isset( $status['data']['status'] ) ? sanitize_text_field( (string) $status['data']['status'] ) : ( isset( $job['status'] ) ? $job['status'] : '' );
 				$job['total_rows'] = isset( $status['data']['total_items'] ) ? (int) $status['data']['total_items'] : ( isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0 );
