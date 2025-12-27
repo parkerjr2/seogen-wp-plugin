@@ -973,8 +973,52 @@ trait SEOgen_Admin_Extensions {
 		// SEO meta - use apply_seo_plugin_meta for consistency with service+city pages
 		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
 		$title = $data['title'];
-		// Generate focus keyword for SEO plugins: "hub_label Services"
-		$focus_keyword = $hub['label'] . ' Services';
+		
+		// Get trade name from vertical for focus keyword
+		$vertical = isset( $config['vertical'] ) ? strtolower( $config['vertical'] ) : 'electrician';
+		$trade_name_map = array(
+			'roofer' => 'Roofing',
+			'roofing' => 'Roofing',
+			'electrician' => 'Electrical',
+			'electrical' => 'Electrical',
+			'plumber' => 'Plumbing',
+			'plumbing' => 'Plumbing',
+			'hvac' => 'HVAC',
+			'hvac technician' => 'HVAC',
+			'landscaper' => 'Landscaping',
+			'landscaping' => 'Landscaping',
+			'handyman' => 'Handyman Services',
+			'painter' => 'Painting',
+			'painting' => 'Painting',
+			'concrete' => 'Concrete',
+			'siding' => 'Siding',
+			'locksmith' => 'Locksmith Services',
+			'cleaning' => 'Cleaning Services',
+			'garage-door' => 'Garage Door',
+			'garage door' => 'Garage Door',
+			'windows' => 'Window Services',
+		);
+		$trade_name = isset( $trade_name_map[ $vertical ] ) ? $trade_name_map[ $vertical ] : 'Services';
+		
+		// Focus keyword: "Commercial Electrical" not just "Commercial Services"
+		$focus_keyword = $hub['label'] . ' ' . $trade_name;
+		
+		// Ensure meta description follows Google best practices (150-160 chars)
+		// Formula: Primary service. Key benefit or differentiator. Trust signal or CTA.
+		if ( empty( $meta_description ) || strlen( $meta_description ) < 100 ) {
+			// Generate better meta description following Google best practices
+			$meta_description = sprintf(
+				'Expert %s %s services. Licensed professionals, quality workmanship, and reliable service. %s',
+				strtolower( $hub['label'] ),
+				strtolower( $trade_name ),
+				isset( $config['cta_text'] ) ? $config['cta_text'] : 'Contact us today'
+			);
+		}
+		
+		// Trim to optimal length (150-160 chars for desktop)
+		if ( strlen( $meta_description ) > 160 ) {
+			$meta_description = substr( $meta_description, 0, 157 ) . '...';
+		}
 		
 		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 		$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $title, $meta_description, true );

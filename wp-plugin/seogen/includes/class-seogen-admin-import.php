@@ -119,8 +119,48 @@ trait SEOgen_Admin_Import {
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
 		update_post_meta( $post_id, '_hl_page_type', 'service_hub' );
 		
-		// Apply SEO plugin meta
-		$focus_keyword = $hub_label . ' Services';
+		// Apply SEO plugin meta with trade name
+		$vertical = isset( $config['vertical'] ) ? strtolower( $config['vertical'] ) : 'electrician';
+		$trade_name_map = array(
+			'roofer' => 'Roofing',
+			'roofing' => 'Roofing',
+			'electrician' => 'Electrical',
+			'electrical' => 'Electrical',
+			'plumber' => 'Plumbing',
+			'plumbing' => 'Plumbing',
+			'hvac' => 'HVAC',
+			'hvac technician' => 'HVAC',
+			'landscaper' => 'Landscaping',
+			'landscaping' => 'Landscaping',
+			'handyman' => 'Handyman Services',
+			'painter' => 'Painting',
+			'painting' => 'Painting',
+			'concrete' => 'Concrete',
+			'siding' => 'Siding',
+			'locksmith' => 'Locksmith Services',
+			'cleaning' => 'Cleaning Services',
+			'garage-door' => 'Garage Door',
+			'garage door' => 'Garage Door',
+			'windows' => 'Window Services',
+		);
+		$trade_name = isset( $trade_name_map[ $vertical ] ) ? $trade_name_map[ $vertical ] : 'Services';
+		
+		// Focus keyword: "Commercial Electrical" not "Commercial Services"
+		$focus_keyword = $hub_label . ' ' . $trade_name;
+		
+		// Ensure meta description meets Google best practices
+		if ( empty( $meta_description ) || strlen( $meta_description ) < 100 ) {
+			$meta_description = sprintf(
+				'Expert %s %s services. Licensed professionals, quality workmanship, and reliable service. %s',
+				strtolower( $hub_label ),
+				strtolower( $trade_name ),
+				isset( $config['cta_text'] ) ? $config['cta_text'] : 'Contact us today'
+			);
+		}
+		if ( strlen( $meta_description ) > 160 ) {
+			$meta_description = substr( $meta_description, 0, 157 ) . '...';
+		}
+		
 		$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $title, $meta_description, true );
 		
 		// Apply page builder settings if header/footer disabled
