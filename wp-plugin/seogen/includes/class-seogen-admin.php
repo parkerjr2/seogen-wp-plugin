@@ -4119,19 +4119,40 @@ class SEOgen_Admin {
 			$pending_import_count = max( 0, $pending_import_count );
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] pending_import_count=' . $pending_import_count . ' api_status=' . $api_status . PHP_EOL, FILE_APPEND );
 			
-			// Use larger batch size when:
-			// 1. Job is complete (fetch all remaining)
-			// 2. Many items pending import (catch up faster)
-			$batch_size = 10; // Default
-			if ( 'complete' === $api_status || 'completed' === $api_status ) {
-				$batch_size = 100; // Fetch all remaining when job is done
-			} elseif ( $pending_import_count > 50 ) {
-				$batch_size = 50; // Catch up faster if falling behind
-			} elseif ( $pending_import_count > 20 ) {
-				$batch_size = 25;
-			}
+			// OPTIMIZATION: Skip results fetch if complete and nothing pending
+		$results_exhausted = isset( $job['results_exhausted'] ) && true === $job['results_exhausted'];
+		if ( ( 'complete' === $api_status || 'completed' === $api_status ) && $pending_import_count === 0 && '' === $cursor ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] api_status=complete and nothing pending, skipping results fetch' . PHP_EOL, FILE_APPEND );
 			
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' batch_size=' . $batch_size . ' api_status=' . $api_status . ' pending_import=' . $pending_import_count . PHP_EOL, FILE_APPEND );
+			$job['results_exhausted'] = true;
+			$this->save_bulk_job( $job_id, $job );
+			
+			$response_data = $this->prepare_bulk_job_response( $job );
+			wp_send_json_success( $response_data );
+			return;
+		}
+		
+		if ( $results_exhausted && $pending_import_count === 0 ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] results exhausted and nothing pending, skipping fetch' . PHP_EOL, FILE_APPEND );
+			
+			$response_data = $this->prepare_bulk_job_response( $job );
+			wp_send_json_success( $response_data );
+			return;
+		}
+		
+		// Use larger batch size when:
+		// 1. Job is complete (fetch all remaining)
+		// 2. Many items pending import (catch up faster)
+		$batch_size = 10; // Default
+		if ( 'complete' === $api_status || 'completed' === $api_status ) {
+			$batch_size = 100; // Fetch all remaining when job is done
+		} elseif ( $pending_import_count > 50 ) {
+			$batch_size = 50; // Catch up faster if falling behind
+		} elseif ( $pending_import_count > 20 ) {
+			$batch_size = 25;
+		}
+		
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' batch_size=' . $batch_size . ' api_status=' . $api_status . ' pending_import=' . $pending_import_count . PHP_EOL, FILE_APPEND );
 			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, $batch_size );
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
 			$acked_ids = array();
