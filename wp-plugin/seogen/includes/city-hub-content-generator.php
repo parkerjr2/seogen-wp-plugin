@@ -186,7 +186,30 @@ function seogen_generate_city_hub_content( $job_id, $job ) {
 		// Apply SEO plugin metadata (Yoast/RankMath)
 		$title = isset( $data['title'] ) ? $data['title'] : '';
 		$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
-		$focus_keyword = $hub_label . ' ' . $city;
+		
+		// Focus keyword should be the full service category (e.g., "Residential Electrical")
+		// NOT "Residential Tulsa" - we want to rank for the service, not service+city
+		$focus_keyword = $hub_label;
+		
+		// Ensure meta description follows Google best practices:
+		// - 155-160 characters optimal length
+		// - Compelling call-to-action
+		// - Includes location and service
+		// - Unique and descriptive
+		if ( empty( $meta_description ) || strlen( $meta_description ) < 100 ) {
+			// Generate a better meta description if the AI one is too short/generic
+			$meta_description = sprintf(
+				'Professional %s services in %s, %s. Expert technicians, quality workmanship, and reliable service. Contact us today for a free estimate!',
+				strtolower( $hub_label ),
+				$city,
+				$state
+			);
+		}
+		
+		// Trim to Google's recommended length (155-160 chars)
+		if ( strlen( $meta_description ) > 160 ) {
+			$meta_description = substr( $meta_description, 0, 157 ) . '...';
+		}
 		
 		seogen_apply_seo_meta( $city_hub_id, $focus_keyword, $title, $meta_description );
 		
