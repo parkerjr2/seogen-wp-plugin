@@ -1948,6 +1948,7 @@ class SEOgen_Admin {
 	/**
 	 * Prepare bulk job response data with edit URLs.
 	 * Centralizes response preparation for consistency.
+	 * Sanitizes HTTP 0 error messages from cached state.
 	 */
 	private function prepare_bulk_job_response( $job ) {
 		$rows_with_urls = array();
@@ -1957,6 +1958,20 @@ class SEOgen_Admin {
 				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
 					$row_copy['edit_url'] = admin_url( 'post.php?post=' . (int) $row['post_id'] . '&action=edit' );
 				}
+				
+				// Sanitize HTTP 0 error messages - don't show transient errors in UI
+				if ( isset( $row_copy['message'] ) && is_string( $row_copy['message'] ) ) {
+					if ( strpos( $row_copy['message'], 'HTTP 0' ) !== false || strpos( $row_copy['message'], 'cURL error' ) !== false ) {
+						// Replace with generic message based on status
+						$row_status = isset( $row_copy['status'] ) ? $row_copy['status'] : '';
+						if ( 'pending' === $row_status || 'queued' === $row_status ) {
+							$row_copy['message'] = __( 'Queued for generation.', 'seogen' );
+						} elseif ( 'processing' === $row_status ) {
+							$row_copy['message'] = __( 'Processing...', 'seogen' );
+						}
+					}
+				}
+				
 				$rows_with_urls[] = $row_copy;
 			}
 		}
