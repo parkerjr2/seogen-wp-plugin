@@ -60,9 +60,13 @@ class SEOgen_Plugin {
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-license.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-link.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-rest-api.php';
 		
 		// Initialize license management
 		SEOgen_License::init();
+		
+		// Register REST API routes for backend callbacks
+		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
 		
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
@@ -95,6 +99,14 @@ class SEOgen_Plugin {
 		if ( is_admin() ) {
 			$admin->run();
 		}
+	}
+	
+	/**
+	 * Register REST API routes for backend callbacks
+	 */
+	public function register_rest_routes() {
+		$rest_api = new SEOgen_REST_API();
+		$rest_api->register_routes();
 	}
 
 	public function filter_body_class( $classes ) {

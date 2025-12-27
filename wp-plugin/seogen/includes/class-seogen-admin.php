@@ -2608,6 +2608,13 @@ class SEOgen_Admin {
 
 		$sanitized['disable_theme_header_footer'] = ( isset( $input['disable_theme_header_footer'] ) && '1' === (string) $input['disable_theme_header_footer'] ) ? '1' : '0';
 
+		// Generate callback secret if not exists (for REST API security)
+		$callback_secret = get_option( 'seogen_callback_secret', '' );
+		if ( empty( $callback_secret ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-rest-api.php';
+			SEOgen_REST_API::generate_callback_secret();
+		}
+		
 		// Trigger license registration if license key changed
 		if ( class_exists( 'SEOgen_License' ) ) {
 			$old_settings = get_option( self::OPTION_NAME, array() );
