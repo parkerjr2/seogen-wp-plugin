@@ -2243,6 +2243,8 @@ class SEOgen_Admin {
 		if ( is_wp_error( $response ) ) {
 			$error_msg = $response->get_error_message();
 			error_log( '[HyperLocal API] api_json_request WP_Error: ' . $error_msg );
+			// Log HTTP 0 errors to seogen-debug.log for visibility
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] HTTP 0 ERROR: WordPress HTTP request failed: ' . $error_msg . ' URL: ' . $url . PHP_EOL, FILE_APPEND );
 			return array(
 				'ok'    => false,
 				'error' => $error_msg,
