@@ -238,15 +238,13 @@ class SEOgen_REST_API {
 	 * Import service page
 	 */
 	private function import_service_page( $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
-		// Load only the import trait we need
-		if ( ! trait_exists( 'SEOgen_Admin_Import' ) ) {
-			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin-import.php';
+		// Load admin class with all helper methods
+		if ( ! class_exists( 'SEOgen_Admin' ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
 		}
 		
-		// Create anonymous class that uses the import trait
-		$importer = new class {
-			use SEOgen_Admin_Import;
-		};
+		// Use full admin class instance (has all helper methods the trait needs)
+		$importer = new SEOgen_Admin();
 		
 		// Build config from settings
 		$config = get_option( 'hyper_local_business_config', array() );
@@ -259,8 +257,8 @@ class SEOgen_REST_API {
 			'hub_key' => isset( $item_metadata['hub_key'] ) ? $item_metadata['hub_key'] : '',
 		);
 		
-		// Import using existing logic
-		$result = $importer->import_service_page_from_result( $result_json, $config, $item );
+		// Import using existing logic - use service_city method
+		$result = $importer->import_service_city_from_result( $result_json, $config, $item );
 		
 		if ( isset( $result['success'] ) && $result['success'] && isset( $result['post_id'] ) ) {
 			// Store idempotency metadata
@@ -278,15 +276,13 @@ class SEOgen_REST_API {
 	 * Import city hub
 	 */
 	private function import_city_hub( $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
-		// Load only the import trait we need
-		if ( ! trait_exists( 'SEOgen_Admin_Import' ) ) {
-			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin-import.php';
+		// Load admin class with all helper methods
+		if ( ! class_exists( 'SEOgen_Admin' ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
 		}
 		
-		// Create anonymous class that uses the import trait
-		$importer = new class {
-			use SEOgen_Admin_Import;
-		};
+		// Use full admin class instance (has all helper methods the trait needs)
+		$importer = new SEOgen_Admin();
 		
 		// Build config from settings
 		$config = get_option( 'hyper_local_business_config', array() );
@@ -300,8 +296,8 @@ class SEOgen_REST_API {
 			'hub_label' => isset( $item_metadata['hub_label'] ) ? $item_metadata['hub_label'] : '',
 		);
 		
-		// Import using existing logic
-		$result = $importer->import_city_hub_from_result( $result_json, $config, $item );
+		// Import using existing logic - pass 'publish' status for auto-import
+		$result = $importer->import_city_hub_from_result( $result_json, $config, $item, 'publish' );
 		
 		if ( isset( $result['success'] ) && $result['success'] && isset( $result['post_id'] ) ) {
 			// Store idempotency metadata
