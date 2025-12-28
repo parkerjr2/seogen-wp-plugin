@@ -360,6 +360,13 @@ trait SEOgen_Admin_Import {
 			}
 		}
 		
+		// Find City Hub parent if hub_key and city info available
+		$city_hub_parent_id = 0;
+		if ( isset( $item['hub_key'] ) && ! empty( $item['hub_key'] ) && isset( $item['city'], $item['state'] ) ) {
+			$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
+			$city_hub_parent_id = $this->find_city_hub_post_id( $item['hub_key'], $city_slug );
+		}
+		
 		// Create post (no duplicate detection for service+city pages currently)
 		$post_data = array(
 			'post_type' => 'service_page',
@@ -367,6 +374,7 @@ trait SEOgen_Admin_Import {
 			'post_title' => $title,
 			'post_name' => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,
+			'post_parent' => $city_hub_parent_id,
 		);
 		
 		$post_id = wp_insert_post( $post_data, true );

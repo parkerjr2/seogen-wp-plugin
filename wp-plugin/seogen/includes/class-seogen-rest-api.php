@@ -287,10 +287,16 @@ class SEOgen_REST_API {
 		// Build config from settings
 		$config = get_option( 'hyper_local_business_config', array() );
 		
+		// Calculate city_slug if not provided
+		$city_slug = isset( $item_metadata['city_slug'] ) ? $item_metadata['city_slug'] : '';
+		if ( empty( $city_slug ) && isset( $item_metadata['city'], $item_metadata['state'] ) ) {
+			$city_slug = sanitize_title( $item_metadata['city'] . '-' . $item_metadata['state'] );
+		}
+		
 		// Build item data
 		$item = array(
 			'hub_key' => isset( $item_metadata['hub_key'] ) ? $item_metadata['hub_key'] : '',
-			'city_slug' => isset( $item_metadata['city_slug'] ) ? $item_metadata['city_slug'] : '',
+			'city_slug' => $city_slug,
 			'city' => isset( $item_metadata['city'] ) ? $item_metadata['city'] : '',
 			'state' => isset( $item_metadata['state'] ) ? $item_metadata['state'] : '',
 			'hub_label' => isset( $item_metadata['hub_label'] ) ? $item_metadata['hub_label'] : '',
