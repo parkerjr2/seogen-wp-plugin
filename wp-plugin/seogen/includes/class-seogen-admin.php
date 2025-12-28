@@ -74,6 +74,10 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_seogen_cleanup_duplicates', array( $this, 'ajax_cleanup_duplicates' ) );
 		add_action( 'admin_menu', array( $this, 'add_duplicate_cleanup_menu' ), 104 );
 		
+		// Phase 5: AJAX handler for batch import
+		add_action( 'wp_ajax_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
+		add_action( 'wp_ajax_nopriv_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
+		
 		// Ensure bulk actions work for service_page post type
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
@@ -4942,6 +4946,24 @@ class SEOgen_Admin {
 		$job['status'] = 'canceled';
 		$this->save_bulk_job( $job_id, $job );
 		wp_send_json_success();
+	}
+
+	/**
+	 * AJAX handler for running import batch
+	 * Phase 5: Batch importer
+	 */
+	public function ajax_run_import_batch() {
+		// Get job_id from request
+		$job_id = isset( $_POST['job_id'] ) ? sanitize_key( (string) wp_unslash( $_POST['job_id'] ) ) : '';
+		
+		if ( empty( $job_id ) ) {
+			wp_send_json_error( array( 'message' => 'Missing job_id' ) );
+		}
+		
+		// Run batch import
+		$result = $this->run_import_batch( $job_id );
+		
+		wp_send_json_success( $result );
 	}
 
 	public function process_bulk_job( $job_id, $allow_schedule = true ) {

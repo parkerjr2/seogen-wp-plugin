@@ -213,4 +213,264 @@ trait SEOgen_Import_Coordinator {
 			'error' => isset( $result['error'] ) ? $result['error'] : 'Import failed'
 		);
 	}
+	
+	/**
+	 * Run import batch - pull from backend and import items
+	 * Time-bounded: 15 seconds max, 10 items max
+	 * 
+	 * @param string $job_id Job ID
+	 * @return array ['imported' => int, 'failed' => int, 'remaining' => int, 'errors' => array]
+	 */
+	public function run_import_batch( $job_id ) {
+		$start_time = time();
+		$max_duration = 15; // 15 seconds max
+		$max_items = 10; // 10 items max per batch
+		
+		$imported_count = 0;
+		$failed_count = 0;
+		$errors = array();
+		
+		// Load job
+		$job = $this->load_bulk_job( $job_id );
+		if ( ! $job ) {
+			return array(
+				'imported' => 0,
+				'failed' => 0,
+				'remaining' => 0,
+				'errors' => array( 'Job not found' )
+			);
+		}
+		
+		// Get settings
+		$settings = $this->get_settings();
+		$api_url = isset( $settings['api_url'] ) ? $settings['api_url'] : '';
+		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
+		
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			return array(
+				'imported' => 0,
+				'failed' => 0,
+				'remaining' => 0,
+				'errors' => array( 'API URL or license key not configured' )
+			);
+		}
+		
+		$api_job_id = isset( $job['api_job_id'] ) ? $job['api_job_id'] : '';
+		if ( empty( $api_job_id ) ) {
+			return array(
+				'imported' => 0,
+				'failed' => 0,
+				'remaining' => 0,
+				'errors' => array( 'No API job ID' )
+			);
+		}
+		
+		// Fetch non-imported items from backend
+		$items = $this->fetch_non_imported_items( $api_url, $license_key, $api_job_id, $max_items );
+		
+		if ( empty( $items ) ) {
+			return array(
+				'imported' => 0,
+				'failed' => 0,
+				'remaining' => 0,
+				'errors' => array()
+			);
+		}
+		
+		$imported_item_ids = array();
+		
+		// Process each item
+		foreach ( $items as $item ) {
+			// Check time budget
+			if ( time() - $start_time >= $max_duration ) {
+				break;
+			}
+			
+			$item_id = isset( $item['item_id'] ) ? $item['item_id'] : '';
+			$canonical_key = isset( $item['canonical_key'] ) ? $item['canonical_key'] : '';
+			$result_json = isset( $item['result_json'] ) ? $item['result_json'] : null;
+			
+			if ( empty( $canonical_key ) || empty( $result_json ) ) {
+				$failed_count++;
+				$errors[] = 'Missing canonical_key or result_json for item ' . $item_id;
+				continue;
+			}
+			
+			// Build item metadata
+			$item_metadata = array(
+				'canonical_key' => $canonical_key,
+				'service' => isset( $item['service'] ) ? $item['service'] : '',
+				'city' => isset( $item['city'] ) ? $item['city'] : '',
+				'state' => isset( $item['state'] ) ? $item['state'] : '',
+				'hub_key' => isset( $item['hub_key'] ) ? $item['hub_key'] : '',
+				'hub_label' => isset( $item['hub_label'] ) ? $item['hub_label'] : '',
+				'city_slug' => isset( $item['city_slug'] ) ? $item['city_slug'] : '',
+			);
+			
+			// Import with lock and idempotency
+			$result = $this->import_item_with_lock( $result_json, $item_metadata, $job_id, isset( $item['idx'] ) ? $item['idx'] : 0 );
+			
+			if ( $result['success'] ) {
+				$imported_count++;
+				$imported_item_ids[] = $item_id;
+				
+				// Update job row status
+				$this->update_job_row_import_status( $job_id, $canonical_key, 'imported', $result['post_id'] );
+			} else {
+				$failed_count++;
+				$errors[] = 'Import failed for ' . $canonical_key . ': ' . $result['error'];
+				
+				// Update job row status
+				$this->update_job_row_import_status( $job_id, $canonical_key, 'failed', 0, $result['error'] );
+			}
+		}
+		
+		// Mark items as imported in backend
+		if ( ! empty( $imported_item_ids ) ) {
+			$this->mark_items_imported_backend( $api_url, $license_key, $api_job_id, $imported_item_ids );
+		}
+		
+		// Update heartbeat
+		$job['last_runner_heartbeat_at'] = time();
+		$this->save_bulk_job( $job_id, $job );
+		
+		// Count remaining items
+		$remaining = $this->count_pending_imports( $job );
+		
+		return array(
+			'imported' => $imported_count,
+			'failed' => $failed_count,
+			'remaining' => $remaining,
+			'errors' => $errors
+		);
+	}
+	
+	/**
+	 * Fetch non-imported items from backend
+	 * 
+	 * @param string $api_url API URL
+	 * @param string $license_key License key
+	 * @param string $api_job_id API job ID
+	 * @param int $limit Limit
+	 * @return array Items
+	 */
+	private function fetch_non_imported_items( $api_url, $license_key, $api_job_id, $limit ) {
+		$url = trailingslashit( $api_url ) . 'bulk-jobs/' . $api_job_id . '/results';
+		$url = add_query_arg(
+			array(
+				'license_key' => $license_key,
+				'imported' => 'false',
+				'limit' => $limit,
+			),
+			$url
+		);
+		
+		$response = wp_remote_get(
+			$url,
+			array(
+				'timeout' => 30,
+			)
+		);
+		
+		if ( is_wp_error( $response ) ) {
+			return array();
+		}
+		
+		$code = wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			return array();
+		}
+		
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+		
+		return isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array();
+	}
+	
+	/**
+	 * Mark items as imported in backend
+	 * 
+	 * @param string $api_url API URL
+	 * @param string $license_key License key
+	 * @param string $api_job_id API job ID
+	 * @param array $item_ids Item IDs
+	 */
+	private function mark_items_imported_backend( $api_url, $license_key, $api_job_id, $item_ids ) {
+		$url = trailingslashit( $api_url ) . 'bulk-jobs/' . $api_job_id . '/items/mark-imported';
+		
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 30,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+				),
+				'body' => wp_json_encode(
+					array(
+						'license_key' => $license_key,
+						'item_ids' => $item_ids,
+					)
+				),
+			)
+		);
+		
+		// Don't fail if mark-imported fails - items are already imported locally
+		if ( is_wp_error( $response ) ) {
+			error_log( '[SEOgen] Failed to mark items as imported in backend: ' . $response->get_error_message() );
+		}
+	}
+	
+	/**
+	 * Update job row import status
+	 * 
+	 * @param string $job_id Job ID
+	 * @param string $canonical_key Canonical key
+	 * @param string $status Import status (imported|failed)
+	 * @param int $post_id Post ID (if imported)
+	 * @param string $error Error message (if failed)
+	 */
+	private function update_job_row_import_status( $job_id, $canonical_key, $status, $post_id = 0, $error = '' ) {
+		$job = $this->load_bulk_job( $job_id );
+		if ( ! $job || ! isset( $job['rows'] ) ) {
+			return;
+		}
+		
+		foreach ( $job['rows'] as $i => $row ) {
+			if ( isset( $row['canonical_key'] ) && $row['canonical_key'] === $canonical_key ) {
+				$job['rows'][ $i ]['import_status'] = $status;
+				$job['rows'][ $i ]['imported_post_id'] = $post_id;
+				$job['rows'][ $i ]['last_attempt_at'] = time();
+				
+				if ( ! empty( $error ) ) {
+					$job['rows'][ $i ]['last_import_error'] = $error;
+				}
+				
+				break;
+			}
+		}
+		
+		$this->save_bulk_job( $job_id, $job );
+	}
+	
+	/**
+	 * Count pending imports in a job
+	 * 
+	 * @param array $job Job data
+	 * @return int Number of pending imports
+	 */
+	private function count_pending_imports( $job ) {
+		if ( ! isset( $job['rows'] ) || ! is_array( $job['rows'] ) ) {
+			return 0;
+		}
+		
+		$count = 0;
+		foreach ( $job['rows'] as $row ) {
+			$import_status = isset( $row['import_status'] ) ? $row['import_status'] : 'pending';
+			if ( 'pending' === $import_status || 'importing' === $import_status ) {
+				$count++;
+			}
+		}
+		
+		return $count;
+	}
 }
