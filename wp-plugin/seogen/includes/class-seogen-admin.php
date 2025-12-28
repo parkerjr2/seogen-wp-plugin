@@ -4128,6 +4128,12 @@ class SEOgen_Admin {
 				'status'       => 'pending',
 				'message'      => '',
 				'post_id'      => 0,
+				// Phase 0: Import tracking fields
+				'canonical_key' => isset( $row['key'] ) ? (string) $row['key'] : '', // Exact canonical key from backend
+				'import_status' => 'pending', // pending | importing | imported | failed
+				'imported_post_id' => 0, // Post ID after successful import
+				'last_import_error' => '', // Error message if import failed
+				'last_attempt_at' => 0, // Timestamp of last import attempt
 			);
 		
 			$api_items[] = array(
@@ -4256,6 +4262,12 @@ class SEOgen_Admin {
 			),
 			'rows'       => $job_rows,
 			'city_hub_map' => $city_hub_map,
+			// Phase 0: Auto-import tracking fields
+			'auto_import_mode' => null, // Will be set to: push | loopback | admin_assisted | polling_only
+			'loopback_supported' => null, // null = not tested, true = works, false = blocked
+			'push_blocked_reason' => '', // Reason if backend push is blocked (e.g., WAF)
+			'last_runner_heartbeat_at' => 0, // Timestamp of last import runner activity
+			'last_imported_cursor' => '', // For backend pagination when pulling results
 		);
 
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
