@@ -445,16 +445,34 @@ trait SEOgen_Admin_Extensions {
 		$hubs = isset( $config['hubs'] ) ? $config['hubs'] : array();
 		$default_hub_key = ! empty( $hubs ) ? $hubs[0]['key'] : 'residential';
 
-		// Migrate old services cache from 'category' to 'hub_key'
+		// Migrate old services cache from 'category' to 'hub_key' and add hub_label
 		$old_services = get_option( self::SERVICES_CACHE_OPTION, array() );
+		$needs_update = false;
 		if ( ! empty( $old_services ) && is_array( $old_services ) ) {
 			foreach ( $old_services as &$service ) {
+				// Migrate 'category' to 'hub_key'
 				if ( isset( $service['category'] ) && ! isset( $service['hub_key'] ) ) {
 					$service['hub_key'] = $service['category'];
 					unset( $service['category'] );
+					$needs_update = true;
+				}
+				
+				// Add hub_label if missing
+				if ( isset( $service['hub_key'] ) && ! isset( $service['hub_label'] ) ) {
+					$hub_label = ucfirst( $service['hub_key'] );
+					foreach ( $hubs as $hub ) {
+						if ( isset( $hub['key'] ) && $hub['key'] === $service['hub_key'] && isset( $hub['label'] ) ) {
+							$hub_label = $hub['label'];
+							break;
+						}
+					}
+					$service['hub_label'] = $hub_label;
+					$needs_update = true;
 				}
 			}
-			update_option( self::SERVICES_CACHE_OPTION, $old_services );
+			if ( $needs_update ) {
+				update_option( self::SERVICES_CACHE_OPTION, $old_services );
+			}
 		}
 
 		$services = array();
@@ -462,10 +480,20 @@ trait SEOgen_Admin_Extensions {
 		if ( isset( $_POST['services'] ) && is_array( $_POST['services'] ) ) {
 			foreach ( $_POST['services'] as $service_data ) {
 				if ( isset( $service_data['name'], $service_data['slug'], $service_data['hub_key'] ) ) {
+					// Find hub label from config
+					$hub_label = ucfirst( $service_data['hub_key'] );
+					foreach ( $hubs as $hub ) {
+						if ( isset( $hub['key'] ) && $hub['key'] === $service_data['hub_key'] && isset( $hub['label'] ) ) {
+							$hub_label = $hub['label'];
+							break;
+						}
+					}
+					
 					$services[] = array(
 						'name' => sanitize_text_field( $service_data['name'] ),
 						'slug' => sanitize_title( $service_data['slug'] ),
 						'hub_key' => sanitize_text_field( $service_data['hub_key'] ),
+						'hub_label' => $hub_label,
 					);
 				}
 			}
@@ -488,10 +516,20 @@ trait SEOgen_Admin_Extensions {
 					$service_name = trim( $service_name );
 				}
 
+				// Find hub label from config
+				$hub_label = ucfirst( $hub_key );
+				foreach ( $hubs as $hub ) {
+					if ( isset( $hub['key'] ) && $hub['key'] === $hub_key && isset( $hub['label'] ) ) {
+						$hub_label = $hub['label'];
+						break;
+					}
+				}
+
 				$services[] = array(
 					'name' => sanitize_text_field( $service_name ),
 					'slug' => sanitize_title( $service_name ),
 					'hub_key' => sanitize_text_field( $hub_key ),
+					'hub_label' => $hub_label,
 				);
 			}
 		}
