@@ -78,6 +78,10 @@ class SEOgen_Admin {
 		add_action( 'wp_ajax_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
 		add_action( 'wp_ajax_nopriv_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
 		
+		// Phase 2: AJAX handler for loopback health check
+		add_action( 'wp_ajax_seogen_loopback_health_check', array( $this, 'ajax_loopback_health_check' ) );
+		add_action( 'wp_ajax_nopriv_seogen_loopback_health_check', array( $this, 'ajax_loopback_health_check' ) );
+		
 		// Ensure bulk actions work for service_page post type
 		add_filter( 'bulk_actions-edit-service_page', array( $this, 'add_bulk_actions' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
@@ -4312,6 +4316,15 @@ class SEOgen_Admin {
 		delete_transient( $validate_key );
 		error_log( '[HyperLocal Bulk] created API job job_id=' . $job_id . ' api_job_id=' . $job['api_job_id'] . ' total_rows=' . count( $job_rows ) );
 
+		// Phase 2: Test loopback support and trigger first import batch
+		$loopback_test = $this->test_loopback_health();
+		$this->set_loopback_support( $job_id, $loopback_test['supported'], $loopback_test['error'] );
+		
+		if ( $loopback_test['supported'] ) {
+			// Trigger first loopback import batch
+			$this->trigger_loopback_import( $job_id );
+		}
+
 		wp_safe_redirect( admin_url( 'admin.php?page=hyper-local-bulk&job_id=' . $job_id ) );
 		exit;
 	}
@@ -4963,7 +4976,23 @@ class SEOgen_Admin {
 		// Run batch import
 		$result = $this->run_import_batch( $job_id );
 		
+		// Phase 2: If items remain and loopback is supported, trigger next batch
+		if ( $result['remaining'] > 0 ) {
+			$loopback_supported = $this->is_loopback_supported( $job_id );
+			if ( true === $loopback_supported ) {
+				$this->trigger_loopback_import( $job_id );
+			}
+		}
+		
 		wp_send_json_success( $result );
+	}
+	
+	/**
+	 * AJAX handler for loopback health check
+	 * Phase 2: Loopback async import
+	 */
+	public function ajax_loopback_health_check() {
+		wp_send_json_success( array( 'status' => 'ok' ) );
 	}
 
 	public function process_bulk_job( $job_id, $allow_schedule = true ) {

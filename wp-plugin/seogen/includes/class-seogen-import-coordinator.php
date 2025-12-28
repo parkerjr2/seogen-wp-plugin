@@ -473,4 +473,142 @@ trait SEOgen_Import_Coordinator {
 		
 		return $count;
 	}
+	
+	/**
+	 * Test loopback health - can we call our own AJAX endpoint?
+	 * Phase 2: Loopback async import
+	 * 
+	 * @return array ['supported' => bool, 'error' => string]
+	 */
+	public function test_loopback_health() {
+		$url = admin_url( 'admin-ajax.php?action=seogen_loopback_health_check' );
+		
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 5,
+				'blocking' => true,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+				'headers' => array(
+					'User-Agent' => 'SEOgen-Loopback-Test/1.0',
+				),
+			)
+		);
+		
+		if ( is_wp_error( $response ) ) {
+			return array(
+				'supported' => false,
+				'error' => 'Loopback request failed: ' . $response->get_error_message(),
+			);
+		}
+		
+		$code = wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $code ) {
+			return array(
+				'supported' => false,
+				'error' => 'Loopback returned HTTP ' . $code,
+			);
+		}
+		
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+		
+		if ( ! isset( $data['success'] ) || ! $data['success'] ) {
+			return array(
+				'supported' => false,
+				'error' => 'Loopback response invalid',
+			);
+		}
+		
+		return array(
+			'supported' => true,
+			'error' => '',
+		);
+	}
+	
+	/**
+	 * Trigger loopback import batch (non-blocking)
+	 * Phase 2: Loopback async import
+	 * 
+	 * @param string $job_id Job ID
+	 * @return bool True if triggered, false if throttled or failed
+	 */
+	public function trigger_loopback_import( $job_id ) {
+		// Check throttle - max 1 trigger per 10 seconds per job
+		$throttle_key = 'seogen_loopback_throttle_' . $job_id;
+		if ( get_transient( $throttle_key ) ) {
+			return false;
+		}
+		
+		// Set throttle
+		set_transient( $throttle_key, 1, 10 );
+		
+		// Trigger non-blocking request
+		$url = admin_url( 'admin-ajax.php' );
+		
+		$response = wp_remote_post(
+			$url,
+			array(
+				'body' => array(
+					'action' => 'seogen_run_import_batch',
+					'job_id' => $job_id,
+				),
+				'timeout' => 0.01,
+				'blocking' => false,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+				'headers' => array(
+					'User-Agent' => 'SEOgen-Loopback/1.0',
+				),
+			)
+		);
+		
+		// Don't check response for non-blocking requests
+		return true;
+	}
+	
+	/**
+	 * Check if loopback is supported for a job
+	 * 
+	 * @param string $job_id Job ID
+	 * @return bool|null True if supported, false if not supported, null if not tested
+	 */
+	public function is_loopback_supported( $job_id ) {
+		$job = $this->load_bulk_job( $job_id );
+		if ( ! $job ) {
+			return null;
+		}
+		
+		return isset( $job['loopback_supported'] ) ? $job['loopback_supported'] : null;
+	}
+	
+	/**
+	 * Set loopback support status for a job
+	 * 
+	 * @param string $job_id Job ID
+	 * @param bool $supported Whether loopback is supported
+	 * @param string $error Error message if not supported
+	 */
+	public function set_loopback_support( $job_id, $supported, $error = '' ) {
+		$job = $this->load_bulk_job( $job_id );
+		if ( ! $job ) {
+			return;
+		}
+		
+		$job['loopback_supported'] = $supported;
+		
+		if ( ! $supported && ! empty( $error ) ) {
+			$job['loopback_error'] = $error;
+		}
+		
+		// Set auto_import_mode based on loopback support
+		if ( $supported ) {
+			$job['auto_import_mode'] = 'loopback';
+		} elseif ( ! isset( $job['auto_import_mode'] ) || 'loopback' === $job['auto_import_mode'] ) {
+			// Fall back to admin_assisted if loopback was the mode or not set
+			$job['auto_import_mode'] = 'admin_assisted';
+		}
+		
+		$this->save_bulk_job( $job_id, $job );
+	}
 }
+
