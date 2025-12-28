@@ -10,42 +10,26 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 	$city_hub_map = array();
 	$unique_hub_cities = array();
 	
-	// Get all services to determine hub assignments
-	$services = get_option( 'hyper_local_services_cache', array() );
-	$service_hub_map = array();
-	if ( is_array( $services ) ) {
-		foreach ( $services as $service ) {
-			if ( isset( $service['slug'], $service['hub_key'] ) ) {
-				$service_hub_map[ $service['slug'] ] = $service['hub_key'];
-			}
-		}
-	}
-	
 	// Extract unique hub+city combinations from job rows
+	// Use hub_key directly from job rows (already determined during validation)
 	foreach ( $job_rows as $row ) {
 		$city = isset( $row['city'] ) ? trim( (string) $row['city'] ) : '';
 		$state = isset( $row['state'] ) ? trim( (string) $row['state'] ) : '';
-		$service = isset( $row['service'] ) ? trim( (string) $row['service'] ) : '';
+		$hub_key = isset( $row['hub_key'] ) ? trim( (string) $row['hub_key'] ) : '';
 		
-		if ( '' !== $city && '' !== $state && '' !== $service ) {
+		if ( '' !== $city && '' !== $state && '' !== $hub_key ) {
 			$city_slug = sanitize_title( $city . '-' . strtolower( $state ) );
-			$service_slug = sanitize_title( $service );
 			
-			// Determine which hub this service belongs to
-			$hub_key = isset( $service_hub_map[ $service_slug ] ) ? $service_hub_map[ $service_slug ] : '';
+			// Create unique key for hub+city combination
+			$hub_city_key = $hub_key . '|' . $city_slug;
 			
-			if ( '' !== $hub_key ) {
-				// Create unique key for hub+city combination
-				$hub_city_key = $hub_key . '|' . $city_slug;
-				
-				if ( ! isset( $unique_hub_cities[ $hub_city_key ] ) ) {
-					$unique_hub_cities[ $hub_city_key ] = array(
-						'city' => $city,
-						'state' => strtoupper( $state ),
-						'city_slug' => $city_slug,
-						'hub_key' => $hub_key,
-					);
-				}
+			if ( ! isset( $unique_hub_cities[ $hub_city_key ] ) ) {
+				$unique_hub_cities[ $hub_city_key ] = array(
+					'city' => $city,
+					'state' => strtoupper( $state ),
+					'city_slug' => $city_slug,
+					'hub_key' => $hub_key,
+				);
 			}
 		}
 	}
@@ -198,11 +182,12 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		}
 		wp_reset_postdata();
 		
-		// Build title: "Residential Services in Catoosa, OK | M Electric"
-		// Format: "{hub_label} Services in {city}, {state} | {company_name}"
+		// Build title: "Residential Roofing Services in Tulsa, OK | M Electric"
+		// Format: "{hub_label} {trade_name} Services in {city}, {state} | {company_name}"
 		$title = sprintf(
-			'%s Services in %s, %s',
+			'%s %s Services in %s, %s',
 			$hub_label,
+			$trade_name,
 			$city_data['city'],
 			$city_data['state']
 		);

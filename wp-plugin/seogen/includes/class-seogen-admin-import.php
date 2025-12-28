@@ -361,6 +361,9 @@ trait SEOgen_Admin_Import {
 		if ( isset( $item['hub_key'] ) && ! empty( $item['hub_key'] ) && isset( $item['city'], $item['state'] ) ) {
 			$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
 			$city_hub_parent_id = $this->find_city_hub_post_id( $item['hub_key'], $city_slug );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Looking for city hub parent: hub_key=' . $item['hub_key'] . ' city_slug=' . $city_slug . ' found_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+		} else {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping city hub parent lookup: hub_key=' . ( isset( $item['hub_key'] ) ? $item['hub_key'] : 'NOT SET' ) . ' city=' . ( isset( $item['city'] ) ? $item['city'] : 'NOT SET' ) . ' state=' . ( isset( $item['state'] ) ? $item['state'] : 'NOT SET' ) . PHP_EOL, FILE_APPEND );
 		}
 		
 		// Create post (no duplicate detection for service+city pages currently)
