@@ -44,7 +44,7 @@ class SEOgen_REST_API {
 	 * @param WP_REST_Request $request
 	 * @return bool|WP_Error
 	 */
-	public function validate_hmac_signature( $request ) {
+	public function verify_hmac_signature( $request ) {
 		$timestamp = $request->get_header( 'X-Seogen-Timestamp' );
 		$body_hash = $request->get_header( 'X-Seogen-Body-SHA256' );
 		$signature = $request->get_header( 'X-Seogen-Signature' );
