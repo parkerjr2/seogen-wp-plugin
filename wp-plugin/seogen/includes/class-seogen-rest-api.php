@@ -125,7 +125,19 @@ class SEOgen_REST_API {
 		$settings = get_option( 'hyper_local_settings', array() );
 		$site_license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 		
-		if ( $license_key !== $site_license_key ) {
+		// Normalize both keys for comparison (trim whitespace, case-insensitive)
+		$normalized_request_key = trim( strtolower( $license_key ) );
+		$normalized_site_key = trim( strtolower( $site_license_key ) );
+		
+		if ( $normalized_request_key !== $normalized_site_key ) {
+			error_log( sprintf(
+				'[SEOgen REST API] License mismatch - Request: "%s" (len=%d), Site: "%s" (len=%d)',
+				$license_key,
+				strlen( $license_key ),
+				$site_license_key,
+				strlen( $site_license_key )
+			) );
+			
 			return new WP_Error(
 				'license_mismatch',
 				'License key does not match this site',
@@ -298,7 +310,11 @@ class SEOgen_REST_API {
 		$settings = get_option( 'hyper_local_settings', array() );
 		$site_license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 		
-		$license_valid = ( $license_key === $site_license_key && ! empty( $license_key ) );
+		// Normalize for comparison (case-insensitive)
+		$normalized_request_key = trim( strtolower( $license_key ) );
+		$normalized_site_key = trim( strtolower( $site_license_key ) );
+		
+		$license_valid = ( $normalized_request_key === $normalized_site_key && ! empty( $license_key ) );
 		
 		return new WP_REST_Response( array(
 			'success' => true,
