@@ -1988,6 +1988,24 @@ class SEOgen_Admin {
 			}
 		}
 		
+		// Phase 6: Count import progress
+		$imported_count = 0;
+		$import_failed_count = 0;
+		$import_pending_count = 0;
+		
+		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+			foreach ( $job['rows'] as $row ) {
+				$import_status = isset( $row['import_status'] ) ? $row['import_status'] : 'pending';
+				if ( 'imported' === $import_status ) {
+					$imported_count++;
+				} elseif ( 'failed' === $import_status ) {
+					$import_failed_count++;
+				} else {
+					$import_pending_count++;
+				}
+			}
+		}
+		
 		return array(
 			'status' => isset( $job['status'] ) ? $job['status'] : 'running',
 			'rows' => $rows_with_urls,
@@ -1996,6 +2014,14 @@ class SEOgen_Admin {
 			'success' => isset( $job['success'] ) ? (int) $job['success'] : 0,
 			'failed' => isset( $job['failed'] ) ? (int) $job['failed'] : 0,
 			'skipped' => isset( $job['skipped'] ) ? (int) $job['skipped'] : 0,
+			// Phase 6: Import progress
+			'imported' => $imported_count,
+			'import_failed' => $import_failed_count,
+			'import_pending' => $import_pending_count,
+			'auto_import_mode' => isset( $job['auto_import_mode'] ) ? $job['auto_import_mode'] : null,
+			'loopback_supported' => isset( $job['loopback_supported'] ) ? $job['loopback_supported'] : null,
+			'push_blocked_reason' => isset( $job['push_blocked_reason'] ) ? $job['push_blocked_reason'] : '',
+			'last_runner_heartbeat_at' => isset( $job['last_runner_heartbeat_at'] ) ? $job['last_runner_heartbeat_at'] : 0,
 		);
 	}
 
