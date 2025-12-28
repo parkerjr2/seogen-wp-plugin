@@ -2291,6 +2291,9 @@ class SEOgen_Admin {
 			if ( '' === $line ) {
 				continue;
 			}
+			// Strip hub category labels in parentheses (e.g., "roof replacement (Residential)" -> "roof replacement")
+			// This allows the validation logic to look up hub assignments from the services cache
+			$line = preg_replace( '/\s*\([^)]+\)\s*$/', '', $line );
 			$out[] = sanitize_text_field( $line );
 		}
 		return $out;
@@ -3506,16 +3509,21 @@ class SEOgen_Admin {
 		$services_cache = $this->get_services();
 		$cities = $this->get_cities();
 
-		// Build services list (one per line)
+		// Build services list (one per line) with hub category labels
 		$services_list = '';
 		if ( ! empty( $services_cache ) && is_array( $services_cache ) ) {
-			$service_names = array();
+			$service_lines = array();
 			foreach ( $services_cache as $service ) {
 				if ( isset( $service['name'] ) && ! empty( $service['name'] ) ) {
-					$service_names[] = $service['name'];
+					$service_line = $service['name'];
+					// Add hub category label for clarity (e.g., "roof replacement (Residential)")
+					if ( isset( $service['hub_label'] ) && ! empty( $service['hub_label'] ) ) {
+						$service_line .= ' (' . $service['hub_label'] . ')';
+					}
+					$service_lines[] = $service_line;
 				}
 			}
-			$services_list = implode( "\n", $service_names );
+			$services_list = implode( "\n", $service_lines );
 		}
 
 		// Build service areas list (one per line: City, ST)
@@ -3797,6 +3805,7 @@ class SEOgen_Admin {
 				<div class="hyper-local-bulk-col">
 					<label for="hl_bulk_services"><?php echo esc_html__( 'Services (one per line)', 'seogen' ); ?></label>
 					<textarea name="services" id="hl_bulk_services" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['services'] ); ?></textarea>
+					<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Hub categories shown in parentheses for reference', 'seogen' ); ?></p>
 				</div>
 				<div class="hyper-local-bulk-col">
 					<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
