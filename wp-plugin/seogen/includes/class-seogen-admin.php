@@ -4093,19 +4093,6 @@ class SEOgen_Admin {
 		$services = $this->get_services();
 		$hubs = $this->get_hubs();
 	
-		// Build hub_key => hub_label map by finding actual Service Hub posts
-		$hub_label_map = array();
-		foreach ( $hubs as $hub ) {
-			if ( isset( $hub['key'] ) ) {
-				// Extract the base hub key (e.g., "residential" from "residential-services")
-				$hub_key_base = $hub['key'];
-				if ( strpos( $hub_key_base, '-services' ) !== false ) {
-					$hub_key_base = str_replace( '-services', '', $hub_key_base );
-				}
-			
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Looking for Service Hub with hub_key: ' . $hub['key'] . ' (base: ' . $hub_key_base . ')' . PHP_EOL, FILE_APPEND );
-			
-				// Find the Service Hub post by hub_key to get its actual title
 				$hub_posts = get_posts( array(
 					'post_type'      => 'service_page',
 					'posts_per_page' => 1,
@@ -4122,13 +4109,6 @@ class SEOgen_Admin {
 						)
 					)
 				) );
-			
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found ' . count( $hub_posts ) . ' Service Hub posts with key ' . $hub['key'] . PHP_EOL, FILE_APPEND );
-			
-				if ( ! empty( $hub_posts ) ) {
-					// Use the actual Service Hub post title, stripping business name suffix
-					$hub_title = $hub_posts[0]->post_title;
-					// Remove " | Business Name" suffix if present
 					if ( strpos( $hub_title, ' | ' ) !== false ) {
 						$hub_title = substr( $hub_title, 0, strpos( $hub_title, ' | ' ) );
 					}
