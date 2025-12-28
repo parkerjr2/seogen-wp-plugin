@@ -739,6 +739,10 @@ trait SEOgen_Admin_Extensions {
 		$settings = $this->get_settings();
 		$api_url = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
+		
+		if ( empty( $license_key ) ) {
+			wp_die( 'License key is not configured. Please go to Settings and enter your license key.' );
+		}
 
 		$hub = null;
 		foreach ( $config['hubs'] as $h ) {
@@ -830,6 +834,15 @@ trait SEOgen_Admin_Extensions {
 		$settings = $this->get_settings();
 		$api_url = isset( $settings['api_url'] ) ? trim( (string) $settings['api_url'] ) : '';
 		$license_key = isset( $settings['license_key'] ) ? trim( (string) $settings['license_key'] ) : '';
+		
+		if ( empty( $license_key ) ) {
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-service-hubs',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'License key is not configured. Please go to Settings and enter your license key.' ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
 
 		$hub = null;
 		foreach ( $config['hubs'] as $h ) {
