@@ -790,11 +790,17 @@ trait SEOgen_Admin_Extensions {
 			wp_die( 'API Error: ' . $response->get_error_message() );
 		}
 
+		$status_code = wp_remote_retrieve_response_code( $response );
 		$body = wp_remote_retrieve_body( $response );
 		$data = json_decode( $body, true );
 
+		if ( $status_code !== 200 ) {
+			$error_message = is_array( $data ) && isset( $data['detail'] ) ? $data['detail'] : $body;
+			wp_die( 'API Error (HTTP ' . $status_code . '): ' . esc_html( $error_message ) );
+		}
+
 		if ( ! is_array( $data ) ) {
-			wp_die( 'Invalid API response' );
+			wp_die( 'Invalid API response: ' . esc_html( substr( $body, 0, 500 ) ) );
 		}
 
 		$preview_key = 'hyper_local_hub_preview_' . wp_generate_password( 12, false );
@@ -880,14 +886,25 @@ trait SEOgen_Admin_Extensions {
 			exit;
 		}
 
+		$status_code = wp_remote_retrieve_response_code( $response );
 		$body = wp_remote_retrieve_body( $response );
 		$data = json_decode( $body, true );
+
+		if ( $status_code !== 200 ) {
+			$error_message = is_array( $data ) && isset( $data['detail'] ) ? $data['detail'] : $body;
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-service-hubs',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'API Error (HTTP ' . $status_code . '): ' . $error_message ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
 
 		if ( ! is_array( $data ) || ! isset( $data['title'], $data['blocks'] ) ) {
 			wp_redirect( add_query_arg( array(
 				'page' => 'hyper-local-service-hubs',
 				'hl_notice' => 'error',
-				'hl_msg' => rawurlencode( 'Invalid API response' ),
+				'hl_msg' => rawurlencode( 'Invalid API response: ' . substr( $body, 0, 200 ) ),
 			), admin_url( 'admin.php' ) ) );
 			exit;
 		}
