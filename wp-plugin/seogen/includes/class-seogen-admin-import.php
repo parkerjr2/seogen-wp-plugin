@@ -16,9 +16,10 @@ trait SEOgen_Admin_Import {
 	 * @param array $result_json - Already generated content from backend
 	 * @param array $config - Business config (vertical, etc.)
 	 * @param array $item - Item metadata (hub_key, hub_label, etc.)
+	 * @param string $post_status - Post status ('draft' or 'publish'), defaults to 'publish'
 	 * @return array - ['success' => bool, 'post_id' => int, 'title' => string, 'error' => string]
 	 */
-	public function import_service_hub_from_result( $result_json, $config, $item ) {
+	public function import_service_hub_from_result( $result_json, $config, $item, $post_status = 'publish' ) {
 		$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
 		$hub_label = isset( $item['hub_label'] ) ? $item['hub_label'] : '';
 		
@@ -83,7 +84,7 @@ trait SEOgen_Admin_Import {
 		// Create/update post
 		$post_data = array(
 			'post_type' => 'service_page',
-			'post_status' => 'publish',
+			'post_status' => $post_status,
 			'post_title' => $title,
 			'post_name' => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,
@@ -318,9 +319,10 @@ trait SEOgen_Admin_Import {
 	 * @param array $result_json - Already generated content from backend
 	 * @param array $config - Business config (vertical, etc.)
 	 * @param array $item - Item metadata (service, city, etc.)
+	 * @param string $post_status - Post status ('draft' or 'publish'), defaults to 'publish'
 	 * @return array - ['success' => bool, 'post_id' => int, 'title' => string, 'error' => string]
 	 */
-	public function import_service_city_from_result( $result_json, $config, $item ) {
+	public function import_service_city_from_result( $result_json, $config, $item, $post_status = 'publish' ) {
 		// Extract data from result
 		$title = isset( $result_json['title'] ) ? $result_json['title'] : '';
 		$slug = isset( $result_json['slug'] ) ? $result_json['slug'] : '';
@@ -361,7 +363,7 @@ trait SEOgen_Admin_Import {
 		// Create post (no duplicate detection for service+city pages currently)
 		$post_data = array(
 			'post_type' => 'service_page',
-			'post_status' => 'draft',
+			'post_status' => $post_status,
 			'post_title' => $title,
 			'post_name' => sanitize_title( $slug ),
 			'post_content' => $gutenberg_markup,
