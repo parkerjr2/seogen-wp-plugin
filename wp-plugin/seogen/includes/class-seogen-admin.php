@@ -2039,13 +2039,14 @@ class SEOgen_Admin {
 			return (int) $query->posts[0];
 		}
 		
-		// Second try: Find by slug pattern (canonical_key format: "service|city|state")
+		// Second try: Find by slug pattern (canonical_key format: "service|city|state" or "service|city|state|hub_key")
 		// Convert to slug format: "service-in-city-state"
 		$parts = explode( '|', $canonical_key );
-		if ( count( $parts ) === 3 ) {
+		if ( count( $parts ) === 3 || count( $parts ) === 4 ) {
 			$service = sanitize_title( $parts[0] );
 			$city = sanitize_title( $parts[1] );
 			$state = strtolower( $parts[2] );
+			// Note: hub_key (parts[3]) is not used in slug, but is used in canonical key for uniqueness
 			$expected_slug = $service . '-in-' . $city . '-' . $state;
 			
 			// Try exact slug match first
