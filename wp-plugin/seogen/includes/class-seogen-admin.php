@@ -4192,7 +4192,9 @@ class SEOgen_Admin {
 		$city_hubs_needed = array();
 		$services = $this->get_services();
 		$hubs = $this->get_hubs();
-	
+		$config = $this->get_business_config();
+		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+
 		// Build hub_key => hub_label map by finding actual Service Hub posts
 		$hub_label_map = array();
 		foreach ( $hubs as $hub ) {
@@ -4237,10 +4239,30 @@ class SEOgen_Admin {
 					$hub_label_map[ $hub_key_base ] = $hub_title;
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' and ' . $hub_key_base . ' label: ' . $hub_title . PHP_EOL, FILE_APPEND );
 				} elseif ( isset( $hub['label'] ) ) {
-					// Fallback to config label if no post found
-					$hub_label_map[ $hub['key'] ] = $hub['label'];
-					$hub_label_map[ $hub_key_base ] = $hub['label'];
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' and ' . $hub_key_base . ' label (fallback): ' . $hub['label'] . PHP_EOL, FILE_APPEND );
+					// Fallback: Build proper label with vertical
+					// e.g., "Commercial" + "electrician" vertical = "Commercial Electrical Services"
+					$hub_label = $hub['label'];
+				
+					// Add vertical-specific service type
+					if ( ! empty( $vertical ) ) {
+						$vertical_map = array(
+							'electrician' => 'Electrical Services',
+							'plumber' => 'Plumbing Services',
+							'hvac' => 'HVAC Services',
+							'roofer' => 'Roofing Services',
+							'painter' => 'Painting Services',
+							'landscaper' => 'Landscaping Services',
+							'carpenter' => 'Carpentry Services',
+							'contractor' => 'Contractor Services',
+						);
+					
+						$service_type = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : 'Services';
+						$hub_label = $hub['label'] . ' ' . $service_type;
+					}
+				
+					$hub_label_map[ $hub['key'] ] = $hub_label;
+					$hub_label_map[ $hub_key_base ] = $hub_label;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' and ' . $hub_key_base . ' label (fallback): ' . $hub_label . PHP_EOL, FILE_APPEND );
 				}
 			}
 		}
