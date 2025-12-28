@@ -234,7 +234,7 @@ trait SEOgen_Admin_Import {
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
-				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+				$css_block = "<!-- wp:html -->\n<style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style>\n<!-- /wp:html -->\n";
 				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 			}
 		}
@@ -243,7 +243,7 @@ trait SEOgen_Admin_Import {
 		if ( $footer_template_id > 0 ) {
 			$footer_content = $this->get_template_content( $footer_template_id );
 			if ( '' !== $footer_content ) {
-				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$footer_css_block = "\n<!-- wp:html -->\n<style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style>\n<!-- /wp:html -->";
 				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 			}
 		}
@@ -346,7 +346,7 @@ trait SEOgen_Admin_Import {
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
-				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+				$css_block = "<!-- wp:html -->\n<style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style>\n<!-- /wp:html -->\n";
 				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 			}
 		}
@@ -355,7 +355,7 @@ trait SEOgen_Admin_Import {
 		if ( $footer_template_id > 0 ) {
 			$footer_content = $this->get_template_content( $footer_template_id );
 			if ( '' !== $footer_content ) {
-				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$footer_css_block = "\n<!-- wp:html -->\n<style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style>\n<!-- /wp:html -->";
 				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 			}
 		}
