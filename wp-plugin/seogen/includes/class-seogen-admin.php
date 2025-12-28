@@ -4694,7 +4694,6 @@ class SEOgen_Admin {
 						} else {
 							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: No hub_key in result item for post_id: ' . $post_id . PHP_EOL, FILE_APPEND );
 						}
-					}
 						
 						// Store city and city_slug
 						if ( isset( $row['city'] ) && ! empty( $row['city'] ) ) {
