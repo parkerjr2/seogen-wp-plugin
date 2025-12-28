@@ -4097,6 +4097,8 @@ class SEOgen_Admin {
 		$hub_label_map = array();
 		foreach ( $hubs as $hub ) {
 			if ( isset( $hub['key'] ) ) {
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Looking for Service Hub with hub_key: ' . $hub['key'] . PHP_EOL, FILE_APPEND );
+			
 				// Find the Service Hub post by hub_key to get its actual title
 				$hub_posts = get_posts( array(
 					'post_type'      => 'service_page',
@@ -4114,6 +4116,8 @@ class SEOgen_Admin {
 						)
 					)
 				) );
+			
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found ' . count( $hub_posts ) . ' Service Hub posts' . PHP_EOL, FILE_APPEND );
 			
 				if ( ! empty( $hub_posts ) ) {
 					// Use the actual Service Hub post title, stripping business name suffix
