@@ -2321,10 +2321,16 @@ class SEOgen_Admin {
 		return $areas;
 	}
 
-	private function compute_canonical_key( $service, $city, $state ) {
+	private function compute_canonical_key( $service, $city, $state, $hub_key = '' ) {
 		$service = strtolower( trim( (string) $service ) );
 		$city = strtolower( trim( (string) $city ) );
 		$state = strtolower( trim( (string) $state ) );
+		$hub_key = strtolower( trim( (string) $hub_key ) );
+		
+		// Include hub_key in canonical key to support same service in multiple hubs
+		if ( '' !== $hub_key ) {
+			return $service . '|' . $city . '|' . $state . '|' . $hub_key;
+		}
 		return $service . '|' . $city . '|' . $state;
 	}
 
@@ -3867,6 +3873,7 @@ class SEOgen_Admin {
 					<thead>
 						<tr>
 							<th><?php echo esc_html__( 'Service', 'seogen' ); ?></th>
+							<th><?php echo esc_html__( 'Hub Category', 'seogen' ); ?></th>
 							<th><?php echo esc_html__( 'City', 'seogen' ); ?></th>
 							<th><?php echo esc_html__( 'State', 'seogen' ); ?></th>
 							<th><?php echo esc_html__( 'Canonical key', 'seogen' ); ?></th>
@@ -3877,6 +3884,7 @@ class SEOgen_Admin {
 						<?php foreach ( $validated['rows'] as $row ) : ?>
 							<tr>
 								<td><?php echo esc_html( (string) $row['service'] ); ?></td>
+								<td><?php echo esc_html( isset( $row['hub_label'] ) ? (string) $row['hub_label'] : '' ); ?></td>
 								<td><?php echo esc_html( (string) $row['city'] ); ?></td>
 								<td><?php echo esc_html( (string) $row['state'] ); ?></td>
 								<td><code><?php echo esc_html( (string) $row['key'] ); ?></code></td>
@@ -3924,6 +3932,24 @@ class SEOgen_Admin {
 
 		$services = $this->parse_bulk_lines( $form['services'] );
 		$areas = $this->parse_service_areas( $form['service_areas'] );
+		
+		// Get services cache to look up hub_key for each service
+		$services_cache = $this->get_services();
+		$service_hub_map = array();
+		foreach ( $services_cache as $service_data ) {
+			if ( isset( $service_data['name'], $service_data['hub_key'] ) ) {
+				$service_name_lower = strtolower( trim( $service_data['name'] ) );
+				// Store all hub_keys for this service (a service can be in multiple hubs)
+				if ( ! isset( $service_hub_map[ $service_name_lower ] ) ) {
+					$service_hub_map[ $service_name_lower ] = array();
+				}
+				$service_hub_map[ $service_name_lower ][] = array(
+					'hub_key' => $service_data['hub_key'],
+					'hub_label' => isset( $service_data['hub_label'] ) ? $service_data['hub_label'] : ucfirst( $service_data['hub_key'] ),
+				);
+			}
+		}
+		
 		$unique = array();
 		$preview = array();
 		foreach ( $services as $service ) {
@@ -3931,25 +3957,44 @@ class SEOgen_Admin {
 			if ( '' === $service ) {
 				continue;
 			}
+			
+			// Look up hub assignments for this service
+			$service_lower = strtolower( $service );
+			$hub_assignments = isset( $service_hub_map[ $service_lower ] ) ? $service_hub_map[ $service_lower ] : array();
+			
+			// If service not found in cache, skip it (service must be configured first)
+			if ( empty( $hub_assignments ) ) {
+				continue;
+			}
+			
 			foreach ( $areas as $area ) {
 				$city = isset( $area['city'] ) ? trim( (string) $area['city'] ) : '';
 				$state = isset( $area['state'] ) ? trim( (string) $area['state'] ) : '';
 				if ( '' === $city ) {
 					continue;
 				}
-				// State is now optional - empty state is allowed
-				$key = $this->compute_canonical_key( $service, $city, $state );
-				if ( isset( $unique[ $key ] ) ) {
-					continue;
+				
+				// Create a row for EACH hub assignment
+				foreach ( $hub_assignments as $hub_data ) {
+					$hub_key = $hub_data['hub_key'];
+					$hub_label = $hub_data['hub_label'];
+					
+					// State is now optional - empty state is allowed
+					$key = $this->compute_canonical_key( $service, $city, $state, $hub_key );
+					if ( isset( $unique[ $key ] ) ) {
+						continue;
+					}
+					$unique[ $key ] = true;
+					$preview[] = array(
+						'service'      => $service,
+						'city'         => $city,
+						'state'        => $state,
+						'hub_key'      => $hub_key,
+						'hub_label'    => $hub_label,
+						'key'          => $key,
+						'slug_preview' => $this->compute_slug_preview( $service, $city, $state ),
+					);
 				}
-				$unique[ $key ] = true;
-				$preview[] = array(
-					'service'      => $service,
-					'city'         => $city,
-					'state'        => $state,
-					'key'          => $key,
-					'slug_preview' => $this->compute_slug_preview( $service, $city, $state ),
-				);
 			}
 		}
 
@@ -4034,15 +4079,6 @@ class SEOgen_Admin {
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering ' . count( $validated['rows'] ) . ' rows, update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
 	
-		// Get services to look up hub_key
-		$services = $this->get_services();
-		$service_hub_map = array();
-		foreach ( $services as $service ) {
-			if ( isset( $service['slug'], $service['hub_key'] ) ) {
-				$service_hub_map[ $service['slug'] ] = $service['hub_key'];
-			}
-		}
-	
 		foreach ( $validated['rows'] as $row ) {
 			$canonical_key = isset( $row['key'] ) ? (string) $row['key'] : '';
 		
@@ -4056,16 +4092,18 @@ class SEOgen_Admin {
 				}
 			}
 		
-			// Look up hub_key for this service
+			// Use hub_key from validated row (already determined during validation)
 			$service_name = isset( $row['service'] ) ? (string) $row['service'] : '';
-			$service_slug = sanitize_title( $service_name );
-			$hub_key = isset( $service_hub_map[ $service_slug ] ) ? $service_hub_map[ $service_slug ] : '';
+			$hub_key = isset( $row['hub_key'] ) ? (string) $row['hub_key'] : '';
+			$hub_label = isset( $row['hub_label'] ) ? (string) $row['hub_label'] : '';
 		
 			// Only add to job rows if not filtered out
 			$job_rows[] = array(
 				'service'      => $service_name,
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
 				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
+				'hub_key'      => $hub_key,
+				'hub_label'    => $hub_label,
 				'key'          => isset( $row['key'] ) ? (string) $row['key'] : '',
 				'slug_preview' => isset( $row['slug_preview'] ) ? (string) $row['slug_preview'] : '',
 				'status'       => 'pending',
@@ -4079,6 +4117,7 @@ class SEOgen_Admin {
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
 				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
 				'hub_key'      => $hub_key,
+				'hub_label'    => $hub_label,
 				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
 				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 				'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
