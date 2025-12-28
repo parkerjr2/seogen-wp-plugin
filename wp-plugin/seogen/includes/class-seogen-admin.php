@@ -5355,8 +5355,95 @@ class SEOgen_Admin {
 		return $redirect_to;
 	}
 
+	/**
+	 * Get active jobs with pending imports
+	 * Phase 3: Admin-assisted heartbeat
+	 * 
+	 * @return array Job IDs
+	 */
+	private function get_active_jobs() {
+		$index = get_option( self::BULK_JOBS_INDEX_OPTION, array() );
+		if ( ! is_array( $index ) ) {
+			return array();
+		}
+		
+		$active_jobs = array();
+		
+		foreach ( $index as $job_id ) {
+			$job = $this->load_bulk_job( $job_id );
+			if ( ! $job ) {
+				continue;
+			}
+			
+			$status = isset( $job['status'] ) ? $job['status'] : '';
+			
+			// Include jobs that are running or complete but have pending imports
+			if ( 'running' === $status || 'complete' === $status ) {
+				// Check if there are pending imports
+				$pending = $this->count_pending_imports( $job );
+				if ( $pending > 0 ) {
+					$active_jobs[] = $job_id;
+				}
+			}
+		}
+		
+		return $active_jobs;
+	}
+	
+	/**
+	 * Enqueue import heartbeat script on SEOgen admin pages
+	 * Phase 3: Admin-assisted heartbeat
+	 * 
+	 * @param string $hook Current admin page hook
+	 */
+	private function enqueue_import_heartbeat( $hook ) {
+		// Check if we're on a SEOgen admin page
+		$seogen_pages = array(
+			'toplevel_page_hyper-local',
+			'seogen_page_hyper-local-bulk',
+			'seogen_page_hyper-local-settings',
+			'seogen_page_hyper-local-business-config',
+			'seogen_page_hyper-local-services',
+			'seogen_page_hyper-local-cities',
+		);
+		
+		// Also check for service_page edit screen
+		$screen = get_current_screen();
+		$is_seogen_page = in_array( $hook, $seogen_pages, true ) || ( $screen && 'service_page' === $screen->post_type );
+		
+		if ( ! $is_seogen_page ) {
+			return;
+		}
+		
+		// Get active jobs
+		$active_jobs = $this->get_active_jobs();
+		
+		if ( empty( $active_jobs ) ) {
+			return; // No active jobs, don't load heartbeat
+		}
+		
+		// Enqueue heartbeat script
+		wp_enqueue_script(
+			'seogen-import-heartbeat',
+			plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/admin-import-heartbeat.js',
+			array( 'jquery' ),
+			'1.0.0',
+			true
+		);
+		
+		// Pass active jobs to JavaScript
+		wp_localize_script(
+			'seogen-import-heartbeat',
+			'seogenActiveJobs',
+			$active_jobs
+		);
+	}
+
 	public function enqueue_admin_scripts( $hook ) {
-		// Only load on the service_page edit screen
+		// Phase 3: Enqueue import heartbeat on all SEOgen admin pages
+		$this->enqueue_import_heartbeat( $hook );
+		
+		// Only load select-all script on the service_page edit screen
 		if ( 'edit.php' !== $hook ) {
 			return;
 		}
