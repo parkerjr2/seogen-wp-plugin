@@ -129,7 +129,7 @@ class SEOgen_REST_API {
 		$item_metadata = isset( $params['item_metadata'] ) ? $params['item_metadata'] : array();
 		
 		// Verify license key matches this site
-		$settings = get_option( 'hyper_local_settings', array() );
+		$settings = get_option( 'seogen_settings', array() );
 		$site_license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 		
 		// Normalize both keys for comparison (trim whitespace, case-insensitive)
@@ -314,7 +314,7 @@ class SEOgen_REST_API {
 		$license_key = isset( $params['license_key'] ) ? sanitize_text_field( $params['license_key'] ) : '';
 		
 		// Verify license key
-		$settings = get_option( 'hyper_local_settings', array() );
+		$settings = get_option( 'seogen_settings', array() );
 		$site_license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 		
 		// Normalize for comparison (case-insensitive)
@@ -337,7 +337,7 @@ class SEOgen_REST_API {
 	 * TEMPORARY - Remove after debugging
 	 */
 	public function debug_license( $request ) {
-		$settings = get_option( 'hyper_local_settings', array() );
+		$settings = get_option( 'seogen_settings', array() );
 		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
 		
 		return new WP_REST_Response( array(
