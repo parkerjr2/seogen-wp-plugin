@@ -2291,8 +2291,15 @@ class SEOgen_Admin {
 			if ( '' === $line ) {
 				continue;
 			}
-			// Strip hub category labels in parentheses (e.g., "roof replacement (Residential)" -> "roof replacement")
+			// Handle "hub: service" format (e.g., "residential: roof replacement" -> "roof replacement")
 			// This allows the validation logic to look up hub assignments from the services cache
+			if ( strpos( $line, ':' ) !== false ) {
+				$parts = explode( ':', $line, 2 );
+				if ( count( $parts ) === 2 ) {
+					$line = trim( $parts[1] );
+				}
+			}
+			// Also strip hub category labels in parentheses for backward compatibility
 			$line = preg_replace( '/\s*\([^)]+\)\s*$/', '', $line );
 			$out[] = sanitize_text_field( $line );
 		}
@@ -3510,15 +3517,17 @@ class SEOgen_Admin {
 		$cities = $this->get_cities();
 
 		// Build services list (one per line) with hub category labels
+		// Format: "hub: service" (e.g., "residential: roof replacement")
 		$services_list = '';
 		if ( ! empty( $services_cache ) && is_array( $services_cache ) ) {
 			$service_lines = array();
 			foreach ( $services_cache as $service ) {
 				if ( isset( $service['name'] ) && ! empty( $service['name'] ) ) {
-					$service_line = $service['name'];
-					// Add hub category label for clarity (e.g., "roof replacement (Residential)")
-					if ( isset( $service['hub_label'] ) && ! empty( $service['hub_label'] ) ) {
-						$service_line .= ' (' . $service['hub_label'] . ')';
+					// Format as "hub: service" to match Services & Cities page
+					if ( isset( $service['hub_key'] ) && ! empty( $service['hub_key'] ) ) {
+						$service_line = strtolower( $service['hub_key'] ) . ': ' . $service['name'];
+					} else {
+						$service_line = $service['name'];
 					}
 					$service_lines[] = $service_line;
 				}
@@ -3805,7 +3814,7 @@ class SEOgen_Admin {
 				<div class="hyper-local-bulk-col">
 					<label for="hl_bulk_services"><?php echo esc_html__( 'Services (one per line)', 'seogen' ); ?></label>
 					<textarea name="services" id="hl_bulk_services" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['services'] ); ?></textarea>
-					<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Hub categories shown in parentheses for reference', 'seogen' ); ?></p>
+					<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Format: hub: service (e.g., residential: roof replacement)', 'seogen' ); ?></p>
 				</div>
 				<div class="hyper-local-bulk-col">
 					<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
