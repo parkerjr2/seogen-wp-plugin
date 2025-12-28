@@ -4093,19 +4093,43 @@ class SEOgen_Admin {
 		$services = $this->get_services();
 		$hubs = $this->get_hubs();
 	
-		// Build hub_key => hub_label map
+		// Build hub_key => hub_label map by finding actual Service Hub posts
 		$hub_label_map = array();
 		foreach ( $hubs as $hub ) {
-			if ( isset( $hub['key'], $hub['label'] ) ) {
-				$hub_label_map[ $hub['key'] ] = $hub['label'];
+			if ( isset( $hub['key'] ) ) {
+				// Find the Service Hub post by hub_key to get its actual title
+				$hub_posts = get_posts( array(
+					'post_type'      => 'service_page',
+					'posts_per_page' => 1,
+					'meta_query'     => array(
+						array(
+							'key'     => 'hub_key',
+							'value'   => $hub['key'],
+							'compare' => '='
+						),
+						array(
+							'key'     => 'page_mode',
+							'value'   => 'service_hub',
+							'compare' => '='
+						)
+					)
+				) );
+			
+				if ( ! empty( $hub_posts ) ) {
+					// Use the actual Service Hub post title
+					$hub_label_map[ $hub['key'] ] = $hub_posts[0]->post_title;
+				} elseif ( isset( $hub['label'] ) ) {
+					// Fallback to config label if no post found
+					$hub_label_map[ $hub['key'] ] = $hub['label'];
+				}
 			}
 		}
-	
+
 		foreach ( $api_items as $item ) {
 			if ( isset( $item['hub_key'], $item['city'], $item['state'] ) && ! empty( $item['hub_key'] ) ) {
 				$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
 				$hub_city_key = $item['hub_key'] . '|' . $city_slug;
-			
+		
 				if ( ! isset( $city_hubs_needed[ $hub_city_key ] ) ) {
 					$city_hubs_needed[ $hub_city_key ] = array(
 						'page_mode'    => 'city_hub',
