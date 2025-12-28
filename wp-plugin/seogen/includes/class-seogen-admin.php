@@ -4116,8 +4116,13 @@ class SEOgen_Admin {
 				) );
 			
 				if ( ! empty( $hub_posts ) ) {
-					// Use the actual Service Hub post title
-					$hub_label_map[ $hub['key'] ] = $hub_posts[0]->post_title;
+					// Use the actual Service Hub post title, stripping business name suffix
+					$hub_title = $hub_posts[0]->post_title;
+					// Remove " | Business Name" suffix if present
+					if ( strpos( $hub_title, ' | ' ) !== false ) {
+						$hub_title = substr( $hub_title, 0, strpos( $hub_title, ' | ' ) );
+					}
+					$hub_label_map[ $hub['key'] ] = $hub_title;
 				} elseif ( isset( $hub['label'] ) ) {
 					// Fallback to config label if no post found
 					$hub_label_map[ $hub['key'] ] = $hub['label'];
