@@ -21,13 +21,20 @@ class SEOgen_REST_API {
 		register_rest_route( self::NAMESPACE, '/import-page', array(
 			'methods' => 'POST',
 			'callback' => array( $this, 'import_page' ),
-			'permission_callback' => array( $this, 'validate_hmac_signature' ),
+			'permission_callback' => array( $this, 'verify_hmac_signature' ),
 		) );
 		
 		register_rest_route( self::NAMESPACE, '/ping', array(
 			'methods' => 'POST',
 			'callback' => array( $this, 'ping' ),
-			'permission_callback' => array( $this, 'validate_hmac_signature' ),
+			'permission_callback' => array( $this, 'verify_hmac_signature' )
+		) );
+		
+		// Debug endpoint - remove after testing
+		register_rest_route( self::NAMESPACE, '/debug-license', array(
+			'methods' => 'GET',
+			'callback' => array( $this, 'debug_license' ),
+			'permission_callback' => '__return_true'
 		) );
 	}
 	
@@ -322,6 +329,23 @@ class SEOgen_REST_API {
 			'rest_base_url' => rest_url( self::NAMESPACE . '/' ),
 			'license_valid' => $license_valid,
 			'timestamp' => time()
+		), 200 );
+	}
+	
+	/**
+	 * Debug endpoint to check license key configuration
+	 * TEMPORARY - Remove after debugging
+	 */
+	public function debug_license( $request ) {
+		$settings = get_option( 'hyper_local_settings', array() );
+		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
+		
+		return new WP_REST_Response( array(
+			'stored_license_key' => $license_key,
+			'key_length' => strlen( $license_key ),
+			'key_is_empty' => empty( $license_key ),
+			'settings_option_exists' => ! empty( $settings ),
+			'all_settings_keys' => array_keys( $settings )
 		), 200 );
 	}
 	
