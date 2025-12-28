@@ -4074,6 +4074,7 @@ class SEOgen_Admin {
 			);
 		
 			$api_items[] = array(
+				'page_mode'    => 'service_city',
 				'service'      => $service_name,
 				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
 				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
@@ -4086,6 +4087,45 @@ class SEOgen_Admin {
 		}
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
+
+		// Collect unique City Hub pages needed for this job
+		$city_hubs_needed = array();
+		$services = $this->get_services();
+		$hubs = $this->get_hubs();
+	
+		// Build hub_key => hub_label map
+		$hub_label_map = array();
+		foreach ( $hubs as $hub ) {
+			if ( isset( $hub['key'], $hub['label'] ) ) {
+				$hub_label_map[ $hub['key'] ] = $hub['label'];
+			}
+		}
+	
+		foreach ( $api_items as $item ) {
+			if ( isset( $item['hub_key'], $item['city'], $item['state'] ) && ! empty( $item['hub_key'] ) ) {
+				$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
+				$hub_city_key = $item['hub_key'] . '|' . $city_slug;
+			
+				if ( ! isset( $city_hubs_needed[ $hub_city_key ] ) ) {
+					$city_hubs_needed[ $hub_city_key ] = array(
+						'page_mode'    => 'city_hub',
+						'hub_key'      => $item['hub_key'],
+						'hub_label'    => isset( $hub_label_map[ $item['hub_key'] ] ) ? $hub_label_map[ $item['hub_key'] ] : '',
+						'city'         => $item['city'],
+						'state'        => $item['state'],
+						'city_slug'    => $city_slug,
+						'company_name' => $item['company_name'],
+						'phone'        => $item['phone'],
+						'email'        => $item['email'],
+						'address'      => $item['address'],
+					);
+				}
+			}
+		}
+	
+		// Add City Hub items to the beginning of api_items so they're generated first
+		$api_items = array_merge( array_values( $city_hubs_needed ), $api_items );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Added ' . count( $city_hubs_needed ) . ' City Hub items to bulk job' . PHP_EOL, FILE_APPEND );
 
 		// Create placeholder city hub pages before starting bulk job
 		$city_hub_map = $this->create_city_hub_placeholders( $job_rows, $form );
