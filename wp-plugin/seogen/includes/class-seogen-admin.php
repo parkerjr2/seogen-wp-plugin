@@ -4225,10 +4225,9 @@ class SEOgen_Admin {
 			}
 		}
 	
-		// Add City Hub items to the END of api_items so Service+City pages are created first
-		// This ensures service links can be populated when City Hubs are imported
-		$api_items = array_merge( $api_items, array_values( $city_hubs_needed ) );
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Added ' . count( $city_hubs_needed ) . ' City Hub items to bulk job (at end)' . PHP_EOL, FILE_APPEND );
+		// City Hub pages are created as placeholders only (not sent to API for generation)
+		// This prevents duplicate city hub pages from being created
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Identified ' . count( $city_hubs_needed ) . ' unique city hub combinations (will create as placeholders only)' . PHP_EOL, FILE_APPEND );
 
 		// Create placeholder city hub pages before starting bulk job
 		$city_hub_map = $this->create_city_hub_placeholders( $job_rows, $form );
