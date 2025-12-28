@@ -238,9 +238,9 @@ class SEOgen_REST_API {
 	 * Import service page
 	 */
 	private function import_service_page( $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
-		// Get import handler
-		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin-import.php';
-		$importer = new SEOgen_Admin_Import();
+		// Get admin class which uses the import trait
+		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
+		$admin = new SEOgen_Admin();
 		
 		// Build config from settings
 		$config = get_option( 'hyper_local_business_config', array() );
@@ -254,7 +254,7 @@ class SEOgen_REST_API {
 		);
 		
 		// Import using existing logic
-		$result = $importer->import_service_page_from_result( $result_json, $config, $item );
+		$result = $admin->import_service_page_from_result( $result_json, $config, $item );
 		
 		if ( isset( $result['success'] ) && $result['success'] && isset( $result['post_id'] ) ) {
 			// Store idempotency metadata
@@ -272,9 +272,9 @@ class SEOgen_REST_API {
 	 * Import city hub
 	 */
 	private function import_city_hub( $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
-		// Get import handler
-		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin-import.php';
-		$importer = new SEOgen_Admin_Import();
+		// Get admin class which uses the import trait
+		require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
+		$admin = new SEOgen_Admin();
 		
 		// Build config from settings
 		$config = get_option( 'hyper_local_business_config', array() );
@@ -289,7 +289,7 @@ class SEOgen_REST_API {
 		);
 		
 		// Import using existing logic
-		$result = $importer->import_city_hub_from_result( $result_json, $config, $item );
+		$result = $admin->import_city_hub_from_result( $result_json, $config, $item );
 		
 		if ( isset( $result['success'] ) && $result['success'] && isset( $result['post_id'] ) ) {
 			// Store idempotency metadata
