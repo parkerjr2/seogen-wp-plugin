@@ -12,6 +12,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-helpers.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-cities.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-duplicate-cleanup.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-import-coordinator.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/city-hub-helper.php';
 
 class SEOgen_Admin {
@@ -20,6 +21,7 @@ class SEOgen_Admin {
 	use SEOgen_Admin_Cities;
 	use SEOgen_Admin_Import;
 	use SEOgen_Admin_Duplicate_Cleanup;
+	use SEOgen_Import_Coordinator;
 	const OPTION_NAME = 'seogen_settings';
 	const BUSINESS_CONFIG_OPTION = 'hyper_local_business_config';
 	const SERVICES_CACHE_OPTION = 'hyper_local_services_cache';

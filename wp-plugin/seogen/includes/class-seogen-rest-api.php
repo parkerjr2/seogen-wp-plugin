@@ -177,49 +177,31 @@ class SEOgen_REST_API {
 		set_transient( $lock_key, 1, 60 );
 		
 		try {
-			// Check if already imported (idempotency)
-			$existing_posts = get_posts( array(
-				'post_type' => 'service_page',
-				'post_status' => 'any',
-				'posts_per_page' => 1,
-				'meta_query' => array(
-					array(
-						'key' => '_seogen_canonical_key',
-						'value' => $canonical_key,
-						'compare' => '='
-					)
-				)
-			) );
-			
-			if ( ! empty( $existing_posts ) ) {
-				$existing_post = $existing_posts[0];
-				delete_transient( $lock_key );
-				
-				return new WP_REST_Response( array(
-					'success' => true,
-					'post_id' => $existing_post->ID,
-					'title' => $existing_post->post_title,
-					'already_imported' => true
-				), 200 );
+			// Load admin class with import coordinator
+			if ( ! class_exists( 'SEOgen_Admin' ) ) {
+				require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
 			}
 			
-			// Determine page type and import
-			$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : 'service_page';
+			$importer = new SEOgen_Admin();
 			
-			if ( 'city_hub' === $page_mode ) {
-				$result = $this->import_city_hub( $result_json, $item_metadata, $job_id, $item_index, $canonical_key );
-			} else {
-				$result = $this->import_service_page( $result_json, $item_metadata, $job_id, $item_index, $canonical_key );
-			}
+			// Add canonical_key to item_metadata
+			$item_metadata['canonical_key'] = $canonical_key;
+			
+			// Use centralized import with lock and idempotency
+			$result = $importer->import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index );
 			
 			delete_transient( $lock_key );
 			
-			if ( isset( $result['success'] ) && $result['success'] ) {
-				return new WP_REST_Response( $result, 200 );
+			if ( $result['success'] ) {
+				return new WP_REST_Response( array(
+					'success' => true,
+					'post_id' => $result['post_id'],
+					'already_imported' => $result['already_existed']
+				), 200 );
 			} else {
 				return new WP_Error(
 					'import_failed',
-					isset( $result['error'] ) ? $result['error'] : 'Import failed',
+					$result['error'],
 					array( 'status' => 500 )
 				);
 			}
@@ -234,88 +216,6 @@ class SEOgen_REST_API {
 		}
 	}
 	
-	/**
-	 * Import service page
-	 */
-	private function import_service_page( $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
-		// Load admin class with all helper methods
-		if ( ! class_exists( 'SEOgen_Admin' ) ) {
-			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
-		}
-		
-		// Use full admin class instance (has all helper methods the trait needs)
-		$importer = new SEOgen_Admin();
-		
-		// Build config from settings
-		$config = get_option( 'hyper_local_business_config', array() );
-		
-		// Build item data
-		$item = array(
-			'service' => isset( $item_metadata['service'] ) ? $item_metadata['service'] : '',
-			'city' => isset( $item_metadata['city'] ) ? $item_metadata['city'] : '',
-			'state' => isset( $item_metadata['state'] ) ? $item_metadata['state'] : '',
-			'hub_key' => isset( $item_metadata['hub_key'] ) ? $item_metadata['hub_key'] : '',
-		);
-		
-		// Import using existing logic - use service_city method
-		$result = $importer->import_service_city_from_result( $result_json, $config, $item );
-		
-		if ( isset( $result['success'] ) && $result['success'] && isset( $result['post_id'] ) ) {
-			// Store idempotency metadata
-			update_post_meta( $result['post_id'], '_seogen_canonical_key', $canonical_key );
-			update_post_meta( $result['post_id'], '_seogen_job_id', $job_id );
-			update_post_meta( $result['post_id'], '_seogen_item_index', $item_index );
-			update_post_meta( $result['post_id'], '_seogen_imported_via', 'rest_api' );
-			update_post_meta( $result['post_id'], '_seogen_imported_at', current_time( 'mysql' ) );
-		}
-		
-		return $result;
-	}
-	
-	/**
-	 * Import city hub
-	 */
-	private function import_city_hub( $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
-		// Load admin class with all helper methods
-		if ( ! class_exists( 'SEOgen_Admin' ) ) {
-			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
-		}
-		
-		// Use full admin class instance (has all helper methods the trait needs)
-		$importer = new SEOgen_Admin();
-		
-		// Build config from settings
-		$config = get_option( 'hyper_local_business_config', array() );
-		
-		// Calculate city_slug if not provided
-		$city_slug = isset( $item_metadata['city_slug'] ) ? $item_metadata['city_slug'] : '';
-		if ( empty( $city_slug ) && isset( $item_metadata['city'], $item_metadata['state'] ) ) {
-			$city_slug = sanitize_title( $item_metadata['city'] . '-' . $item_metadata['state'] );
-		}
-		
-		// Build item data
-		$item = array(
-			'hub_key' => isset( $item_metadata['hub_key'] ) ? $item_metadata['hub_key'] : '',
-			'city_slug' => $city_slug,
-			'city' => isset( $item_metadata['city'] ) ? $item_metadata['city'] : '',
-			'state' => isset( $item_metadata['state'] ) ? $item_metadata['state'] : '',
-			'hub_label' => isset( $item_metadata['hub_label'] ) ? $item_metadata['hub_label'] : '',
-		);
-		
-		// Import using existing logic - pass 'publish' status for auto-import
-		$result = $importer->import_city_hub_from_result( $result_json, $config, $item, 'publish' );
-		
-		if ( isset( $result['success'] ) && $result['success'] && isset( $result['post_id'] ) ) {
-			// Store idempotency metadata
-			update_post_meta( $result['post_id'], '_seogen_canonical_key', $canonical_key );
-			update_post_meta( $result['post_id'], '_seogen_job_id', $job_id );
-			update_post_meta( $result['post_id'], '_seogen_item_index', $item_index );
-			update_post_meta( $result['post_id'], '_seogen_imported_via', 'rest_api' );
-			update_post_meta( $result['post_id'], '_seogen_imported_at', current_time( 'mysql' ) );
-		}
-		
-		return $result;
-	}
 	
 	/**
 	 * Ping endpoint for connection testing
