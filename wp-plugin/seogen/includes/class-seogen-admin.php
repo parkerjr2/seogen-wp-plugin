@@ -4123,9 +4123,11 @@ class SEOgen_Admin {
 						$hub_title = substr( $hub_title, 0, strpos( $hub_title, ' | ' ) );
 					}
 					$hub_label_map[ $hub['key'] ] = $hub_title;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' label: ' . $hub_title . PHP_EOL, FILE_APPEND );
 				} elseif ( isset( $hub['label'] ) ) {
 					// Fallback to config label if no post found
 					$hub_label_map[ $hub['key'] ] = $hub['label'];
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' label (fallback): ' . $hub['label'] . PHP_EOL, FILE_APPEND );
 				}
 			}
 		}
