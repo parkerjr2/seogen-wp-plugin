@@ -4578,32 +4578,19 @@ class SEOgen_Admin {
 
 					// Assign parent city hub ID for service pages
 					$city_hub_parent_id = 0;
-					if ( isset( $job['city_hub_map'], $item['city'], $item['state'], $item['service'] ) ) {
+					if ( isset( $job['city_hub_map'], $item['city'], $item['state'], $item['hub_key'] ) && ! empty( $item['hub_key'] ) ) {
 						$city_name = $item['city'];
 						$state_code = $item['state'];
-						$service_name = $item['service'];
+						$hub_key = $item['hub_key'];
 						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
-						$service_slug = sanitize_title( $service_name );
 						
-						// Look up which hub this service belongs to
-						$services = $this->get_services();
-						$hub_key = '';
-						foreach ( $services as $service ) {
-							if ( isset( $service['slug'] ) && $service['slug'] === $service_slug && isset( $service['hub_key'] ) ) {
-								$hub_key = $service['hub_key'];
-								break;
-							}
-						}
-						
-						if ( '' !== $hub_key ) {
-							// Build hub_city_key to look up the correct city hub
-							$hub_city_key = $hub_key . '|' . $city_slug;
-							if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
-								$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
-								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Assigning city hub parent: ' . $hub_city_key . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
-							} else {
-								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: City hub not found for: ' . $hub_city_key . PHP_EOL, FILE_APPEND );
-							}
+						// Build hub_city_key to look up the correct city hub
+						$hub_city_key = $hub_key . '|' . $city_slug;
+						if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
+							$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Assigning city hub parent: ' . $hub_city_key . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
+						} else {
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: City hub not found for: ' . $hub_city_key . PHP_EOL, FILE_APPEND );
 						}
 					}
 
