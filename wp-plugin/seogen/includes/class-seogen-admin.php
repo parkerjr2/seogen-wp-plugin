@@ -4267,9 +4267,13 @@ class SEOgen_Admin {
 			}
 		}
 	
-		// City Hub pages are created as placeholders only (not sent to API for generation)
-		// This prevents duplicate city hub pages from being created
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Identified ' . count( $city_hubs_needed ) . ' unique city hub combinations (will create as placeholders only)' . PHP_EOL, FILE_APPEND );
+		// Add city hub items to API request for content generation
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Identified ' . count( $city_hubs_needed ) . ' unique city hub combinations (will send to API for generation)' . PHP_EOL, FILE_APPEND );
+
+		// Add city hub items to API request
+		foreach ( $city_hubs_needed as $city_hub ) {
+			$api_items[] = $city_hub;
+		}
 
 		// Create placeholder city hub pages before starting bulk job
 		$city_hub_map = $this->create_city_hub_placeholders( $job_rows, $form );
