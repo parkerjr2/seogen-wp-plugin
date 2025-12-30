@@ -3679,8 +3679,63 @@ class SEOgen_Admin {
 				function render(job){
 					if(!job){container.innerHTML = '<p><?php echo esc_js( __( 'Job not found.', 'seogen' ) ); ?></p>';return;}
 					var html = '';
-					html += '<p><strong><?php echo esc_js( __( 'Status:', 'seogen' ) ); ?></strong> ' + esc(job.status) + '</p>';
-					html += '<p><strong><?php echo esc_js( __( 'Totals:', 'seogen' ) ); ?></strong> ' + esc(job.processed) + '/' + esc(job.total_rows) + ' | <?php echo esc_js( __( 'New', 'seogen' ) ); ?>: ' + esc(job.success) + ' | <?php echo esc_js( __( 'Failed', 'seogen' ) ); ?>: ' + esc(job.failed) + ' | <?php echo esc_js( __( 'Skipped', 'seogen' ) ); ?>: ' + esc(job.skipped) + '</p>';
+					
+					// Calculate progress percentages
+					var totalRows = job.total_rows || 0;
+					var processed = job.processed || 0;
+					var success = job.success || 0;
+					var failed = job.failed || 0;
+					var skipped = job.skipped || 0;
+					var imported = job.imported || 0;
+					var importPending = job.import_pending || 0;
+					var importFailed = job.import_failed || 0;
+					
+					var generationPercent = totalRows > 0 ? Math.round((processed / totalRows) * 100) : 0;
+					var importPercent = totalRows > 0 ? Math.round((imported / totalRows) * 100) : 0;
+					
+					// Status badge
+					var statusColor = job.status === 'complete' ? '#00a32a' : (job.status === 'running' ? '#2271b1' : '#666');
+					var statusText = job.status === 'complete' ? '✓ Complete' : (job.status === 'running' ? '⟳ Running' : job.status);
+					
+					// Progress indicator box
+					html += '<div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:20px;margin:20px 0;">';
+					html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">';
+					html += '<h3 style="margin:0;font-size:16px;">Job Progress</h3>';
+					html += '<span style="background:' + statusColor + ';color:#fff;padding:4px 12px;border-radius:3px;font-size:13px;font-weight:600;">' + esc(statusText) + '</span>';
+					html += '</div>';
+					
+					// Generation Progress Bar
+					html += '<div style="margin-bottom:20px;">';
+					html += '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">';
+					html += '<span style="font-size:13px;font-weight:600;">Content Generation</span>';
+					html += '<span style="font-size:13px;color:#666;">' + processed + ' / ' + totalRows + ' (' + generationPercent + '%)</span>';
+					html += '</div>';
+					html += '<div style="background:#f0f0f1;height:24px;border-radius:3px;overflow:hidden;">';
+					html += '<div style="background:#2271b1;height:100%;width:' + generationPercent + '%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;">';
+					if(generationPercent > 10) html += generationPercent + '%';
+					html += '</div></div>';
+					html += '<div style="margin-top:5px;font-size:12px;color:#666;">New: ' + success + ' | Failed: ' + failed + ' | Skipped: ' + skipped + '</div>';
+					html += '</div>';
+					
+					// Import Progress Bar (if import data available)
+					if(imported > 0 || importPending > 0 || importFailed > 0){
+						html += '<div style="margin-bottom:15px;">';
+						html += '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">';
+						html += '<span style="font-size:13px;font-weight:600;">Page Import</span>';
+						html += '<span style="font-size:13px;color:#666;">' + imported + ' / ' + totalRows + ' (' + importPercent + '%)</span>';
+						html += '</div>';
+						html += '<div style="background:#f0f0f1;height:24px;border-radius:3px;overflow:hidden;">';
+						html += '<div style="background:#00a32a;height:100%;width:' + importPercent + '%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;">';
+						if(importPercent > 10) html += importPercent + '%';
+						html += '</div></div>';
+						html += '<div style="margin-top:5px;font-size:12px;color:#666;">Imported: ' + imported + ' | Pending: ' + importPending + ' | Failed: ' + importFailed + '</div>';
+						html += '</div>';
+					}
+					
+					html += '</div>';
+					
+					// Detailed table
+					html += '<h3 style="margin-top:30px;">Detailed Status</h3>';
 					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
 					(job.rows||[]).forEach(function(r){
 						var key = getRowKey(r);
