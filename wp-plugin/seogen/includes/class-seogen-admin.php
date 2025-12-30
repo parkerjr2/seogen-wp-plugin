@@ -3407,7 +3407,6 @@ class SEOgen_Admin {
 					<li><strong>Services:</strong> Add all services you offer</li>
 					<li><strong>Service Hubs:</strong> Create hub categories to organize your services</li>
 					<li><strong>Generate Service Pages:</strong> Bulk generate pages for all service/city combinations</li>
-					<li><strong>City Hubs:</strong> Generate city-specific hub pages (optional)</li>
 				</ol>
 				
 				<p style="margin-top:15px;">
