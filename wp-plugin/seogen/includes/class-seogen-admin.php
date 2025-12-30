@@ -1652,17 +1652,7 @@ class SEOgen_Admin {
 			array( $this, 'render_bulk_generate_page' )
 		);
 
-		// 7. City Hubs
-		add_submenu_page(
-			'hyper-local',
-			__( 'City Hubs', 'seogen' ),
-			__( 'City Hubs', 'seogen' ),
-			'manage_options',
-			'hyper-local-city-hubs',
-			array( $this, 'render_city_hubs_page' )
-		);
-
-		// 8. View Pages
+		// 7. View Pages
 		add_submenu_page(
 			'hyper-local',
 			__( 'View Pages', 'seogen' ),
@@ -1671,7 +1661,7 @@ class SEOgen_Admin {
 			'edit.php?post_type=service_page'
 		);
 
-		// 9. Troubleshooting (parent - submenu items added by other classes)
+		// 8. Troubleshooting (parent - submenu items added by other classes)
 		add_submenu_page(
 			'hyper-local',
 			__( 'Troubleshooting', 'seogen' ),
@@ -1679,6 +1669,16 @@ class SEOgen_Admin {
 			'manage_options',
 			'hyper-local-troubleshooting',
 			array( $this, 'render_troubleshooting_page' )
+		);
+		
+		// City Hubs (under Troubleshooting)
+		add_submenu_page(
+			'hyper-local-troubleshooting',
+			__( 'City Hubs', 'seogen' ),
+			__( 'City Hubs', 'seogen' ),
+			'manage_options',
+			'hyper-local-city-hubs',
+			array( $this, 'render_city_hubs_page' )
 		);
 	}
 
