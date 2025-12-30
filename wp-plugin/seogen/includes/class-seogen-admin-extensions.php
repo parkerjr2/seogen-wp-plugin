@@ -698,6 +698,51 @@ trait SEOgen_Admin_Extensions {
 					<?php echo esc_html__( 'Next Step: Generate Service Pages →', 'seogen' ); ?>
 				</a>
 			</p>
+			
+			<!-- Progress Indicator -->
+			<div id="hub_generation_progress" style="display:none; margin-top: 20px; padding: 15px; background: #fff; border-left: 4px solid #2271b1;">
+				<p><strong>Generating Service Hub Page...</strong></p>
+				<p id="hub_progress_status">Contacting API and generating content...</p>
+				<div style="background: #f0f0f1; height: 30px; border-radius: 3px; overflow: hidden; margin: 10px 0;">
+					<div id="hub_progress_bar" style="background: #2271b1; height: 100%; width: 0%; transition: width 0.3s;"></div>
+				</div>
+				<p style="font-size: 12px; color: #666;">This may take 10-30 seconds. Please wait...</p>
+			</div>
+			
+			<script>
+			jQuery(document).ready(function($) {
+				// Intercept form submissions for hub creation/update
+				$('form[action*="admin-post.php"]').on('submit', function(e) {
+					var action = $(this).find('input[name="action"]').val();
+					
+					// Only show progress for create/update actions, not preview
+					if (action === 'hyper_local_hub_create') {
+						var button = $(this).find('button[type="submit"]');
+						var originalText = button.text();
+						
+						// Show progress indicator
+						$('#hub_generation_progress').show();
+						$('#hub_progress_status').text('Generating hub page content...');
+						
+						// Animate progress bar
+						var progress = 0;
+						var progressInterval = setInterval(function() {
+							progress += 2;
+							if (progress > 90) {
+								clearInterval(progressInterval);
+							}
+							$('#hub_progress_bar').css('width', progress + '%');
+						}, 300);
+						
+						// Disable button and show loading state
+						button.prop('disabled', true).text('Generating...');
+						
+						// Store interval ID so we can clear it if needed
+						$(this).data('progressInterval', progressInterval);
+					}
+				});
+			});
+			</script>
 		</div>
 		<?php
 	}
