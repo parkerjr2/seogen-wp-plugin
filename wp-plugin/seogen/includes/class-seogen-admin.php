@@ -3949,12 +3949,6 @@ class SEOgen_Admin {
 					</tbody>
 				</table>
 			<?php endif; ?>
-			
-			<p style="margin-top: 20px;">
-				<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-city-hubs' ) ); ?>" class="button button-secondary">
-					<?php echo esc_html__( 'Next Step: City Hubs →', 'seogen' ); ?>
-				</a>
-			</p>
 
 			<?php if ( ! empty( $jobs_index ) ) : ?>
 				<h2><?php echo esc_html__( 'Recent Jobs', 'seogen' ); ?></h2>
