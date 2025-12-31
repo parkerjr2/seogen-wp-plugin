@@ -4188,143 +4188,14 @@ class SEOgen_Admin {
 	
 		$form = $validated['form'];
 		$update_existing = ( isset( $form['update_existing'] ) && '1' === (string) $form['update_existing'] );
-
-		// Build hub_label_map BEFORE processing rows
-		$services = $this->get_services();
-		$hubs = $this->get_hubs();
-		$config = $this->get_business_config();
-		$global_vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
-
-		// Determine vertical from service names
-		$service_vertical_map = array();
-		foreach ( $services as $service ) {
-			if ( isset( $service['name'], $service['vertical'] ) ) {
-				$service_vertical_map[ strtolower( $service['name'] ) ] = $service['vertical'];
-			}
-		}
-
-		// Build hub_key => hub_label map by determining vertical from validated rows
-		$hub_label_map = array();
-		$hub_vertical_pairs = array();
-		
-		foreach ( $validated['rows'] as $row ) {
-			$hub_key = isset( $row['hub_key'] ) ? $row['hub_key'] : '';
-			$service_name = isset( $row['service'] ) ? strtolower( $row['service'] ) : '';
-		
-			if ( ! empty( $hub_key ) && ! empty( $service_name ) ) {
-				$vertical = isset( $service_vertical_map[ $service_name ] ) ? $service_vertical_map[ $service_name ] : $global_vertical;
-				$pair_key = $hub_key . '|' . $vertical;
-			
-				if ( ! isset( $hub_vertical_pairs[ $pair_key ] ) ) {
-					$hub_vertical_pairs[ $pair_key ] = array(
-						'hub_key' => $hub_key,
-						'vertical' => $vertical
-					);
-				}
-			}
-		}
-
-		// Build hub labels for each hub_key + vertical combination
-		foreach ( $hub_vertical_pairs as $pair ) {
-			$hub_key = $pair['hub_key'];
-			$vertical = $pair['vertical'];
-		
-			$hub_key_base = $hub_key;
-			if ( strpos( $hub_key_base, '-services' ) !== false ) {
-				$hub_key_base = str_replace( '-services', '', $hub_key_base );
-			}
-
-			// Find Service Hub post
-			$hub_posts = get_posts( array(
-				'post_type'      => 'service_page',
-				'posts_per_page' => 1,
-				'meta_query'     => array(
-					array(
-						'key'     => 'hub_key',
-						'value'   => $hub_key,
-						'compare' => '='
-					),
-					array(
-						'key'     => 'page_mode',
-						'value'   => 'service_hub',
-						'compare' => '='
-					)
-				)
-			) );
-
-			$hub_label = '';
-
-			if ( ! empty( $hub_posts ) ) {
-				$hub_title = $hub_posts[0]->post_title;
-				if ( strpos( $hub_title, ' | ' ) !== false ) {
-					$hub_title = substr( $hub_title, 0, strpos( $hub_title, ' | ' ) );
-				}
-
-				$has_service_type = ( strpos( strtolower( $hub_title ), 'service' ) !== false || 
-				                     strpos( strtolower( $hub_title ), 'electrical' ) !== false ||
-				                     strpos( strtolower( $hub_title ), 'plumbing' ) !== false ||
-				                     strpos( strtolower( $hub_title ), 'hvac' ) !== false ||
-				                     strpos( strtolower( $hub_title ), 'roofing' ) !== false );
-
-				if ( $has_service_type ) {
-					$hub_label = $hub_title;
-				} else {
-					$hub_label = $hub_title;
-					if ( ! empty( $vertical ) ) {
-						$vertical_map = array(
-							'electrician' => 'Electrical Services',
-							'plumber' => 'Plumbing Services',
-							'hvac' => 'HVAC Services',
-							'roofer' => 'Roofing Services',
-							'painter' => 'Painting Services',
-							'landscaper' => 'Landscaping Services',
-							'carpenter' => 'Carpentry Services',
-							'contractor' => 'Contractor Services',
-						);
-						$service_type = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : 'Services';
-						$hub_label = $hub_title . ' ' . $service_type;
-					}
-				}
-
-				$hub_label_map[ $hub_key ] = $hub_label;
-				$hub_label_map[ $hub_key_base ] = $hub_label;
-			} else {
-				// Fallback: Find hub definition
-				foreach ( $hubs as $hub ) {
-					if ( isset( $hub['key'] ) && $hub['key'] === $hub_key && isset( $hub['label'] ) ) {
-						$hub_label = $hub['label'];
-
-						if ( ! empty( $vertical ) ) {
-							$vertical_map = array(
-								'electrician' => 'Electrical Services',
-								'plumber' => 'Plumbing Services',
-								'hvac' => 'HVAC Services',
-								'roofer' => 'Roofing Services',
-								'painter' => 'Painting Services',
-								'landscaper' => 'Landscaping Services',
-								'carpenter' => 'Carpentry Services',
-								'contractor' => 'Contractor Services',
-							);
-
-							$service_type = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : 'Services';
-							$hub_label = $hub['label'] . ' ' . $service_type;
-						}
-
-						$hub_label_map[ $hub_key ] = $hub_label;
-						$hub_label_map[ $hub_key_base ] = $hub_label;
-						break;
-					}
-				}
-			}
-		}
-
+	
 		// Filter out existing pages BEFORE creating job rows
 		$job_rows = array();
 		$api_items = array();
 		$filtered_count = 0;
-
+	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtering ' . count( $validated['rows'] ) . ' rows, update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
-
+	
 		foreach ( $validated['rows'] as $row ) {
 			$canonical_key = isset( $row['key'] ) ? (string) $row['key'] : '';
 		
@@ -4341,15 +4212,8 @@ class SEOgen_Admin {
 			// Use hub_key from validated row (already determined during validation)
 			$service_name = isset( $row['service'] ) ? (string) $row['service'] : '';
 			$hub_key = isset( $row['hub_key'] ) ? (string) $row['hub_key'] : '';
+			$hub_label = isset( $row['hub_label'] ) ? (string) $row['hub_label'] : '';
 		
-			// Get correct hub_label from our map (not from validated row which may be wrong)
-			$hub_label = isset( $hub_label_map[ $hub_key ] ) ? $hub_label_map[ $hub_key ] : '';
-		
-			// Fallback if not in map
-			if ( empty( $hub_label ) ) {
-				$hub_label = isset( $row['hub_label'] ) ? (string) $row['hub_label'] : '';
-			}
-	
 			// Check if this is a city hub page (canonical key starts with "city_hub|")
 			$is_city_hub = ( strpos( $canonical_key, 'city_hub|' ) === 0 );
 		
