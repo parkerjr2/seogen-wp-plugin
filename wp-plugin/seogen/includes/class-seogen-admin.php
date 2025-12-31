@@ -4945,8 +4945,12 @@ class SEOgen_Admin {
 		// This fixes stale "pending" and "skipped" statuses for items that were actually imported
 		$job_status = isset( $job['status'] ) ? (string) $job['status'] : '';
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: job_status=' . $job_status . ' rows_count=' . ( isset( $job['rows'] ) ? count( $job['rows'] ) : 0 ) . PHP_EOL, FILE_APPEND );
-		// Run status sync on every poll for API mode jobs
-		if ( $is_api_mode && isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+		
+		// PERFORMANCE: Skip status sync if job is complete and status sync already ran
+		$status_sync_complete = isset( $job['status_sync_complete'] ) && $job['status_sync_complete'];
+		
+		// Run status sync on every poll for API mode jobs (but only until complete)
+		if ( $is_api_mode && isset( $job['rows'] ) && is_array( $job['rows'] ) && ! $status_sync_complete ) {
 			$status_updated = false;
 			foreach ( $job['rows'] as $idx => $row ) {
 				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
@@ -5001,6 +5005,13 @@ class SEOgen_Admin {
 				$this->save_bulk_job( $job_id, $job );
 			} else {
 				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: No updates needed' . PHP_EOL, FILE_APPEND );
+			}
+			
+			// Mark status sync as complete if job is complete
+			if ( 'complete' === $job_status ) {
+				$job['status_sync_complete'] = true;
+				$this->save_bulk_job( $job_id, $job );
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: Marked as complete, will not run again' . PHP_EOL, FILE_APPEND );
 			}
 		}
 		
