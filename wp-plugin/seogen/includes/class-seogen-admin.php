@@ -2155,8 +2155,33 @@ class SEOgen_Admin {
 			}
 			
 			$hub = $hub_data_map[ $hub_key ];
-			$hub_label = isset( $hub['label'] ) ? $hub['label'] : 'Services';
 			$hub_slug = isset( $hub['slug'] ) ? $hub['slug'] : '';
+			
+			// Build proper hub_label with vertical (e.g., "Commercial Plumbing Services")
+			$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+			$hub_label = isset( $hub['label'] ) ? $hub['label'] : 'Services';
+			
+			// Check if hub label is incomplete and needs service type appended
+			$has_service_type = ( strpos( strtolower( $hub_label ), 'service' ) !== false || 
+			                     strpos( strtolower( $hub_label ), 'electrical' ) !== false ||
+			                     strpos( strtolower( $hub_label ), 'plumbing' ) !== false ||
+			                     strpos( strtolower( $hub_label ), 'hvac' ) !== false ||
+			                     strpos( strtolower( $hub_label ), 'roofing' ) !== false );
+			
+			if ( ! $has_service_type && ! empty( $vertical ) ) {
+				$vertical_map = array(
+					'electrician' => 'Electrical Services',
+					'plumber' => 'Plumbing Services',
+					'hvac' => 'HVAC Services',
+					'roofer' => 'Roofing Services',
+					'painter' => 'Painting Services',
+					'landscaper' => 'Landscaping Services',
+					'carpenter' => 'Carpentry Services',
+					'contractor' => 'Contractor Services',
+				);
+				$service_type = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : 'Services';
+				$hub_label = $hub_label . ' ' . $service_type;
+			}
 			
 			// Get services for this specific hub
 			$services_for_hub = array();
