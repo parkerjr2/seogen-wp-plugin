@@ -1836,7 +1836,10 @@ class SEOgen_Admin {
 		if ( '' === $job_id ) {
 			return;
 		}
-		update_option( $this->get_bulk_job_option_key( $job_id ), $job, false );
+		update_option( self::BULK_JOB_OPTION_PREFIX . $job_id, $job, false );
+		
+		// Clear active jobs cache when job status changes
+		delete_transient( 'seogen_active_jobs_cache' );
 		$index = $this->get_bulk_jobs_index();
 		if ( ! in_array( $job_id, $index, true ) ) {
 			array_unshift( $index, $job_id );
@@ -5538,6 +5541,14 @@ class SEOgen_Admin {
 	 * @return array Job IDs
 	 */
 	private function get_active_jobs() {
+		// PERFORMANCE: Cache active jobs for 30 seconds to avoid loading all jobs on every page load
+		$cache_key = 'seogen_active_jobs_cache';
+		$cached = get_transient( $cache_key );
+		
+		if ( false !== $cached && is_array( $cached ) ) {
+			return $cached;
+		}
+		
 		$index = get_option( self::BULK_JOBS_INDEX_OPTION, array() );
 		if ( ! is_array( $index ) ) {
 			return array();
@@ -5562,6 +5573,9 @@ class SEOgen_Admin {
 				}
 			}
 		}
+		
+		// Cache for 30 seconds
+		set_transient( $cache_key, $active_jobs, 30 );
 		
 		return $active_jobs;
 	}
