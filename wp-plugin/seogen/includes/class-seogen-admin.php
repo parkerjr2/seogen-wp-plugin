@@ -2058,38 +2058,7 @@ class SEOgen_Admin {
 			return 0;
 		}
 
-		// OPTIMIZED: Single query with OR conditions instead of 4 sequential queries
-		// This dramatically improves performance when checking many pages
-		
-		$parts = explode( '|', $canonical_key );
-		if ( count( $parts ) < 3 ) {
-			// Invalid canonical key format, fall back to simple meta check
-			$query = new WP_Query(
-				array(
-					'post_type'      => 'service_page',
-					'post_status'    => 'any',
-					'fields'         => 'ids',
-					'posts_per_page' => 1,
-					'no_found_rows'  => true,
-					'meta_query'     => array(
-						array(
-							'key'   => '_hyper_local_key',
-							'value' => $canonical_key,
-						),
-					),
-				)
-			);
-			return ! empty( $query->posts ) ? (int) $query->posts[0] : 0;
-		}
-		
-		// Parse canonical key components
-		$service = $parts[0];
-		$city = $parts[1];
-		$state = $parts[2];
-		$service_name = $service;
-		$city_state = $city . ', ' . strtoupper( $state );
-		
-		// Build single optimized query with OR relation for all lookup strategies
+		// FAST: Check new canonical key first (most likely to match)
 		$query = new WP_Query(
 			array(
 				'post_type'      => 'service_page',
@@ -2098,30 +2067,30 @@ class SEOgen_Admin {
 				'posts_per_page' => 1,
 				'no_found_rows'  => true,
 				'meta_query'     => array(
-					'relation' => 'OR',
-					// Strategy 1: Check new canonical key
 					array(
 						'key'   => '_seogen_canonical_key',
 						'value' => $canonical_key,
 					),
-					// Strategy 2: Check legacy canonical key
+				),
+			)
+		);
+		
+		if ( ! empty( $query->posts ) ) {
+			return (int) $query->posts[0];
+		}
+		
+		// Fallback: Check legacy key
+		$query = new WP_Query(
+			array(
+				'post_type'      => 'service_page',
+				'post_status'    => 'any',
+				'fields'         => 'ids',
+				'posts_per_page' => 1,
+				'no_found_rows'  => true,
+				'meta_query'     => array(
 					array(
 						'key'   => '_hyper_local_key',
 						'value' => $canonical_key,
-					),
-					// Strategy 3: Check by service+city meta fields
-					array(
-						'relation' => 'AND',
-						array(
-							'key'   => '_seogen_service_name',
-							'value' => $service_name,
-							'compare' => '='
-						),
-						array(
-							'key'   => '_seogen_city',
-							'value' => $city_state,
-							'compare' => '='
-						)
 					),
 				),
 			)
