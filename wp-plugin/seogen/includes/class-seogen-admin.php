@@ -4326,6 +4326,9 @@ class SEOgen_Admin {
 			
 				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found ' . count( $hub_posts ) . ' Service Hub posts with key ' . $hub['key'] . PHP_EOL, FILE_APPEND );
 			
+				// Determine hub label with fallback logic
+				$hub_label = '';
+			
 				if ( ! empty( $hub_posts ) ) {
 					// Use the actual Service Hub post title, stripping business name suffix
 					$hub_title = $hub_posts[0]->post_title;
@@ -4333,15 +4336,45 @@ class SEOgen_Admin {
 					if ( strpos( $hub_title, ' | ' ) !== false ) {
 						$hub_title = substr( $hub_title, 0, strpos( $hub_title, ' | ' ) );
 					}
-					// Map both the full key and base key to the same title
-					$hub_label_map[ $hub['key'] ] = $hub_title;
-					$hub_label_map[ $hub_key_base ] = $hub_title;
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' and ' . $hub_key_base . ' label: ' . $hub_title . PHP_EOL, FILE_APPEND );
+				
+					// Check if the title includes the service type (e.g., "Commercial Plumbing Services")
+					// If it's just a single word like "Commercial", we need to add the service type
+					$has_service_type = ( strpos( strtolower( $hub_title ), 'service' ) !== false || 
+					                     strpos( strtolower( $hub_title ), 'electrical' ) !== false ||
+					                     strpos( strtolower( $hub_title ), 'plumbing' ) !== false ||
+					                     strpos( strtolower( $hub_title ), 'hvac' ) !== false ||
+					                     strpos( strtolower( $hub_title ), 'roofing' ) !== false );
+				
+					if ( $has_service_type ) {
+						// Title is complete (e.g., "Commercial Plumbing Services")
+						$hub_label = $hub_title;
+					} else {
+						// Title is incomplete (e.g., "Commercial"), add service type
+						$hub_label = $hub_title;
+						if ( ! empty( $vertical ) ) {
+							$vertical_map = array(
+								'electrician' => 'Electrical Services',
+								'plumber' => 'Plumbing Services',
+								'hvac' => 'HVAC Services',
+								'roofer' => 'Roofing Services',
+								'painter' => 'Painting Services',
+								'landscaper' => 'Landscaping Services',
+								'carpenter' => 'Carpentry Services',
+								'contractor' => 'Contractor Services',
+							);
+							$service_type = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : 'Services';
+							$hub_label = $hub_title . ' ' . $service_type;
+						}
+					}
+				
+					$hub_label_map[ $hub['key'] ] = $hub_label;
+					$hub_label_map[ $hub_key_base ] = $hub_label;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' and ' . $hub_key_base . ' label: ' . $hub_label . PHP_EOL, FILE_APPEND );
 				} elseif ( isset( $hub['label'] ) ) {
 					// Fallback: Build proper label with vertical
-					// e.g., "Commercial" + "electrician" vertical = "Commercial Electrical Services"
+					// e.g., "Commercial" + "plumber" vertical = "Commercial Plumbing Services"
 					$hub_label = $hub['label'];
-				
+			
 					// Add vertical-specific service type
 					if ( ! empty( $vertical ) ) {
 						$vertical_map = array(
@@ -4354,11 +4387,11 @@ class SEOgen_Admin {
 							'carpenter' => 'Carpentry Services',
 							'contractor' => 'Contractor Services',
 						);
-					
+				
 						$service_type = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : 'Services';
 						$hub_label = $hub['label'] . ' ' . $service_type;
 					}
-				
+			
 					$hub_label_map[ $hub['key'] ] = $hub_label;
 					$hub_label_map[ $hub_key_base ] = $hub_label;
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Hub ' . $hub['key'] . ' and ' . $hub_key_base . ' label (fallback): ' . $hub_label . PHP_EOL, FILE_APPEND );
