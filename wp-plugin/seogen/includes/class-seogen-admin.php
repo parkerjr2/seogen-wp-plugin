@@ -3730,21 +3730,6 @@ class SEOgen_Admin {
 					html += '<div style="margin-top:5px;font-size:12px;color:#666;">New: ' + success + ' | Failed: ' + failed + ' | Skipped: ' + skipped + '</div>';
 					html += '</div>';
 					
-					// Import Progress Bar (if import data available)
-					if(imported > 0 || importPending > 0 || importFailed > 0){
-						html += '<div style="margin-bottom:15px;">';
-						html += '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">';
-						html += '<span style="font-size:13px;font-weight:600;">Page Import</span>';
-						html += '<span style="font-size:13px;color:#666;">' + imported + ' / ' + totalRows + ' (' + importPercent + '%)</span>';
-						html += '</div>';
-						html += '<div style="background:#f0f0f1;height:24px;border-radius:3px;overflow:hidden;">';
-						html += '<div style="background:#00a32a;height:100%;width:' + importPercent + '%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;">';
-						if(importPercent > 10) html += importPercent + '%';
-						html += '</div></div>';
-						html += '<div style="margin-top:5px;font-size:12px;color:#666;">Imported: ' + imported + ' | Pending: ' + importPending + ' | Failed: ' + importFailed + '</div>';
-						html += '</div>';
-					}
-					
 					html += '</div>';
 					
 					// Detailed table
