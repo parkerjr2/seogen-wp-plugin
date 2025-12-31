@@ -2055,76 +2055,12 @@ class SEOgen_Admin {
 			return 0;
 		}
 
-		// First try: Find by meta key
-		$query = new WP_Query(
-			array(
-				'post_type'      => 'service_page',
-				'post_status'    => 'any',
-				'fields'         => 'ids',
-				'posts_per_page' => 1,
-				'no_found_rows'  => true,
-				'meta_query'     => array(
-					array(
-						'key'   => '_hyper_local_key',
-						'value' => $canonical_key,
-					),
-				),
-			)
-		);
-		if ( ! empty( $query->posts ) ) {
-			return (int) $query->posts[0];
-		}
+		// OPTIMIZED: Single query with OR conditions instead of 4 sequential queries
+		// This dramatically improves performance when checking many pages
 		
-		// Second try: Find by slug pattern (canonical_key format: "service|city|state" or "service|city|state|hub_key")
-		// Convert to slug format: "service-in-city-state"
 		$parts = explode( '|', $canonical_key );
-		if ( count( $parts ) === 3 || count( $parts ) === 4 ) {
-			$service = sanitize_title( $parts[0] );
-			$city = sanitize_title( $parts[1] );
-			$state = strtolower( $parts[2] );
-			// Note: hub_key (parts[3]) is not used in slug, but is used in canonical key for uniqueness
-			$expected_slug = $service . '-in-' . $city . '-' . $state;
-			
-			// Try exact slug match first
-			$query = new WP_Query(
-				array(
-					'post_type'      => 'service_page',
-					'post_status'    => 'any',
-					'name'           => $expected_slug,
-					'fields'         => 'ids',
-					'posts_per_page' => 1,
-					'no_found_rows'  => true,
-				)
-			);
-			if ( ! empty( $query->posts ) ) {
-				return (int) $query->posts[0];
-			}
-			
-			// Third try: Find by title (most reliable for duplicates)
-			// Build expected title from canonical key
-			$service_title = ucwords( str_replace( '-', ' ', $service ) );
-			$city_title = ucwords( str_replace( '-', ' ', $city ) );
-			$state_upper = strtoupper( $state );
-			$expected_title = $service_title . ' in ' . $city_title . ', ' . $state_upper;
-			
-			global $wpdb;
-			$post_id = $wpdb->get_var( $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} 
-				WHERE post_type = 'service_page' 
-				AND post_title = %s 
-				AND post_status != 'trash'
-				LIMIT 1",
-				$expected_title
-			) );
-			
-			if ( $post_id ) {
-				return (int) $post_id;
-			}
-			
-			// Fourth try: Find by service+city meta fields (most reliable for catching duplicates)
-			$service_name = $parts[0]; // Use original service name, not slugified
-			$city_state = $parts[1] . ', ' . strtoupper( $parts[2] ); // e.g., "Tulsa, OK"
-			
+		if ( count( $parts ) < 3 ) {
+			// Invalid canonical key format, fall back to simple meta check
 			$query = new WP_Query(
 				array(
 					'post_type'      => 'service_page',
@@ -2133,6 +2069,45 @@ class SEOgen_Admin {
 					'posts_per_page' => 1,
 					'no_found_rows'  => true,
 					'meta_query'     => array(
+						array(
+							'key'   => '_hyper_local_key',
+							'value' => $canonical_key,
+						),
+					),
+				)
+			);
+			return ! empty( $query->posts ) ? (int) $query->posts[0] : 0;
+		}
+		
+		// Parse canonical key components
+		$service = $parts[0];
+		$city = $parts[1];
+		$state = $parts[2];
+		$service_name = $service;
+		$city_state = $city . ', ' . strtoupper( $state );
+		
+		// Build single optimized query with OR relation for all lookup strategies
+		$query = new WP_Query(
+			array(
+				'post_type'      => 'service_page',
+				'post_status'    => 'any',
+				'fields'         => 'ids',
+				'posts_per_page' => 1,
+				'no_found_rows'  => true,
+				'meta_query'     => array(
+					'relation' => 'OR',
+					// Strategy 1: Check new canonical key
+					array(
+						'key'   => '_seogen_canonical_key',
+						'value' => $canonical_key,
+					),
+					// Strategy 2: Check legacy canonical key
+					array(
+						'key'   => '_hyper_local_key',
+						'value' => $canonical_key,
+					),
+					// Strategy 3: Check by service+city meta fields
+					array(
 						'relation' => 'AND',
 						array(
 							'key'   => '_seogen_service_name',
@@ -2145,14 +2120,11 @@ class SEOgen_Admin {
 							'compare' => '='
 						)
 					),
-				)
-			);
-			if ( ! empty( $query->posts ) ) {
-				return (int) $query->posts[0];
-			}
-		}
+				),
+			)
+		);
 		
-		return 0;
+		return ! empty( $query->posts ) ? (int) $query->posts[0] : 0;
 	}
 
 	/**
