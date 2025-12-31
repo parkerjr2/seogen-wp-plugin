@@ -158,6 +158,17 @@ trait SEOgen_Import_Coordinator {
 			'hub_label' => isset( $item_metadata['hub_label'] ) ? $item_metadata['hub_label'] : '',
 		);
 		
+		// Log dispatch for debugging
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( sprintf(
+				'[SEOgen Import] Dispatching import: page_mode=%s, service=%s, city=%s, hub_key=%s',
+				$page_mode,
+				$item['service'],
+				$item['city'],
+				$item['hub_key']
+			) );
+		}
+		
 		// Dispatch based on page_mode
 		if ( 'city_hub' === $page_mode ) {
 			// Calculate city_slug if not provided

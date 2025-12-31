@@ -321,6 +321,26 @@ trait SEOgen_Admin_Import {
 	 * @return array - ['success' => bool, 'post_id' => int, 'title' => string, 'error' => string]
 	 */
 	public function import_service_city_from_result( $result_json, $config, $item, $post_status = 'publish' ) {
+		// Validate that this is actually a service+city page (must have service name)
+		if ( empty( $item['service'] ) || ! isset( $item['service'] ) ) {
+			return array(
+				'success' => false,
+				'error' => 'Cannot create service+city page without service name. This may be a city hub page.',
+			);
+		}
+		
+		// Acquire a lock based on service+city to prevent race conditions
+		$service_city_key = sanitize_title( $item['service'] . '-' . $item['city'] . '-' . $item['state'] );
+		$lock_key = 'seogen_service_city_lock_' . md5( $service_city_key );
+		$lock_acquired = $this->acquire_import_lock( $lock_key );
+		
+		if ( ! $lock_acquired ) {
+			return array(
+				'success' => false,
+				'error' => 'Import already in progress for this service+city combination',
+			);
+		}
+		
 		// Extract data from result
 		$title = isset( $result_json['title'] ) ? $result_json['title'] : '';
 		$slug = isset( $result_json['slug'] ) ? $result_json['slug'] : '';
@@ -329,6 +349,7 @@ trait SEOgen_Admin_Import {
 		$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : 'service_city';
 		
 		if ( empty( $blocks ) ) {
+			$this->release_import_lock( $lock_key );
 			return array(
 				'success' => false,
 				'error' => 'No blocks in result_json',
@@ -366,19 +387,86 @@ trait SEOgen_Admin_Import {
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping city hub parent lookup: hub_key=' . ( isset( $item['hub_key'] ) ? $item['hub_key'] : 'NOT SET' ) . ' city=' . ( isset( $item['city'] ) ? $item['city'] : 'NOT SET' ) . ' state=' . ( isset( $item['state'] ) ? $item['state'] : 'NOT SET' ) . PHP_EOL, FILE_APPEND );
 		}
 		
-		// Create post (no duplicate detection for service+city pages currently)
-		$post_data = array(
-			'post_type' => 'service_page',
-			'post_status' => $post_status,
-			'post_title' => $title,
-			'post_name' => sanitize_title( $slug ),
-			'post_content' => $gutenberg_markup,
-			'post_parent' => $city_hub_parent_id,
-		);
+		// Check for existing post by service+city metadata to prevent duplicates
+		$existing_post_id = 0;
+		if ( isset( $item['service'], $item['city'], $item['state'] ) ) {
+			$service_name = sanitize_text_field( $item['service'] );
+			$city_state = sanitize_text_field( $item['city'] . ', ' . $item['state'] );
+			
+			$args = array(
+				'post_type' => 'service_page',
+				'post_status' => 'any',
+				'posts_per_page' => 1,
+				'fields' => 'ids',
+				'no_found_rows' => true,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+				'meta_query' => array(
+					'relation' => 'AND',
+					array(
+						'key' => '_seogen_service_name',
+						'value' => $service_name,
+						'compare' => '='
+					),
+					array(
+						'key' => '_seogen_city',
+						'value' => $city_state,
+						'compare' => '='
+					)
+				)
+			);
+			
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( sprintf(
+					'[SEOgen Duplicate Check] Checking for: service=%s, city=%s',
+					$service_name,
+					$city_state
+				) );
+			}
+			
+			$existing_posts = get_posts( $args );
+			if ( ! empty( $existing_posts ) ) {
+				$existing_post_id = (int) $existing_posts[0];
+				
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( sprintf(
+						'[SEOgen Duplicate Check] FOUND existing post: ID=%d',
+						$existing_post_id
+					) );
+				}
+			} else {
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( '[SEOgen Duplicate Check] No existing post found, will create new' );
+				}
+			}
+		}
 		
-		$post_id = wp_insert_post( $post_data, true );
+		if ( $existing_post_id > 0 ) {
+			// Update existing post
+			$post_data = array(
+				'ID' => $existing_post_id,
+				'post_content' => $gutenberg_markup,
+				'post_status' => $post_status,
+				'post_parent' => $city_hub_parent_id,
+			);
+			
+			$post_id = wp_update_post( $post_data, true );
+		} else {
+			// Create new post
+			$post_data = array(
+				'post_type' => 'service_page',
+				'post_status' => $post_status,
+				'post_title' => $title,
+				'post_name' => sanitize_title( $slug ),
+				'post_content' => $gutenberg_markup,
+				'post_parent' => $city_hub_parent_id,
+			);
+			
+			$post_id = wp_insert_post( $post_data, true );
+		}
 		
 		if ( is_wp_error( $post_id ) ) {
+			$this->release_import_lock( $lock_key );
 			return array(
 				'success' => false,
 				'error' => $post_id->get_error_message(),
@@ -428,6 +516,9 @@ trait SEOgen_Admin_Import {
 				'post_name' => $unique_slug,
 			) );
 		}
+		
+		// Release lock before returning
+		$this->release_import_lock( $lock_key );
 		
 		return array(
 			'success' => true,

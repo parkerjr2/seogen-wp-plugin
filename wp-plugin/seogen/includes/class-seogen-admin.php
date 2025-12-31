@@ -2120,6 +2120,36 @@ class SEOgen_Admin {
 			if ( $post_id ) {
 				return (int) $post_id;
 			}
+			
+			// Fourth try: Find by service+city meta fields (most reliable for catching duplicates)
+			$service_name = $parts[0]; // Use original service name, not slugified
+			$city_state = $parts[1] . ', ' . strtoupper( $parts[2] ); // e.g., "Tulsa, OK"
+			
+			$query = new WP_Query(
+				array(
+					'post_type'      => 'service_page',
+					'post_status'    => 'any',
+					'fields'         => 'ids',
+					'posts_per_page' => 1,
+					'no_found_rows'  => true,
+					'meta_query'     => array(
+						'relation' => 'AND',
+						array(
+							'key'   => '_seogen_service_name',
+							'value' => $service_name,
+							'compare' => '='
+						),
+						array(
+							'key'   => '_seogen_city',
+							'value' => $city_state,
+							'compare' => '='
+						)
+					),
+				)
+			);
+			if ( ! empty( $query->posts ) ) {
+				return (int) $query->posts[0];
+			}
 		}
 		
 		return 0;
@@ -3434,11 +3464,26 @@ class SEOgen_Admin {
 					<?php if ( ! empty( $status['ok'] ) ) : ?>
 						<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Connected', 'seogen' ); ?></span>
 					<?php else : ?>
-						<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Not Connected', 'seogen' ); ?></span>
+						<?php
+						$is_timeout = ! empty( $status['error'] ) && ( strpos( $status['error'], 'timed out' ) !== false || strpos( $status['error'], 'cURL error 28' ) !== false );
+						if ( $is_timeout ) :
+						?>
+							<span style="color: #dba617; font-weight: 600;">⚠️ <?php echo esc_html__( 'Health Check Timeout', 'seogen' ); ?></span>
+						<?php else : ?>
+							<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Not Connected', 'seogen' ); ?></span>
+						<?php endif; ?>
 					<?php endif; ?>
 				</p>
 				<?php if ( empty( $status['ok'] ) && ! empty( $status['error'] ) ) : ?>
-					<p class="description"><?php echo esc_html( $status['error'] ); ?></p>
+					<?php
+					$is_timeout = strpos( $status['error'], 'timed out' ) !== false || strpos( $status['error'], 'cURL error 28' ) !== false;
+					?>
+					<p class="description" style="<?php echo $is_timeout ? 'color: #646970;' : ''; ?>">
+						<?php echo esc_html( $status['error'] ); ?>
+						<?php if ( $is_timeout ) : ?>
+							<br><em><?php echo esc_html__( 'Note: Page generation may still work. This only affects the health check.', 'seogen' ); ?></em>
+						<?php endif; ?>
+					</p>
 				<?php endif; ?>
 			</div>
 
@@ -4746,6 +4791,8 @@ class SEOgen_Admin {
 					continue;
 				}
 				
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] MUTEX: Acquired lock for key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+				
 				try {
 					// CRITICAL: Always check for existing page right before creating to prevent duplicates
 					// This is the final safety check before wp_insert_post
@@ -4765,6 +4812,7 @@ class SEOgen_Admin {
 				} finally {
 					// Always release mutex lock
 					$this->seogen_release_mutex( $canonical_key );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] MUTEX: Released lock for key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 				}
 
 					if ( is_wp_error( $post_id ) ) {

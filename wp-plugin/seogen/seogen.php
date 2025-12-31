@@ -3,7 +3,7 @@
  * Plugin Name: Hyper Local
  * Plugin URI: https://hyperlocalseo.io
  * Description: Rank in Every City You Serve — Without Writing Hundreds of Pages. Hyper Local creates SEO-ready "Service + City" pages inside WordPress, so local businesses can win more searches without agencies or manual work.
- * Version: 1.0.0
+ * Version: 1.01
  * Author: Hyper Local
  * License: GPLv2 or later
  * Text Domain: seogen
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'SEOGEN_VERSION', '1.0.0' );
+define( 'SEOGEN_VERSION', '1.01' );
 define( 'SEOGEN_PLUGIN_FILE', __FILE__ );
 define( 'SEOGEN_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SEOGEN_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
