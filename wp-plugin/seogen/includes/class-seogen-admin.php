@@ -4501,13 +4501,11 @@ class SEOgen_Admin {
 	}
 
 	public function ajax_bulk_job_status() {
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] ajax_bulk_job_status called' . PHP_EOL, FILE_APPEND );
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_send_json_error();
 		}
 		check_ajax_referer( 'hyper_local_bulk_job_status', 'nonce' );
 		$job_id = isset( $_POST['job_id'] ) ? sanitize_key( (string) wp_unslash( $_POST['job_id'] ) ) : '';
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Polling for job_id=' . $job_id . PHP_EOL, FILE_APPEND );
 		$job = $this->load_bulk_job( $job_id );
 		if ( ! is_array( $job ) ) {
 			wp_send_json_error();
@@ -4521,7 +4519,6 @@ class SEOgen_Admin {
 			$status = $this->api_get_bulk_job_status( $api_url, $license_key, $job['api_job_id'] );
 			// CRITICAL: Detect transport errors and return cached state
 			if ( is_wp_error( $status ) || empty( $status['ok'] ) || ( isset( $status['code'] ) && 0 === (int) $status['code'] ) ) {
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] transport error on api_get_bulk_job_status, returning cached job state' . PHP_EOL, FILE_APPEND );
 				$response_data = $this->prepare_bulk_job_response( $job );
 				$response_data['warning'] = 'Temporary connection issue. Retrying...';
 				wp_send_json_success( $response_data );
@@ -4555,13 +4552,10 @@ class SEOgen_Admin {
 				}
 			}
 			$pending_import_count = max( 0, $pending_import_count );
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] pending_import_count=' . $pending_import_count . ' api_status=' . $api_status . PHP_EOL, FILE_APPEND );
 			
 			// OPTIMIZATION: Skip results fetch if complete and nothing pending
 		$results_exhausted = isset( $job['results_exhausted'] ) && true === $job['results_exhausted'];
 		if ( ( 'complete' === $api_status || 'completed' === $api_status ) && $pending_import_count === 0 && '' === $cursor ) {
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] api_status=complete and nothing pending, skipping results fetch' . PHP_EOL, FILE_APPEND );
-			
 			$job['results_exhausted'] = true;
 			$this->save_bulk_job( $job_id, $job );
 			
@@ -4571,8 +4565,6 @@ class SEOgen_Admin {
 		}
 		
 		if ( $results_exhausted && $pending_import_count === 0 ) {
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] results exhausted and nothing pending, skipping fetch' . PHP_EOL, FILE_APPEND );
-			
 			$response_data = $this->prepare_bulk_job_response( $job );
 			wp_send_json_success( $response_data );
 			return;
@@ -4589,14 +4581,10 @@ class SEOgen_Admin {
 		} elseif ( $pending_import_count > 20 ) {
 		}
 		
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Fetching results: api_job_id=' . $job['api_job_id'] . ' cursor=' . $cursor . ' batch_size=' . $batch_size . ' api_status=' . $api_status . ' pending_import=' . $pending_import_count . PHP_EOL, FILE_APPEND );
-			$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, $batch_size );
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API results: ' . wp_json_encode( $results ) . PHP_EOL, FILE_APPEND );
+		$results = $this->api_get_bulk_job_results( $api_url, $license_key, $job['api_job_id'], $cursor, $batch_size );
 		
 		// CRITICAL: Detect transport errors on results and return cached state
 		if ( is_wp_error( $results ) || empty( $results['ok'] ) || ( isset( $results['code'] ) && 0 === (int) $results['code'] ) ) {
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [BULK POLL] transport error on api_get_bulk_job_results, returning cached job state' . PHP_EOL, FILE_APPEND );
-			
 			$response_data = $this->prepare_bulk_job_response( $job );
 			$response_data['warning'] = 'Temporary connection issue. Retrying...';
 			
@@ -4944,7 +4932,6 @@ class SEOgen_Admin {
 		// Sync row statuses from actual WordPress posts on every poll
 		// This fixes stale "pending" and "skipped" statuses for items that were actually imported
 		$job_status = isset( $job['status'] ) ? (string) $job['status'] : '';
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: job_status=' . $job_status . ' rows_count=' . ( isset( $job['rows'] ) ? count( $job['rows'] ) : 0 ) . PHP_EOL, FILE_APPEND );
 		
 		// PERFORMANCE: Skip status sync if job is complete and status sync already ran
 		$status_sync_complete = isset( $job['status_sync_complete'] ) && $job['status_sync_complete'];
@@ -4964,23 +4951,18 @@ class SEOgen_Admin {
 					$canonical_key = isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) 
 						? sanitize_title( $row['service'] . '-' . $row['city'] . '-' . $row['state'] ) 
 						: '';
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC CHECK: idx=' . $idx . ' status=' . $row_status . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					if ( '' !== $canonical_key ) {
 						$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC LOOKUP: existing_id=' . $existing_id . PHP_EOL, FILE_APPEND );
 						
 						// If key lookup fails, try alternate key format (pipe-separated)
 						if ( $existing_id === 0 && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
 							$alt_key = strtolower( $row['service'] . '|' . $row['city'] . '|' . $row['state'] );
 							$existing_id = $this->find_existing_post_id_by_key( $alt_key );
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC ALT KEY: alt_key=' . $alt_key . ' existing_id=' . $existing_id . PHP_EOL, FILE_APPEND );
 						}
 						
 						// If still not found, check if post_id is stored in the row already
 						if ( $existing_id === 0 && isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
 							$stored_post_id = (int) $row['post_id'];
-							$stored_key = get_post_meta( $stored_post_id, '_hyper_local_key', true );
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC DEBUG: row has post_id=' . $stored_post_id . ' stored_key=' . $stored_key . PHP_EOL, FILE_APPEND );
 							// Use the stored post_id if it exists
 							if ( $stored_post_id > 0 ) {
 								$existing_id = $stored_post_id;
@@ -4989,29 +4971,23 @@ class SEOgen_Admin {
 						if ( $existing_id > 0 ) {
 							// Check if post was generated by this system (has the managed meta)
 							$is_managed = get_post_meta( $existing_id, '_hyper_local_managed', true );
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC META: is_managed=' . $is_managed . PHP_EOL, FILE_APPEND );
 							if ( '1' === $is_managed ) {
 								// Post exists and was generated by us, lock the row
 								$this->seogen_lock_row( $job, $idx, $existing_id );
 								$status_updated = true;
-								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC LOCKED: idx=' . $idx . ' post_id=' . $existing_id . PHP_EOL, FILE_APPEND );
 							}
 						}
 					}
 				}
 			}
 			if ( $status_updated ) {
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: Saving updated job' . PHP_EOL, FILE_APPEND );
 				$this->save_bulk_job( $job_id, $job );
-			} else {
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: No updates needed' . PHP_EOL, FILE_APPEND );
 			}
 			
 			// Mark status sync as complete if job is complete
 			if ( 'complete' === $job_status ) {
 				$job['status_sync_complete'] = true;
 				$this->save_bulk_job( $job_id, $job );
-				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] STATUS SYNC: Marked as complete, will not run again' . PHP_EOL, FILE_APPEND );
 			}
 		}
 		
