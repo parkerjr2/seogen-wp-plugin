@@ -329,9 +329,13 @@ trait SEOgen_Admin_Import {
 			);
 		}
 		
-		// Acquire a lock based on service+city to prevent race conditions
-		$service_city_key = sanitize_title( $item['service'] . '-' . $item['city'] . '-' . $item['state'] );
-		$lock_key = 'seogen_service_city_lock_' . md5( $service_city_key );
+		// Acquire a lock based on canonical key (service+city+state+hub_key) to prevent race conditions
+		$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+		$lock_identifier = $item['service'] . '-' . $item['city'] . '-' . $item['state'];
+		if ( ! empty( $hub_key ) ) {
+			$lock_identifier .= '-' . $hub_key;
+		}
+		$lock_key = 'seogen_service_city_lock_' . md5( sanitize_title( $lock_identifier ) );
 		$lock_acquired = $this->acquire_import_lock( $lock_key );
 		
 		if ( ! $lock_acquired ) {
@@ -382,62 +386,24 @@ trait SEOgen_Admin_Import {
 		if ( isset( $item['hub_key'] ) && ! empty( $item['hub_key'] ) && isset( $item['city'], $item['state'] ) ) {
 			$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
 			$city_hub_parent_id = $this->find_city_hub_post_id( $item['hub_key'], $city_slug );
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Looking for city hub parent: hub_key=' . $item['hub_key'] . ' city_slug=' . $city_slug . ' found_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
-		} else {
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping city hub parent lookup: hub_key=' . ( isset( $item['hub_key'] ) ? $item['hub_key'] : 'NOT SET' ) . ' city=' . ( isset( $item['city'] ) ? $item['city'] : 'NOT SET' ) . ' state=' . ( isset( $item['state'] ) ? $item['state'] : 'NOT SET' ) . PHP_EOL, FILE_APPEND );
 		}
 		
-		// Check for existing post by service+city metadata to prevent duplicates
+		// Check for existing post by canonical key (uses optimized find_existing_post_id_by_key)
 		$existing_post_id = 0;
 		if ( isset( $item['service'], $item['city'], $item['state'] ) ) {
-			$service_name = sanitize_text_field( $item['service'] );
-			$city_state = sanitize_text_field( $item['city'] . ', ' . $item['state'] );
-			
-			$args = array(
-				'post_type' => 'service_page',
-				'post_status' => 'any',
-				'posts_per_page' => 1,
-				'fields' => 'ids',
-				'no_found_rows' => true,
-				'update_post_meta_cache' => false,
-				'update_post_term_cache' => false,
-				'meta_query' => array(
-					'relation' => 'AND',
-					array(
-						'key' => '_seogen_service_name',
-						'value' => $service_name,
-						'compare' => '='
-					),
-					array(
-						'key' => '_seogen_city',
-						'value' => $city_state,
-						'compare' => '='
-					)
-				)
-			);
-			
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( sprintf(
-					'[SEOgen Duplicate Check] Checking for: service=%s, city=%s',
-					$service_name,
-					$city_state
-				) );
+			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+			$canonical_key = strtolower( trim( $item['service'] ) ) . '|' . strtolower( trim( $item['city'] ) ) . '|' . strtolower( trim( $item['state'] ) );
+			if ( ! empty( $hub_key ) ) {
+				$canonical_key .= '|' . strtolower( trim( $hub_key ) );
 			}
 			
-			$existing_posts = get_posts( $args );
-			if ( ! empty( $existing_posts ) ) {
-				$existing_post_id = (int) $existing_posts[0];
-				
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( sprintf(
-						'[SEOgen Duplicate Check] FOUND existing post: ID=%d',
-						$existing_post_id
-					) );
-				}
-			} else {
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( '[SEOgen Duplicate Check] No existing post found, will create new' );
-				}
+			// Use existing optimized function that checks multiple meta keys
+			$existing_post_id = $this->find_existing_post_id_by_key( $canonical_key );
+			
+			if ( $existing_post_id > 0 && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( sprintf( '[SEOgen Duplicate Check] FOUND existing post: ID=%d, key=%s', $existing_post_id, $canonical_key ) );
+			} elseif ( 0 === $existing_post_id && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( sprintf( '[SEOgen Duplicate Check] No existing post found for key=%s, will create new', $canonical_key ) );
 			}
 		}
 		
@@ -479,6 +445,17 @@ trait SEOgen_Admin_Import {
 		update_post_meta( $post_id, '_seogen_vertical', isset( $config['vertical'] ) ? $config['vertical'] : '' );
 		update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
+		
+		// Save canonical key (both new and legacy formats for maximum compatibility)
+		if ( isset( $item['service'], $item['city'], $item['state'] ) ) {
+			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+			$canonical_key = strtolower( trim( $item['service'] ) ) . '|' . strtolower( trim( $item['city'] ) ) . '|' . strtolower( trim( $item['state'] ) );
+			if ( ! empty( $hub_key ) ) {
+				$canonical_key .= '|' . strtolower( trim( $hub_key ) );
+			}
+			update_post_meta( $post_id, '_seogen_canonical_key', $canonical_key );
+			update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
+		}
 		
 		// Extract and save service/city metadata from item
 		if ( isset( $item['service'] ) ) {

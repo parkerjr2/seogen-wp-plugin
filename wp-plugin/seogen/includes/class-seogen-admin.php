@@ -4245,6 +4245,9 @@ class SEOgen_Admin {
 			$hub_key = isset( $row['hub_key'] ) ? (string) $row['hub_key'] : '';
 			$hub_label = isset( $row['hub_label'] ) ? (string) $row['hub_label'] : '';
 		
+			// Check if this is a city hub page (canonical key starts with "city_hub|")
+			$is_city_hub = ( strpos( $canonical_key, 'city_hub|' ) === 0 );
+		
 			// Only add to job rows if not filtered out
 			$job_rows[] = array(
 				'service'      => $service_name,
@@ -4265,18 +4268,21 @@ class SEOgen_Admin {
 				'last_attempt_at' => 0, // Timestamp of last import attempt
 			);
 		
-			$api_items[] = array(
-				'page_mode'    => 'service_city',
-				'service'      => $service_name,
-				'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
-				'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
-				'hub_key'      => $hub_key,
-				'hub_label'    => $hub_label,
-				'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
-				'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
-				'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
-				'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
-			);
+			// Skip adding city hub pages as service_city items - they'll be added separately below
+			if ( ! $is_city_hub ) {
+				$api_items[] = array(
+					'page_mode'    => 'service_city',
+					'service'      => $service_name,
+					'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
+					'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
+					'hub_key'      => $hub_key,
+					'hub_label'    => $hub_label,
+					'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
+					'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
+					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
+					'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
+				);
+			}
 		}
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
@@ -4724,6 +4730,12 @@ class SEOgen_Admin {
 					$meta_description = isset( $result_json['meta_description'] ) ? (string) $result_json['meta_description'] : '';
 					$blocks = ( isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ) ? $result_json['blocks'] : array();
 					$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
+					// Skip city_hub and service_hub pages - they're handled by import coordinator
+					if ( in_array( $page_mode, array( 'city_hub', 'service_hub' ), true ) ) {
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Skipping ' . $page_mode . ' page (handled by import coordinator): canonical_key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+						$acked_ids[] = $item_id;
+						continue;
+					}
 					$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
 
 					// Prepend header template if configured
@@ -4847,6 +4859,7 @@ class SEOgen_Admin {
 					update_post_meta( $post_id, '_hl_page_type', 'service_city' );
 					if ( '' !== $canonical_key ) {
 						update_post_meta( $post_id, '_hyper_local_key', $canonical_key );
+						update_post_meta( $post_id, '_seogen_canonical_key', $canonical_key );
 					}
 					update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
 					update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
@@ -5331,6 +5344,15 @@ class SEOgen_Admin {
 				$slug = isset( $full_data['slug'] ) ? (string) $full_data['slug'] : '';
 				$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
 				$page_mode = isset( $full_data['page_mode'] ) ? $full_data['page_mode'] : '';
+
+				// Skip city_hub and service_hub pages - they're handled by import coordinator
+				if ( in_array( $page_mode, array( 'city_hub', 'service_hub' ), true ) ) {
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Skipping ' . $page_mode . ' page (handled by import coordinator): key=' . $key . PHP_EOL, FILE_APPEND );
+					$job['rows'][ $i ]['status'] = 'pending';
+					$job['rows'][ $i ]['message'] = __( 'Handled by import coordinator', 'seogen' );
+					continue;
+				}
+
 				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'], $page_mode );
 
 				$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
@@ -5419,6 +5441,7 @@ class SEOgen_Admin {
 				$unique_slug = wp_unique_post_slug( sanitize_title( $slug ), $post_id, $post_status, 'service_page', 0 );
 
 				update_post_meta( $post_id, '_hyper_local_key', $key );
+				update_post_meta( $post_id, '_seogen_canonical_key', $key );
 				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
 				
 				// Apply page builder settings to disable theme header/footer if configured

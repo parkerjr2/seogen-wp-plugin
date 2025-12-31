@@ -117,6 +117,7 @@ trait SEOgen_Import_Coordinator {
 	 * @return int Post ID if found, 0 if not found
 	 */
 	private function find_post_by_canonical_key( $canonical_key ) {
+		// Check new meta key first
 		$posts = get_posts( array(
 			'post_type' => 'service_page',
 			'post_status' => 'any',
@@ -124,6 +125,25 @@ trait SEOgen_Import_Coordinator {
 			'meta_query' => array(
 				array(
 					'key' => '_seogen_canonical_key',
+					'value' => $canonical_key,
+					'compare' => '='
+				)
+			),
+			'fields' => 'ids'
+		) );
+		
+		if ( ! empty( $posts ) ) {
+			return (int) $posts[0];
+		}
+		
+		// Fallback: Check legacy meta key for backward compatibility
+		$posts = get_posts( array(
+			'post_type' => 'service_page',
+			'post_status' => 'any',
+			'posts_per_page' => 1,
+			'meta_query' => array(
+				array(
+					'key' => '_hyper_local_key',
 					'value' => $canonical_key,
 					'compare' => '='
 				)
