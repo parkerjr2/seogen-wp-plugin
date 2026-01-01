@@ -85,17 +85,12 @@ trait SEOgen_Admin_Extensions {
 		$config = $this->get_business_config();
 		$verticals = $this->get_available_verticals();
 		$default_hubs = $this->get_default_hubs();
-		
-		// Get vertical profile and hub categories
-		$current_vertical_profile = SEOgen_Vertical_Profiles::get_vertical_profile();
-		$available_vertical_profiles = SEOgen_Vertical_Profiles::get_available_verticals();
-		$hub_categories = SEOgen_Vertical_Profiles::get_saved_hub_categories();
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Business Setup (Step 0)', 'seogen' ); ?></h1>
 			<p><?php esc_html_e( 'Configure your business type and service hubs. This is required before generating pages.', 'seogen' ); ?></p>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="business-setup-form">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'hyper_local_save_business_config', 'hyper_local_business_config_nonce' ); ?>
 				<input type="hidden" name="action" value="hyper_local_save_business_config" />
 
@@ -109,21 +104,6 @@ trait SEOgen_Admin_Extensions {
 									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $config['vertical'], $key ); ?>><?php echo esc_html( $label ); ?></option>
 								<?php endforeach; ?>
 							</select>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="vertical_profile"><?php esc_html_e( 'Vertical Profile', 'seogen' ); ?></label></th>
-						<td>
-							<select name="vertical_profile" id="vertical_profile">
-								<?php foreach ( $available_vertical_profiles as $key => $label ) : ?>
-									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $current_vertical_profile, $key ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
-							<p class="description">
-								<?php esc_html_e( 'Select your business vertical. Hub categories will adapt to your industry.', 'seogen' ); ?>
-							</p>
 						</td>
 					</tr>
 					<tr>
@@ -165,101 +145,25 @@ trait SEOgen_Admin_Extensions {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Hub Categories', 'seogen' ); ?> *</th>
 						<td>
-							<style>
-								.hub-category-item {
-									display: flex;
-									align-items: center;
-									gap: 10px;
-									padding: 10px;
-									background: #f9f9f9;
-									border: 1px solid #ddd;
-									margin-bottom: 5px;
-									border-radius: 3px;
+							<p><?php esc_html_e( 'Select the service hub categories for your business:', 'seogen' ); ?></p>
+							<?php foreach ( $default_hubs as $hub ) : ?>
+								<?php
+								$checked = false;
+								if ( ! empty( $config['hubs'] ) ) {
+									foreach ( $config['hubs'] as $saved_hub ) {
+										if ( isset( $saved_hub['key'] ) && $saved_hub['key'] === $hub['key'] ) {
+											$checked = true;
+											break;
+										}
+									}
 								}
-								.hub-category-item .drag-handle {
-									cursor: move;
-									color: #999;
-								}
-								.hub-category-item .hub-category-label {
-									flex: 1;
-									min-width: 200px;
-								}
-								.hub-category-item button {
-									margin: 0 2px;
-								}
-								#hub-categories-list {
-									margin: 15px 0;
-								}
-								#new-hub-label {
-									width: 300px;
-									margin-right: 10px;
-								}
-							</style>
-							
-							<p><?php esc_html_e( 'Hub categories group your service hubs. For single-city verticals, keep these intent-based.', 'seogen' ); ?></p>
-							
-							<div id="hub-categories-list">
-								<?php foreach ( $hub_categories as $index => $category ) : ?>
-									<div class="hub-category-item" data-index="<?php echo esc_attr( $index ); ?>">
-										<span class="dashicons dashicons-menu drag-handle"></span>
-										
-										<label>
-											<input type="checkbox" 
-												name="hub_categories[<?php echo esc_attr( $index ); ?>][enabled]" 
-												value="1" 
-												<?php checked( $category['enabled'] ); ?> />
-										</label>
-										
-										<input type="text" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][label]" 
-											value="<?php echo esc_attr( $category['label'] ); ?>" 
-											class="hub-category-label" 
-											required />
-										
-										<input type="hidden" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][key]" 
-											value="<?php echo esc_attr( $category['key'] ); ?>" />
-										
-										<input type="hidden" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][sort_order]" 
-											value="<?php echo esc_attr( $category['sort_order'] ); ?>" 
-											class="hub-category-sort" />
-										
-										<input type="hidden" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][is_custom]" 
-											value="<?php echo esc_attr( $category['is_custom'] ? '1' : '0' ); ?>" />
-										
-										<button type="button" class="button button-small hub-move-up">↑</button>
-										<button type="button" class="button button-small hub-move-down">↓</button>
-										
-										<?php if ( $category['is_custom'] ) : ?>
-											<button type="button" class="button button-small hub-delete">
-												<?php esc_html_e( 'Delete', 'seogen' ); ?>
-											</button>
-										<?php endif; ?>
-									</div>
-								<?php endforeach; ?>
-							</div>
-							
-							<div style="margin-top: 15px;">
-								<h4><?php esc_html_e( 'Add New Hub Category', 'seogen' ); ?></h4>
-								<input type="text" id="new-hub-label" placeholder="<?php esc_attr_e( 'Category Label', 'seogen' ); ?>" />
-								<button type="button" id="add-hub-category" class="button">
-									<?php esc_html_e( '+ Add Hub Category', 'seogen' ); ?>
-								</button>
-							</div>
-							
-							<div style="margin-top: 15px;">
-								<button type="button" id="reset-hub-categories" class="button">
-									<?php esc_html_e( 'Reset to Defaults for This Vertical', 'seogen' ); ?>
-								</button>
-							</div>
-							
-							<?php if ( count( $hub_categories ) > 8 ) : ?>
-								<p class="description" style="color: #d63638;">
-									<?php esc_html_e( '⚠️ Warning: Too many categories (>8) can create thin pages.', 'seogen' ); ?>
-								</p>
-							<?php endif; ?>
+								?>
+								<label style="display: block; margin-bottom: 8px;">
+									<input type="checkbox" name="hubs[]" value="<?php echo esc_attr( json_encode( $hub ) ); ?>" <?php checked( $checked ); ?> />
+									<?php echo esc_html( $hub['label'] ); ?> (<?php echo esc_html( $hub['slug'] ); ?>)
+								</label>
+							<?php endforeach; ?>
+							<p class="description"><?php esc_html_e( 'Select at least one hub category. You can add custom hubs later.', 'seogen' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -271,136 +175,9 @@ trait SEOgen_Admin_Extensions {
 					<?php echo esc_html__( 'Next Step: Services →', 'seogen' ); ?>
 				</a>
 			</p>
-		
-		<script>
-		jQuery(document).ready(function($) {
-			// Add new hub category
-			$('#add-hub-category').on('click', function() {
-				var label = $('#new-hub-label').val().trim();
-				if (!label) {
-					alert('Please enter a category label');
-					return;
-				}
-				
-				// AJAX call to add category
-				$.post(ajaxurl, {
-					action: 'seogen_save_hub_categories',
-					nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-					operation: 'add',
-					label: label
-				}, function(response) {
-					if (response.success) {
-						location.reload();
-					} else {
-						alert('Error: ' + (response.data ? response.data.message : 'Unknown error'));
-					}
-				});
-			});
-			
-			// Move up/down
-			$('.hub-move-up').on('click', function() {
-				var item = $(this).closest('.hub-category-item');
-				var prev = item.prev('.hub-category-item');
-				if (prev.length) {
-					prev.before(item);
-					updateSortOrder();
-				}
-			});
-			
-			$('.hub-move-down').on('click', function() {
-				var item = $(this).closest('.hub-category-item');
-				var next = item.next('.hub-category-item');
-				if (next.length) {
-					next.after(item);
-					updateSortOrder();
-				}
-			});
-			
-			// Delete custom category
-			$('.hub-delete').on('click', function() {
-				if (!confirm('Are you sure you want to delete this category?')) {
-					return;
-				}
-				$(this).closest('.hub-category-item').remove();
-				updateSortOrder();
-			});
-			
-			// Reset to defaults
-			$('#reset-hub-categories').on('click', function() {
-				if (!confirm('This will replace all categories with defaults for the selected vertical. Continue?')) {
-					return;
-				}
-				
-				var vertical = $('#vertical_profile').val();
-				$.post(ajaxurl, {
-					action: 'seogen_reset_hub_categories',
-					nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-					vertical: vertical
-				}, function(response) {
-					if (response.success) {
-						location.reload();
-					}
-				});
-			});
-			
-			// Vertical profile change
-			var originalVertical = $('#vertical_profile').val();
-			$('#vertical_profile').on('change', function() {
-				var newVertical = $(this).val();
-				if (newVertical === originalVertical) {
-					return;
-				}
-				
-				var choice = confirm(
-					'You changed the vertical profile. Would you like to:\n\n' +
-					'OK = Use defaults for the new vertical\n' +
-					'Cancel = Keep current categories'
-				);
-				
-				if (choice) {
-					$.post(ajaxurl, {
-						action: 'seogen_change_vertical',
-						nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-						vertical: newVertical,
-						use_defaults: true
-					}, function(response) {
-						if (response.success) {
-							location.reload();
-						}
-					});
-				} else {
-					// Just save the vertical profile without changing categories
-					$.post(ajaxurl, {
-						action: 'seogen_change_vertical',
-						nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-						vertical: newVertical,
-						use_defaults: false
-					});
-				}
-				
-				originalVertical = newVertical;
-			});
-			
-			function updateSortOrder() {
-				$('.hub-category-item').each(function(index) {
-					$(this).find('.hub-category-sort').val(index);
-					$(this).attr('data-index', index);
-					
-					// Update field names to maintain proper indexing
-					$(this).find('input, select').each(function() {
-						var name = $(this).attr('name');
-						if (name && name.indexOf('hub_categories[') === 0) {
-							var newName = name.replace(/hub_categories\[\d+\]/, 'hub_categories[' + index + ']');
-							$(this).attr('name', newName);
-						}
-					});
-				});
-			}
-		});
-		</script>
-	</div>
-	<?php
-}
+		</div>
+		<?php
+	}
 
 	public function handle_save_business_config() {
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -408,47 +185,6 @@ trait SEOgen_Admin_Extensions {
 		}
 
 		check_admin_referer( 'hyper_local_save_business_config', 'hyper_local_business_config_nonce' );
-
-		// Save vertical profile
-		if ( isset( $_POST['vertical_profile'] ) ) {
-			SEOgen_Vertical_Profiles::set_vertical_profile( 
-				sanitize_text_field( wp_unslash( $_POST['vertical_profile'] ) ) 
-			);
-		}
-
-		// Save hub categories
-		if ( isset( $_POST['hub_categories'] ) && is_array( $_POST['hub_categories'] ) ) {
-			$categories = array();
-			
-			foreach ( $_POST['hub_categories'] as $cat_data ) {
-				if ( ! is_array( $cat_data ) ) {
-					continue;
-				}
-				
-				$categories[] = array(
-					'key'        => isset( $cat_data['key'] ) ? sanitize_key( $cat_data['key'] ) : '',
-					'label'      => isset( $cat_data['label'] ) ? sanitize_text_field( wp_unslash( $cat_data['label'] ) ) : '',
-					'enabled'    => ! empty( $cat_data['enabled'] ),
-					'sort_order' => isset( $cat_data['sort_order'] ) ? absint( $cat_data['sort_order'] ) : 0,
-					'is_custom'  => ! empty( $cat_data['is_custom'] ),
-				);
-			}
-			
-			SEOgen_Vertical_Profiles::save_hub_categories( $categories );
-			update_option( 'seogen_hub_categories_source', 'customized' );
-			
-			// Also update legacy hubs format for backward compatibility
-			$legacy_hubs = array();
-			foreach ( $categories as $cat ) {
-				if ( $cat['enabled'] ) {
-					$legacy_hubs[] = array(
-						'key'   => $cat['key'],
-						'label' => $cat['label'],
-						'slug'  => $cat['key'] . '-services',
-					);
-				}
-			}
-		}
 
 		$config = array(
 			'vertical' => isset( $_POST['vertical'] ) ? sanitize_text_field( wp_unslash( $_POST['vertical'] ) ) : '',
@@ -458,8 +194,17 @@ trait SEOgen_Admin_Extensions {
 			'service_area_label' => isset( $_POST['service_area_label'] ) ? sanitize_text_field( wp_unslash( $_POST['service_area_label'] ) ) : '',
 			'email' => isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '',
 			'address' => isset( $_POST['address'] ) ? sanitize_text_field( wp_unslash( $_POST['address'] ) ) : '',
-			'hubs' => isset( $legacy_hubs ) ? $legacy_hubs : array(),
+			'hubs' => array(),
 		);
+
+		if ( isset( $_POST['hubs'] ) && is_array( $_POST['hubs'] ) ) {
+			foreach ( $_POST['hubs'] as $hub_json ) {
+				$hub = json_decode( stripslashes( $hub_json ), true );
+				if ( is_array( $hub ) && isset( $hub['key'], $hub['label'], $hub['slug'] ) ) {
+					$config['hubs'][] = $hub;
+				}
+			}
+		}
 
 		update_option( self::BUSINESS_CONFIG_OPTION, $config );
 
