@@ -23,16 +23,30 @@ trait SEOgen_Admin_Cities {
 
 		check_admin_referer( 'hyper_local_save_cities', 'hyper_local_cities_nonce' );
 
+		// Get campaign settings to determine mode
+		$campaign_settings = get_option( 'seogen_campaign_settings', array() );
+		$campaign_mode = isset( $campaign_settings['campaign_mode'] ) ? $campaign_settings['campaign_mode'] : 'multi_city';
+		$is_single_city = ( 'single_city' === $campaign_mode );
+
 		$cities = array();
 
 		// Process existing cities (edits)
 		if ( isset( $_POST['cities'] ) && is_array( $_POST['cities'] ) ) {
 			foreach ( $_POST['cities'] as $city_data ) {
-				if ( isset( $city_data['name'], $city_data['state'], $city_data['slug'] ) ) {
+				if ( isset( $city_data['name'], $city_data['state'] ) ) {
+					$name = sanitize_text_field( $city_data['name'] );
+					$state = sanitize_text_field( $city_data['state'] );
+					
+					// For single-city mode, state is actually the type (neighborhood, district, etc.)
+					// For multi-city mode, state is the state code
+					if ( ! $is_single_city ) {
+						$state = strtoupper( $state );
+					}
+					
 					$cities[] = array(
-						'name' => sanitize_text_field( $city_data['name'] ),
-						'state' => strtoupper( sanitize_text_field( $city_data['state'] ) ),
-						'slug' => sanitize_title( $city_data['slug'] ),
+						'name' => $name,
+						'state' => $state,
+						'slug' => sanitize_title( $name . '-' . $state ),
 					);
 				}
 			}
@@ -47,19 +61,36 @@ trait SEOgen_Admin_Cities {
 					continue;
 				}
 
-				// Expected format: "City Name, ST"
-				$parts = array_map( 'trim', explode( ',', $line ) );
-				if ( count( $parts ) >= 2 ) {
-					$city_name = $parts[0];
-					$state_code = strtoupper( $parts[1] );
-					
-					// Validate state code is 2 letters
-					if ( strlen( $state_code ) === 2 && ctype_alpha( $state_code ) ) {
-						$cities[] = array(
-							'name' => sanitize_text_field( $city_name ),
-							'state' => $state_code,
-							'slug' => sanitize_title( $city_name . '-' . $state_code ),
-						);
+				if ( $is_single_city ) {
+					// Single-city mode: "Location Name | Type" format
+					if ( strpos( $line, '|' ) !== false ) {
+						$parts = array_map( 'trim', explode( '|', $line, 2 ) );
+						if ( count( $parts ) === 2 ) {
+							$location_name = $parts[0];
+							$location_type = $parts[1];
+							
+							$cities[] = array(
+								'name' => sanitize_text_field( $location_name ),
+								'state' => sanitize_text_field( $location_type ),
+								'slug' => sanitize_title( $location_name . '-' . $location_type ),
+							);
+						}
+					}
+				} else {
+					// Multi-city mode: "City Name, ST" format
+					$parts = array_map( 'trim', explode( ',', $line ) );
+					if ( count( $parts ) >= 2 ) {
+						$city_name = $parts[0];
+						$state_code = strtoupper( $parts[1] );
+						
+						// Validate state code is 2 letters
+						if ( strlen( $state_code ) === 2 && ctype_alpha( $state_code ) ) {
+							$cities[] = array(
+								'name' => sanitize_text_field( $city_name ),
+								'state' => $state_code,
+								'slug' => sanitize_title( $city_name . '-' . $state_code ),
+							);
+						}
 					}
 				}
 			}
@@ -77,10 +108,12 @@ trait SEOgen_Admin_Cities {
 
 		update_option( 'hyper_local_cities_cache', $unique_cities );
 
+		$success_message = $is_single_city ? 'Locations saved successfully.' : 'Cities saved successfully.';
+		
 		wp_redirect( add_query_arg( array(
 			'page' => 'hyper-local-services',
 			'hl_notice' => 'created',
-			'hl_msg' => rawurlencode( 'Cities saved successfully.' ),
+			'hl_msg' => rawurlencode( $success_message ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
 	}
