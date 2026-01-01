@@ -473,7 +473,7 @@ class SEOgen_Admin {
 		}
 		
 		// Get CTA text from Business Setup config instead of Settings
-		$config = get_option( 'hyper_local_business_config', array() );
+		$config = $this->get_business_config();
 		$primary_cta_label = isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate';
 		$primary_cta_label = trim( $primary_cta_label );
 		if ( '' === $primary_cta_label ) {
