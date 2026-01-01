@@ -757,8 +757,8 @@ trait SEOgen_Admin_Extensions {
 			?>
 			
 			<?php if ( $is_single_city ) : ?>
-				<h2><?php echo esc_html( sprintf( __( 'Landmarks, Neighborhoods, and Points of Interest in %s', 'seogen' ), $primary_city ) ); ?></h2>
-				<p><?php esc_html_e( 'Add landmarks, neighborhoods, districts, and points of interest in your primary city. These will be used to create location-specific service pages.', 'seogen' ); ?></p>
+				<h2><?php echo esc_html( sprintf( __( 'Locations in %s', 'seogen' ), $primary_city ) ); ?></h2>
+				<p><?php esc_html_e( 'Add neighborhoods, landmarks, districts, and other locations in your primary city. These will be used to create location-specific service pages.', 'seogen' ); ?></p>
 				
 				<?php if ( empty( $primary_city ) ) : ?>
 					<div class="notice notice-warning">
@@ -782,9 +782,8 @@ trait SEOgen_Admin_Extensions {
 						<table class="wp-list-table widefat fixed striped hl-cities-table">
 							<thead>
 								<tr>
-									<th><?php esc_html_e( 'Location Name', 'seogen' ); ?></th>
-									<th><?php esc_html_e( 'Type', 'seogen' ); ?></th>
-									<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
+									<th style="width: 85%;"><?php esc_html_e( 'Location Name', 'seogen' ); ?></th>
+									<th style="width: 15%; text-align: center;"><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
 								</tr>
 							</thead>
 							<tbody>
@@ -793,11 +792,9 @@ trait SEOgen_Admin_Extensions {
 										<tr>
 											<td>
 												<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][name]" value="<?php echo esc_attr( $city['name'] ); ?>" class="regular-text" required />
+												<input type="hidden" name="cities[<?php echo esc_attr( $idx ); ?>][state]" value="location" />
 											</td>
-											<td>
-												<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][state]" value="<?php echo esc_attr( isset( $city['state'] ) ? $city['state'] : 'neighborhood' ); ?>" class="regular-text" placeholder="neighborhood, district, landmark, zip" required />
-											</td>
-											<td>
+											<td style="text-align: center;">
 												<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ), 'hyper_local_delete_city_' . $idx, 'nonce' ) ); ?>" 
 												   class="button button-small" 
 												   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this location?', 'seogen' ); ?>');"><?php esc_html_e( 'Delete', 'seogen' ); ?></a>
@@ -806,7 +803,7 @@ trait SEOgen_Admin_Extensions {
 									<?php endforeach; ?>
 								<?php else : ?>
 									<tr>
-										<td colspan="3"><?php esc_html_e( 'No locations configured yet. Add locations using the bulk add feature below.', 'seogen' ); ?></td>
+										<td colspan="2"><?php esc_html_e( 'No locations configured yet. Add locations using the bulk add feature below.', 'seogen' ); ?></td>
 									</tr>
 								<?php endif; ?>
 							</tbody>
@@ -815,9 +812,8 @@ trait SEOgen_Admin_Extensions {
 						<hr class="hl-section-divider" />
 						
 						<h3><?php esc_html_e( 'Bulk Add Locations', 'seogen' ); ?></h3>
-						<p><?php esc_html_e( 'Add multiple locations at once. Format: "Location Name | Type" (one per line).', 'seogen' ); ?></p>
-						<p class="description"><?php esc_html_e( 'Types: neighborhood, district, landmark, zip', 'seogen' ); ?></p>
-						<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Rose District | district&#10;Downtown | neighborhood&#10;71st & Memorial | landmark&#10;74012 | zip"></textarea>
+						<p><?php esc_html_e( 'Add multiple locations at once, one per line.', 'seogen' ); ?></p>
+						<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Rose District&#10;Downtown&#10;71st & Memorial&#10;Brookside&#10;Cherry Street"></textarea>
 					<?php else : ?>
 						<h3><?php esc_html_e( 'Current Cities', 'seogen' ); ?></h3>
 						<table class="wp-list-table widefat fixed striped hl-cities-table">

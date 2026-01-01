@@ -62,20 +62,14 @@ trait SEOgen_Admin_Cities {
 				}
 
 				if ( $is_single_city ) {
-					// Single-city mode: "Location Name | Type" format
-					if ( strpos( $line, '|' ) !== false ) {
-						$parts = array_map( 'trim', explode( '|', $line, 2 ) );
-						if ( count( $parts ) === 2 ) {
-							$location_name = $parts[0];
-							$location_type = $parts[1];
-							
-							$cities[] = array(
-								'name' => sanitize_text_field( $location_name ),
-								'state' => sanitize_text_field( $location_type ),
-								'slug' => sanitize_title( $location_name . '-' . $location_type ),
-							);
-						}
-					}
+					// Single-city mode: Just location name (one per line)
+					$location_name = $line;
+					
+					$cities[] = array(
+						'name' => sanitize_text_field( $location_name ),
+						'state' => 'location',
+						'slug' => sanitize_title( $location_name ),
+					);
 				} else {
 					// Multi-city mode: "City Name, ST" format
 					$parts = array_map( 'trim', explode( ',', $line ) );
