@@ -210,38 +210,45 @@ class SEOgen_City_Hub_Link {
 	}
 	
 	/**
-	 * Map hub_key to readable label
-	 * 
-	 * Converts internal hub keys to human-readable service category labels.
-	 * Example: "residential" → "residential electrical"
-	 * 
-	 * To expand: Add new mappings to the $hub_labels array below.
-	 * Keep labels generic and SEO-safe (avoid brand names).
+	 * Get readable hub label from hub key
 	 * 
 	 * @param string $hub_key Hub key (e.g., "residential")
-	 * @return string Readable label (e.g., "residential electrical")
+	 * @return string Readable label (e.g., "residential roofing" or "residential electrical")
 	 */
 	private static function get_hub_label( $hub_key ) {
-		$hub_labels = array(
-			'residential'        => 'residential electrical',
-			'commercial'         => 'commercial electrical',
-			'industrial'         => 'industrial electrical',
-			'emergency'          => 'emergency electrical',
-			'lighting'           => 'lighting',
-			'hvac'               => 'HVAC',
-			'plumbing'           => 'plumbing',
-			'solar'              => 'solar',
-			'generator'          => 'generator',
-			'ev-charging'        => 'EV charging',
+		// Get business config to determine vertical
+		$config = get_option( 'hyper_local_business_config', array() );
+		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+		
+		// Map vertical to trade name
+		$vertical_map = array(
+			'electrician' => 'electrical',
+			'plumber'     => 'plumbing',
+			'hvac'        => 'HVAC',
+			'roofer'      => 'roofing',
+			'painter'     => 'painting',
+			'flooring'    => 'flooring',
+			'lighting'    => 'lighting',
+			'contractor'  => 'contractor',
 		);
 		
-		return isset( $hub_labels[ $hub_key ] ) ? $hub_labels[ $hub_key ] : $hub_key;
+		$trade_name = isset( $vertical_map[ $vertical ] ) ? $vertical_map[ $vertical ] : '';
+		
+		// Build label based on hub key and vertical
+		if ( ! empty( $trade_name ) ) {
+			// For property type hubs (residential, commercial, etc.), add trade name
+			if ( in_array( $hub_key, array( 'residential', 'commercial', 'industrial', 'emergency' ), true ) ) {
+				return $hub_key . ' ' . $trade_name;
+			}
+		}
+		
+		// Fallback to hub key as-is for specialty hubs
+		return $hub_key;
 	}
 	
 	/**
 	 * Get random anchor text template
 	 * 
-	 * Returns varied anchor text to avoid repetitive linking patterns.
 	 * Uses deterministic randomization based on post_id for consistency.
 	 * 
 	 * Template pool (expand as needed):
