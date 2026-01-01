@@ -36,6 +36,7 @@ class SEOgen_Admin {
 		error_log( '[HyperLocal] SEOgen_Admin::run() called - registering admin-post handlers' );
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_init', array( $this, 'maybe_cleanup_stale_jobs' ) );
 		add_action( 'admin_post_seogen_test_connection', array( $this, 'handle_test_connection' ) );
 		add_action( 'admin_post_hyper_local_generate_preview', array( $this, 'handle_generate_preview' ) );
 		add_action( 'admin_post_hyper_local_create_draft', array( $this, 'handle_create_draft' ) );
@@ -5573,10 +5574,16 @@ class SEOgen_Admin {
 			
 			// Include jobs that are running or complete but have pending imports
 			if ( 'running' === $status || 'complete' === $status ) {
-				// Check if there are pending imports
-				$pending = $this->count_pending_imports( $job );
-				if ( $pending > 0 ) {
-					$active_jobs[] = $job_id;
+				// PERFORMANCE FIX: Only include jobs created within last 7 days (prevent stale jobs from loading)
+				$created_at = isset( $job['created_at'] ) ? $job['created_at'] : 0;
+				$age_days = $created_at > 0 ? ( time() - $created_at ) / DAY_IN_SECONDS : 999;
+				
+				if ( $age_days <= 7 ) {
+					// Check if there are pending imports
+					$pending = $this->count_pending_imports( $job );
+					if ( $pending > 0 ) {
+						$active_jobs[] = $job_id;
+					}
 				}
 			}
 		}
@@ -5585,6 +5592,86 @@ class SEOgen_Admin {
 		set_transient( $cache_key, $active_jobs, 30 );
 		
 		return $active_jobs;
+	}
+	
+	/**
+	 * Cleanup stale bulk jobs by marking old pending items as failed
+	 * PERFORMANCE FIX: Prevents old jobs from loading in heartbeat
+	 * 
+	 * @param int $days_old Jobs older than this many days will be cleaned up (default: 7)
+	 * @return array Cleanup results with job_id => items_cleaned count
+	 */
+	private function cleanup_stale_bulk_jobs( $days_old = 7 ) {
+		$index = get_option( self::BULK_JOBS_INDEX_OPTION, array() );
+		if ( ! is_array( $index ) ) {
+			return array();
+		}
+		
+		$results = array();
+		$cutoff_time = time() - ( $days_old * DAY_IN_SECONDS );
+		
+		foreach ( $index as $job_id ) {
+			$job = $this->load_bulk_job( $job_id );
+			if ( ! $job ) {
+				continue;
+			}
+			
+			$created_at = isset( $job['created_at'] ) ? $job['created_at'] : 0;
+			
+			// Only process jobs older than cutoff
+			if ( $created_at > 0 && $created_at < $cutoff_time ) {
+				$cleaned_count = 0;
+				
+				if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+					foreach ( $job['rows'] as $idx => $row ) {
+						$import_status = isset( $row['import_status'] ) ? $row['import_status'] : 'pending';
+						
+						// Mark pending or importing items as failed
+						if ( 'pending' === $import_status || 'importing' === $import_status ) {
+							$job['rows'][$idx]['import_status'] = 'failed';
+							$job['rows'][$idx]['error'] = sprintf( 
+								'Stale job - auto-failed after %d days', 
+								$days_old 
+							);
+							$cleaned_count++;
+						}
+					}
+				}
+				
+				if ( $cleaned_count > 0 ) {
+					$this->save_bulk_job( $job_id, $job );
+					$results[ $job_id ] = $cleaned_count;
+				}
+			}
+		}
+		
+		// Clear the active jobs cache to force refresh
+		delete_transient( 'seogen_active_jobs_cache' );
+		
+		return $results;
+	}
+	
+	/**
+	 * Maybe run one-time cleanup of stale jobs
+	 * Runs once after plugin update to clean existing stale jobs
+	 */
+	public function maybe_cleanup_stale_jobs() {
+		// Check if cleanup has already run
+		$cleanup_done = get_option( 'seogen_stale_jobs_cleanup_done', false );
+		if ( $cleanup_done ) {
+			return;
+		}
+		
+		// Run cleanup for jobs older than 7 days
+		$results = $this->cleanup_stale_bulk_jobs( 7 );
+		
+		// Mark as done
+		update_option( 'seogen_stale_jobs_cleanup_done', true );
+		
+		// Log results if any jobs were cleaned
+		if ( ! empty( $results ) ) {
+			error_log( '[SEOgen] Cleaned up stale jobs: ' . wp_json_encode( $results ) );
+		}
 	}
 	
 	/**
