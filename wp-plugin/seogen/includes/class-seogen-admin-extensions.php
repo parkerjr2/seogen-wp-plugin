@@ -358,6 +358,7 @@ trait SEOgen_Admin_Extensions {
 				);
 				
 				if (choice) {
+					// User wants to use defaults - save and reload
 					$.post(ajaxurl, {
 						action: 'seogen_change_vertical',
 						nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
@@ -369,16 +370,17 @@ trait SEOgen_Admin_Extensions {
 						}
 					});
 				} else {
-					// Just save the vertical profile without changing categories
+					// User wants to keep current categories - just save the vertical without reload
 					$.post(ajaxurl, {
 						action: 'seogen_change_vertical',
 						nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
 						vertical: newVertical,
 						use_defaults: false
+					}, function(response) {
+						// Don't reload, just update the original value
+						originalVertical = newVertical;
 					});
 				}
-				
-				originalVertical = newVertical;
 			});
 			
 			function updateSortOrder() {
