@@ -46,6 +46,11 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	private function select_city_differentiator( $hub_key, $city_slug, $city_name, $vertical = '' ) {
 		$templates = $this->get_city_differentiator_templates( $vertical, $hub_key );
 		
+		// Return empty string if no templates (backend AI handles all content now)
+		if ( empty( $templates ) ) {
+			return '';
+		}
+		
 		// Deterministic selection using hash
 		$hash = md5( $hub_key . '_' . $city_slug );
 		$index = hexdec( substr( $hash, 0, 8 ) ) % count( $templates );
