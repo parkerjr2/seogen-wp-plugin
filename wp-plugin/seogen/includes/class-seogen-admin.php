@@ -507,13 +507,6 @@ class SEOgen_Admin {
 
 		$details_available = class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( 'core/details' );
 
-		// Initialize context variables from business config
-		$context_city = '';
-		$context_state = '';
-		$context_business = isset( $config['business_name'] ) ? trim( (string) $config['business_name'] ) : '';
-		$context_service = '';
-		$context_phone = isset( $config['phone'] ) ? trim( (string) $config['phone'] ) : '';
-
 		$user_id = get_current_user_id();
 		if ( $user_id > 0 ) {
 			$last_preview_key = $this->get_last_preview_transient_key( $user_id );
@@ -4555,7 +4548,7 @@ class SEOgen_Admin {
 				// Get business config for vertical
 				$config = $this->get_business_config();
 				$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
-	
+		
 				$item = array(
 					'page_mode'    => $page_mode,
 					'service'      => $service_name,
@@ -4568,7 +4561,7 @@ class SEOgen_Admin {
 					'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
 					'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
-					'cta_text'     => isset( $config['cta_text'] ) ? sanitize_text_field( (string) $config['cta_text'] ) : 'Request a Free Estimate',
+					'cta_text'     => isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate',
 				);
 			
 				// Add area fields if this is a service_area page
