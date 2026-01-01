@@ -1022,7 +1022,7 @@ class SEOgen_Admin {
 					$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
 					$output[] = '<div class="wp-block-buttons">';
 					$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
-					$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html( $text ) . '</a></div>';
+					$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now for Free Quote', 'seogen' ) . '</a></div>';
 					$output[] = '<!-- /wp:button -->';
 					$output[] = '</div>';
 					$output[] = '<!-- /wp:buttons -->';
@@ -4561,7 +4561,7 @@ class SEOgen_Admin {
 					'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
 					'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
-					'cta_text'     => isset( $config['cta_text'] ) ? $config['cta_text'] : 'Request a Free Estimate',
+					'cta_text'     => isset( $config['cta_text'] ) ? sanitize_text_field( (string) $config['cta_text'] ) : 'Request a Free Estimate',
 				);
 			
 				// Add area fields if this is a service_area page
