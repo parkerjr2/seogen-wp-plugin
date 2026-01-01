@@ -473,7 +473,7 @@ class SEOgen_Admin {
 		}
 		
 		// Get CTA text from Business Setup config instead of Settings
-		$config = get_option( 'seogen_business_config', array() );
+		$config = get_option( 'hyper_local_business_config', array() );
 		$primary_cta_label = isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate';
 		$primary_cta_label = trim( $primary_cta_label );
 		if ( '' === $primary_cta_label ) {
@@ -4561,7 +4561,6 @@ class SEOgen_Admin {
 					'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
 					'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
-					'cta_text'     => isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate',
 				);
 			
 				// Add area fields if this is a service_area page
