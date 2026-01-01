@@ -507,6 +507,13 @@ class SEOgen_Admin {
 
 		$details_available = class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( 'core/details' );
 
+		// Initialize context variables from business config
+		$context_city = '';
+		$context_state = '';
+		$context_business = isset( $config['business_name'] ) ? trim( (string) $config['business_name'] ) : '';
+		$context_service = '';
+		$context_phone = isset( $config['phone'] ) ? trim( (string) $config['phone'] ) : '';
+
 		$user_id = get_current_user_id();
 		if ( $user_id > 0 ) {
 			$last_preview_key = $this->get_last_preview_transient_key( $user_id );
