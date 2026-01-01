@@ -48,6 +48,7 @@ trait SEOgen_Admin_Extensions {
 
 	private function get_available_verticals() {
 		return array(
+			// Home Services
 			'roofer' => 'Roofer',
 			'electrician' => 'Electrician',
 			'plumber' => 'Plumber',
@@ -62,6 +63,11 @@ trait SEOgen_Admin_Extensions {
 			'garage-door' => 'Garage Door',
 			'windows' => 'Windows',
 			'pest-control' => 'Pest Control',
+			// Single-City Verticals
+			'barbershop' => 'Barbershop',
+			'spa' => 'Spa',
+			'dentist' => 'Dentist',
+			'restaurant' => 'Restaurant',
 			'other' => 'Other',
 		);
 	}
@@ -86,9 +92,7 @@ trait SEOgen_Admin_Extensions {
 		$verticals = $this->get_available_verticals();
 		$default_hubs = $this->get_default_hubs();
 		
-		// Get vertical profile and hub categories
-		$current_vertical_profile = SEOgen_Vertical_Profiles::get_vertical_profile();
-		$available_vertical_profiles = SEOgen_Vertical_Profiles::get_available_verticals();
+		// Get hub categories (vertical profile is now same as business type)
 		$hub_categories = SEOgen_Vertical_Profiles::get_saved_hub_categories();
 		?>
 		<div class="wrap">
@@ -109,20 +113,8 @@ trait SEOgen_Admin_Extensions {
 									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $config['vertical'], $key ); ?>><?php echo esc_html( $label ); ?></option>
 								<?php endforeach; ?>
 							</select>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="vertical_profile"><?php esc_html_e( 'Vertical Profile', 'seogen' ); ?></label></th>
-						<td>
-							<select name="vertical_profile" id="vertical_profile">
-								<?php foreach ( $available_vertical_profiles as $key => $label ) : ?>
-									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $current_vertical_profile, $key ); ?>>
-										<?php echo esc_html( $label ); ?>
-									</option>
-								<?php endforeach; ?>
-							</select>
 							<p class="description">
-								<?php esc_html_e( 'Select your business vertical. Hub categories will adapt to your industry.', 'seogen' ); ?>
+								<?php esc_html_e( 'Select your business type. Hub categories will adapt to your industry.', 'seogen' ); ?>
 							</p>
 						</td>
 					</tr>
@@ -327,11 +319,11 @@ trait SEOgen_Admin_Extensions {
 			
 			// Reset to defaults
 			$('#reset-hub-categories').on('click', function() {
-				if (!confirm('This will replace all categories with defaults for the selected vertical. Continue?')) {
+				if (!confirm('This will replace all categories with defaults for the selected business type. Continue?')) {
 					return;
 				}
 				
-				var vertical = $('#vertical_profile').val();
+				var vertical = $('#vertical').val();
 				$.post(ajaxurl, {
 					action: 'seogen_reset_hub_categories',
 					nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
@@ -343,18 +335,26 @@ trait SEOgen_Admin_Extensions {
 				});
 			});
 			
-			// Vertical profile change
-			var originalVertical = $('#vertical_profile').val();
-			$('#vertical_profile').on('change', function() {
+			// Business type change (also updates vertical profile)
+			var originalVertical = $('#vertical').val();
+			$('#vertical').on('change', function() {
 				var newVertical = $(this).val();
-				if (newVertical === originalVertical) {
+				if (newVertical === originalVertical || !newVertical) {
+					return;
+				}
+				
+				// Check if this vertical has specific hub category defaults
+				var verticalsWithDefaults = ['barbershop', 'spa', 'dentist', 'restaurant'];
+				if (verticalsWithDefaults.indexOf(newVertical) === -1 && verticalsWithDefaults.indexOf(originalVertical) === -1) {
+					// Both are home services types, no need to prompt
+					originalVertical = newVertical;
 					return;
 				}
 				
 				var choice = confirm(
-					'You changed the vertical profile. Would you like to:\n\n' +
-					'OK = Use defaults for the new vertical\n' +
-					'Cancel = Keep current categories'
+					'You changed the business type. Would you like to:\n\n' +
+					'OK = Use default hub categories for ' + newVertical + '\n' +
+					'Cancel = Keep current hub categories'
 				);
 				
 				if (choice) {
@@ -409,11 +409,35 @@ trait SEOgen_Admin_Extensions {
 
 		check_admin_referer( 'hyper_local_save_business_config', 'hyper_local_business_config_nonce' );
 
-		// Save vertical profile
-		if ( isset( $_POST['vertical_profile'] ) ) {
-			SEOgen_Vertical_Profiles::set_vertical_profile( 
-				sanitize_text_field( wp_unslash( $_POST['vertical_profile'] ) ) 
+		// Save vertical profile (same as business type)
+		if ( isset( $_POST['vertical'] ) ) {
+			$vertical = sanitize_text_field( wp_unslash( $_POST['vertical'] ) );
+			
+			// Map business type to vertical profile for hub categories
+			$vertical_profile_map = array(
+				'roofer' => 'home_services',
+				'electrician' => 'home_services',
+				'plumber' => 'home_services',
+				'hvac' => 'home_services',
+				'landscaper' => 'home_services',
+				'handyman' => 'home_services',
+				'painter' => 'home_services',
+				'concrete' => 'home_services',
+				'siding' => 'home_services',
+				'locksmith' => 'home_services',
+				'cleaning' => 'home_services',
+				'garage-door' => 'home_services',
+				'windows' => 'home_services',
+				'pest-control' => 'home_services',
+				'barbershop' => 'barbershop',
+				'spa' => 'spa',
+				'dentist' => 'dentist',
+				'restaurant' => 'restaurant',
+				'other' => 'home_services',
 			);
+			
+			$vertical_profile = isset( $vertical_profile_map[ $vertical ] ) ? $vertical_profile_map[ $vertical ] : 'home_services';
+			SEOgen_Vertical_Profiles::set_vertical_profile( $vertical_profile );
 		}
 
 		// Save hub categories
