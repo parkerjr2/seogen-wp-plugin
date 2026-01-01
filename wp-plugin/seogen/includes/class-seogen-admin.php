@@ -1022,7 +1022,7 @@ class SEOgen_Admin {
 					$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
 					$output[] = '<div class="wp-block-buttons">';
 					$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
-					$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now for Free Quote', 'seogen' ) . '</a></div>';
+					$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html( $text ) . '</a></div>';
 					$output[] = '<!-- /wp:button -->';
 					$output[] = '</div>';
 					$output[] = '<!-- /wp:buttons -->';
