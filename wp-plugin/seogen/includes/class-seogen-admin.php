@@ -3774,8 +3774,8 @@ class SEOgen_Admin {
 		// Get campaign settings to determine mode
 		$campaign_settings = get_option( 'seogen_campaign_settings', array() );
 		$campaign_mode = isset( $campaign_settings['campaign_mode'] ) ? $campaign_settings['campaign_mode'] : 'multi_city';
-		$primary_city = isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : '';
-		$primary_state = isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : '';
+		$primary_city = isset( $campaign_settings['primary_city'] ) ? trim( $campaign_settings['primary_city'] ) : '';
+		$primary_state = isset( $campaign_settings['primary_state'] ) ? trim( $campaign_settings['primary_state'] ) : '';
 
 		// Build service areas list
 		// Format depends on campaign mode:
