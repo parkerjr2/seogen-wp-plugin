@@ -2412,32 +2412,19 @@ class SEOgen_Admin {
 		$areas = array();
 		
 		if ( 'single_city' === $campaign_mode ) {
-			// Single-city mode: parse "Area Name | Area Type" format
+			// Single-city mode: parse location names (one per line)
+			// Simplified format: just location name, no type classification needed
 			$primary_city = isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : '';
 			$primary_state = isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : '';
 			
 			foreach ( $lines as $line ) {
-				// Split by pipe delimiter
-				$parts = array_map( 'trim', explode( '|', (string) $line ) );
-				$parts = array_values( array_filter( $parts, static function ( $v ) {
-					return '' !== trim( (string) $v );
-				} ) );
-				
-				if ( count( $parts ) >= 2 ) {
-					// Format: Area Name | Area Type
+				$location_name = trim( (string) $line );
+				if ( '' !== $location_name ) {
 					$areas[] = array(
 						'city'      => $primary_city,
 						'state'     => $primary_state,
-						'area_name' => sanitize_text_field( (string) $parts[0] ),
-						'area_type' => sanitize_text_field( (string) $parts[1] ),
-					);
-				} elseif ( count( $parts ) === 1 ) {
-					// If no type specified, default to 'area'
-					$areas[] = array(
-						'city'      => $primary_city,
-						'state'     => $primary_state,
-						'area_name' => sanitize_text_field( (string) $parts[0] ),
-						'area_type' => 'area',
+						'area_name' => sanitize_text_field( $location_name ),
+						'area_type' => 'location', // Generic type for all single-city locations
 					);
 				}
 			}
@@ -3790,17 +3777,26 @@ class SEOgen_Admin {
 		$primary_city = isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : '';
 		$primary_state = isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : '';
 
-		// Build service areas list (one per line: City, ST)
+		// Build service areas list
+		// Format depends on campaign mode:
+		// - Single-city: just location names (one per line)
+		// - Multi-city: City, ST (one per line)
 		$service_areas_list = '';
 		if ( ! empty( $cities ) && is_array( $cities ) ) {
 			$city_lines = array();
 			foreach ( $cities as $city ) {
 				if ( isset( $city['name'] ) && ! empty( $city['name'] ) ) {
-					$city_line = $city['name'];
-					if ( isset( $city['state'] ) && ! empty( $city['state'] ) ) {
-						$city_line .= ', ' . $city['state'];
+					if ( 'single_city' === $campaign_mode ) {
+						// Single-city: just location name
+						$city_lines[] = $city['name'];
+					} else {
+						// Multi-city: City, ST format
+						$city_line = $city['name'];
+						if ( isset( $city['state'] ) && ! empty( $city['state'] ) ) {
+							$city_line .= ', ' . $city['state'];
+						}
+						$city_lines[] = $city_line;
 					}
-					$city_lines[] = $city_line;
 				}
 			}
 			$service_areas_list = implode( "\n", $city_lines );
@@ -4113,14 +4109,14 @@ class SEOgen_Admin {
 				</div>
 				<div class="hyper-local-bulk-col">
 					<?php if ( 'single_city' === $campaign_mode ) : ?>
-						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Areas (one per line: Area Name | Area Type)', 'seogen' ); ?></label>
-						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10" placeholder="Rose District | district&#10;Downtown | neighborhood&#10;71st & Memorial | landmark&#10;74012 | zip"></textarea>
+						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Locations (one per line)', 'seogen' ); ?></label>
+						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
 						<p class="description" style="margin-top:6px;">
 							<?php 
-							echo esc_html__( 'Format: Area Name | Area Type (district, neighborhood, landmark, or zip)', 'seogen' );
+							echo esc_html__( 'Neighborhoods, landmarks, districts, and other locations in your primary city.', 'seogen' );
 							echo '<br>';
 							printf(
-								esc_html__( 'City and state will be set to: %s, %s', 'seogen' ),
+								esc_html__( 'Primary city: %s, %s', 'seogen' ),
 								'<strong>' . esc_html( $primary_city ) . '</strong>',
 								'<strong>' . esc_html( $primary_state ) . '</strong>'
 							);
