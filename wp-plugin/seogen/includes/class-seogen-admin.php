@@ -3735,52 +3735,53 @@ class SEOgen_Admin {
 					
 					// Detailed table
 					html += '<h3 style="margin-top:30px;">Detailed Status</h3>';
-					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
-					(job.rows||[]).forEach(function(r){
-						var key = getRowKey(r);
-						var incomingStatus = String(r.status||'');
-						var incomingMessage = String(r.message||'');
-						var incomingEditUrl = r.edit_url||'';
-						
-						// Lock row if it's successfully imported
-						if(incomingStatus === 'success' || incomingEditUrl || (r.post_id && r.post_id > 0)){
-							if(!clientRowLock[key] || !clientRowLock[key].locked){
-								clientRowLock[key] = {
-									locked: true,
-									status: 'success',
-									edit_url: incomingEditUrl,
-									message: incomingMessage || 'Imported.',
-									ts: Date.now()
-								};
-								console.log('[SEOgen] Locking row key=' + key + ' status=success');
-							}
+					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Service Hub', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
+				(job.rows||[]).forEach(function(r){
+					var key = getRowKey(r);
+					var incomingStatus = String(r.status||'');
+					var incomingMessage = String(r.message||'');
+					var incomingEditUrl = r.edit_url||'';
+					
+					// Lock row if it's successfully imported
+					if(incomingStatus === 'success' || incomingEditUrl || (r.post_id && r.post_id > 0)){
+						if(!clientRowLock[key] || !clientRowLock[key].locked){
+							clientRowLock[key] = {
+								locked: true,
+								status: 'success',
+								edit_url: incomingEditUrl,
+								message: incomingMessage || 'Imported.',
+								ts: Date.now()
+							};
+							console.log('[SEOgen] Locking row key=' + key + ' status=success');
 						}
-						
-						// Prevent downgrade if row is locked
-						if(clientRowLock[key] && clientRowLock[key].locked){
-							if(incomingStatus !== 'success'){
-								console.log('[SEOgen] Prevented downgrade key=' + key + ' from=' + incomingStatus + ' to=success');
-								r.status = 'success';
-								r.message = clientRowLock[key].message || incomingMessage;
-								r.edit_url = clientRowLock[key].edit_url || incomingEditUrl;
-							}
+					}
+					
+					// Prevent downgrade if row is locked
+					if(clientRowLock[key] && clientRowLock[key].locked){
+						if(incomingStatus !== 'success'){
+							console.log('[SEOgen] Prevented downgrade key=' + key + ' from=' + incomingStatus + ' to=success');
+							r.status = 'success';
+							r.message = clientRowLock[key].message || incomingMessage;
+							r.edit_url = clientRowLock[key].edit_url || incomingEditUrl;
 						}
-						
-						html += '<tr>';
-						html += '<td>' + esc(r.service||'') + '</td>';
-						html += '<td>' + esc(r.city||'') + '</td>';
-						html += '<td>' + esc(r.state||'') + '</td>';
-						html += '<td>' + esc(r.status||'') + '</td>';
-						html += '<td>' + esc(r.message||'') + '</td>';
-						if(r.edit_url){
-							html += '<td><a href="' + esc(r.edit_url) + '"><?php echo esc_js( __( 'Edit', 'seogen' ) ); ?></a></td>';
-						}else{
-							html += '<td></td>';
-						}
-						html += '</tr>';
-					});
-					html += '</tbody></table>';
-					container.innerHTML = html;
+					}
+					
+					html += '<tr>';
+					html += '<td>' + esc(r.service||'') + '</td>';
+					html += '<td>' + esc(r.hub_label||'') + '</td>';
+					html += '<td>' + esc(r.city||'') + '</td>';
+					html += '<td>' + esc(r.state||'') + '</td>';
+					html += '<td>' + esc(r.status||'') + '</td>';
+					html += '<td>' + esc(r.message||'') + '</td>';
+					if(r.edit_url){
+						html += '<td><a href="' + esc(r.edit_url) + '"><?php echo esc_js( __( 'Edit', 'seogen' ) ); ?></a></td>';
+					}else{
+						html += '<td></td>';
+					}
+					html += '</tr>';
+				});
+				html += '</tbody></table>';
+				container.innerHTML = html;
 				}
 				var pollInterval = null;
 				var connectionErrorCount = 0;
