@@ -4115,13 +4115,14 @@ class SEOgen_Admin {
 							<?php 
 							echo esc_html__( 'Neighborhoods, landmarks, districts, and other locations in your primary city.', 'seogen' );
 							echo '<br>';
-							printf(
-								esc_html__( 'Primary city: %s, %s', 'seogen' ),
-								'<strong>' . esc_html( $primary_city ) . '</strong>',
-								'<strong>' . esc_html( $primary_state ) . '</strong>'
-							);
-							if ( empty( $primary_city ) || empty( $primary_state ) ) {
-								echo '<br><span style="color: #d63638;">' . esc_html__( '⚠️ Please configure Primary City and State in Campaign Settings first!', 'seogen' ) . '</span>';
+							if ( ! empty( $primary_city ) && ! empty( $primary_state ) ) {
+								printf(
+									esc_html__( 'Primary city: %s, %s', 'seogen' ),
+									'<strong>' . esc_html( $primary_city ) . '</strong>',
+									'<strong>' . esc_html( $primary_state ) . '</strong>'
+								);
+							} else {
+								echo '<span style="color: #d63638;">' . esc_html__( '⚠️ Please configure Primary City and State in Campaign Settings first!', 'seogen' ) . '</span>';
 							}
 							?>
 						</p>
