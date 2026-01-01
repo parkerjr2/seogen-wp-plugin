@@ -4242,14 +4242,12 @@ class SEOgen_Admin {
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
 
-		// Collect unique City Hub pages needed for this job
-		$city_hubs_needed = array();
+		// Load config and services BEFORE building API items so we can determine vertical
 		$services = $this->get_services();
 		$hubs = $this->get_hubs();
 		$config = $this->get_business_config();
 		$global_vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
 
-		// Determine vertical from service names in the rows
 		// Build a map of service name -> vertical
 		$service_vertical_map = array();
 		foreach ( $services as $service ) {
@@ -4257,11 +4255,17 @@ class SEOgen_Admin {
 				$service_vertical_map[ strtolower( $service['name'] ) ] = $service['vertical'];
 			}
 		}
-
-		// Build hub_key => hub_label map by finding actual Service Hub posts
-		// We need to determine the vertical from the actual services being generated
-		$hub_label_map = array();
 		
+		// Add vertical field to all API items (service_city pages)
+		foreach ( $api_items as $idx => $item ) {
+			$service_name = isset( $item['service'] ) ? strtolower( $item['service'] ) : '';
+			$vertical = isset( $service_vertical_map[ $service_name ] ) ? $service_vertical_map[ $service_name ] : $global_vertical;
+			$api_items[ $idx ]['vertical'] = $vertical;
+		}
+		
+		// Collect unique City Hub pages needed for this job
+		$city_hubs_needed = array();
+	
 		// First pass: collect all unique hub_key + vertical combinations from rows
 		$hub_vertical_pairs = array();
 		foreach ( $job_rows as $row ) {
@@ -4398,6 +4402,7 @@ class SEOgen_Admin {
 						'city'         => $item['city'],
 						'state'        => $item['state'],
 						'city_slug'    => $city_slug,
+						'vertical'     => isset( $item['vertical'] ) ? $item['vertical'] : $global_vertical,
 						'company_name' => $item['company_name'],
 						'phone'        => $item['phone'],
 						'email'        => $item['email'],
