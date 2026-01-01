@@ -4470,6 +4470,10 @@ class SEOgen_Admin {
 				// Determine page_mode from validated row (set during validation)
 				$page_mode = isset( $row['page_mode'] ) ? (string) $row['page_mode'] : 'service_city';
 			
+				// Get business config for vertical
+				$config = $this->get_business_config();
+				$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
+		
 				$item = array(
 					'page_mode'    => $page_mode,
 					'service'      => $service_name,
@@ -4477,6 +4481,7 @@ class SEOgen_Admin {
 					'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
 					'hub_key'      => $hub_key,
 					'hub_label'    => $hub_label,
+					'vertical'     => $vertical,
 					'company_name' => isset( $form['company_name'] ) ? sanitize_text_field( (string) $form['company_name'] ) : '',
 					'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
