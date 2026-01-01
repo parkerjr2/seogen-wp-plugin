@@ -913,6 +913,9 @@ class SEOgen_Admin {
 					$infer_context_from_title( (string) $hero_heading_text );
 				}
 
+				// Check if this is contact_cards style CTA
+				$cta_style = isset( $block['style'] ) ? trim( (string) $block['style'] ) : '';
+				
 				$text = isset( $block['text'] ) ? esc_html( (string) $block['text'] ) : '';
 				
 				// Use phone from CTA block itself, fallback to last_phone or context_phone
@@ -925,43 +928,97 @@ class SEOgen_Admin {
 					$cta_phone = $context_phone;
 				}
 				
+				$cta_email = '';
+				if ( isset( $block['email'] ) && '' !== trim( (string) $block['email'] ) ) {
+					$cta_email = trim( (string) $block['email'] );
+				}
+				
 				$tel_digits = preg_replace( '/\D+/', '', $cta_phone );
 				$tel_url = '';
 				if ( '' !== $tel_digits ) {
 					$tel_url = 'tel:' . $tel_digits;
 				}
+				
+				$mailto_url = '';
+				if ( '' !== $cta_email ) {
+					$mailto_url = 'mailto:' . $cta_email;
+				}
 
-				$output[] = '<!-- wp:group {"className":"hyper-local-cta-section"} -->';
-				$output[] = '<div class="wp-block-group hyper-local-cta-section">';
-				
-				$output[] = '<!-- wp:group {"className":"cta-content"} -->';
-				$output[] = '<div class="wp-block-group cta-content">';
-				
-				$output[] = '<!-- wp:heading {"level":2,"textAlign":"center","className":"cta-heading"} -->';
-				$output[] = '<h2 class="cta-heading has-text-align-center">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
-				$output[] = '<!-- /wp:heading -->';
-				
-				$output[] = '<!-- wp:paragraph {"align":"center"} -->';
-				$output[] = '<p class="has-text-align-center">' . $text . '</p>';
-				$output[] = '<!-- /wp:paragraph -->';
+				// Render contact_cards style (Call Us / Email Us)
+				if ( 'contact_cards' === $cta_style ) {
+					$output[] = '<!-- wp:group {"className":"hyper-local-cta-section contact-cards"} -->';
+					$output[] = '<div class="wp-block-group hyper-local-cta-section contact-cards">';
+					
+					$output[] = '<!-- wp:columns {"className":"contact-cards-columns"} -->';
+					$output[] = '<div class="wp-block-columns contact-cards-columns">';
+					
+					// Call Us card
+					$output[] = '<!-- wp:column {"className":"contact-card"} -->';
+					$output[] = '<div class="wp-block-column contact-card">';
+					$output[] = '<div class="contact-card-inner">';
+					$output[] = '<div class="contact-icon">📞</div>';
+					$output[] = '<h3>' . esc_html__( 'Call Us', 'seogen' ) . '</h3>';
+					if ( '' !== $cta_phone ) {
+						$output[] = '<p class="contact-value"><a href="' . esc_url( $tel_url ) . '">' . esc_html( $cta_phone ) . '</a></p>';
+						$output[] = '<p class="contact-hint">' . esc_html__( 'Tap to call', 'seogen' ) . '</p>';
+					}
+					$output[] = '</div>';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:column -->';
+					
+					// Email Us card
+					$output[] = '<!-- wp:column {"className":"contact-card"} -->';
+					$output[] = '<div class="wp-block-column contact-card">';
+					$output[] = '<div class="contact-card-inner">';
+					$output[] = '<div class="contact-icon">✉️</div>';
+					$output[] = '<h3>' . esc_html__( 'Email Us', 'seogen' ) . '</h3>';
+					if ( '' !== $cta_email ) {
+						$output[] = '<p class="contact-value"><a href="' . esc_url( $mailto_url ) . '">' . esc_html( $cta_email ) . '</a></p>';
+						$output[] = '<p class="contact-hint">' . esc_html__( 'Send a message', 'seogen' ) . '</p>';
+					}
+					$output[] = '</div>';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:column -->';
+					
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:columns -->';
+					
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:group -->';
+				} else {
+					// Original "Get Your Free Quote" style
+					$output[] = '<!-- wp:group {"className":"hyper-local-cta-section"} -->';
+					$output[] = '<div class="wp-block-group hyper-local-cta-section">';
+					
+					$output[] = '<!-- wp:group {"className":"cta-content"} -->';
+					$output[] = '<div class="wp-block-group cta-content">';
+					
+					$output[] = '<!-- wp:heading {"level":2,"textAlign":"center","className":"cta-heading"} -->';
+					$output[] = '<h2 class="cta-heading has-text-align-center">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
+					$output[] = '<!-- /wp:heading -->';
+					
+					$output[] = '<!-- wp:paragraph {"align":"center"} -->';
+					$output[] = '<p class="has-text-align-center">' . $text . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
 
-				$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
-				$output[] = '<div class="wp-block-buttons">';
-				$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
-				$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now for Free Quote', 'seogen' ) . '</a></div>';
-				$output[] = '<!-- /wp:button -->';
-				$output[] = '</div>';
-				$output[] = '<!-- /wp:buttons -->';
-				
-				$output[] = '<!-- wp:paragraph {"align":"center","className":"cta-trust-signals"} -->';
-				$output[] = '<p class="cta-trust-signals has-text-align-center">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
-				$output[] = '<!-- /wp:paragraph -->';
-				
-				$output[] = '</div>';
-				$output[] = '<!-- /wp:group -->';
-				
-				$output[] = '</div>';
-				$output[] = '<!-- /wp:group -->';
+					$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
+					$output[] = '<div class="wp-block-buttons">';
+					$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
+					$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now for Free Quote', 'seogen' ) . '</a></div>';
+					$output[] = '<!-- /wp:button -->';
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:buttons -->';
+					
+					$output[] = '<!-- wp:paragraph {"align":"center","className":"cta-trust-signals"} -->';
+					$output[] = '<p class="cta-trust-signals has-text-align-center">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
+					$output[] = '<!-- /wp:paragraph -->';
+					
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:group -->';
+					
+					$output[] = '</div>';
+					$output[] = '<!-- /wp:group -->';
+				}
 				continue;
 			}
 		}
