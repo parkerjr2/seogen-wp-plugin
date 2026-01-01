@@ -4487,6 +4487,7 @@ class SEOgen_Admin {
 				if ( 'service_area' === $page_mode ) {
 					$item['area_name'] = isset( $row['area_name'] ) ? (string) $row['area_name'] : '';
 					$item['area_type'] = isset( $row['area_type'] ) ? (string) $row['area_type'] : '';
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] SERVICE_AREA item: area_name=' . $item['area_name'] . ' area_type=' . $item['area_type'] . ' from row: ' . wp_json_encode($row) . PHP_EOL, FILE_APPEND );
 				}
 			
 				$api_items[] = $item;
