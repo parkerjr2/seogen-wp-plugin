@@ -83,6 +83,43 @@ trait SEOgen_Admin_Extensions {
 		);
 	}
 
+	private function get_example_service_for_hub( $hub_key, $hub_label ) {
+		// Generic examples based on hub key patterns
+		$examples = array(
+			'residential' => 'Residential Service',
+			'commercial' => 'Commercial Service',
+			'emergency' => 'Emergency Service',
+			'repair' => 'Repair Service',
+			'installation' => 'Installation Service',
+			'maintenance' => 'Maintenance Service',
+			'haircuts' => 'Haircut',
+			'beard_shave' => 'Beard Trim',
+			'kids_family' => 'Kids Haircut',
+			'specialty_styles' => 'Specialty Cut',
+			'packages' => 'Package Deal',
+			'first_time' => 'First Visit',
+			'facials' => 'Facial Treatment',
+			'massage' => 'Massage',
+			'body_treatments' => 'Body Treatment',
+			'wellness' => 'Wellness Service',
+			'special_occasions' => 'Special Event',
+			'preventive' => 'Preventive Care',
+			'restorative' => 'Restorative Service',
+			'cosmetic' => 'Cosmetic Service',
+			'family' => 'Family Service',
+			'new_patients' => 'New Patient',
+			'menu' => 'Menu Item',
+			'dining' => 'Dining Experience',
+			'specialties' => 'Specialty Dish',
+			'catering' => 'Catering Service',
+			'reservations' => 'Reservation',
+			'story' => 'Our Story',
+		);
+		
+		// Return specific example if found, otherwise use label
+		return isset( $examples[ $hub_key ] ) ? $examples[ $hub_key ] : $hub_label . ' Service';
+	}
+
 	public function render_business_setup_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -643,7 +680,64 @@ trait SEOgen_Admin_Extensions {
 
 				<h3><?php esc_html_e( 'Bulk Add Services', 'seogen' ); ?></h3>
 				<p><?php esc_html_e( 'Add multiple services at once. Format: "hub_key: Service Name" (one per line). If hub_key is omitted, the first hub will be used.', 'seogen' ); ?></p>
-				<textarea name="bulk_services" rows="10" class="large-text" placeholder="residential: Outlet Installation&#10;commercial: Panel Upgrade&#10;Lighting Repair"></textarea>
+			
+			<?php
+			// Get hub categories for autopopulate
+			$hub_categories = SEOgen_Vertical_Profiles::get_saved_hub_categories();
+			$enabled_categories = array_filter( $hub_categories, function( $cat ) {
+				return ! empty( $cat['enabled'] );
+			} );
+			
+			// Build placeholder text with actual hub categories
+			$placeholder_lines = array();
+			foreach ( $enabled_categories as $cat ) {
+				$example_service = $this->get_example_service_for_hub( $cat['key'], $cat['label'] );
+				$placeholder_lines[] = $cat['key'] . ': ' . $example_service;
+			}
+			$placeholder_text = implode( '&#10;', array_slice( $placeholder_lines, 0, 3 ) );
+			?>
+			
+			<div style="margin-bottom: 15px;">
+				<button type="button" id="autopopulate-hubs" class="button">
+					<?php esc_html_e( '✨ Auto-populate Hub Categories', 'seogen' ); ?>
+				</button>
+				<span style="margin-left: 10px; color: #666; font-size: 12px;">
+					<?php esc_html_e( 'Adds one line for each enabled hub category', 'seogen' ); ?>
+				</span>
+			</div>
+			
+			<textarea name="bulk_services" id="bulk-services-textarea" rows="10" class="large-text" placeholder="<?php echo esc_attr( $placeholder_text ); ?>"></textarea>
+			
+			<script>
+			jQuery(document).ready(function($) {
+				$('#autopopulate-hubs').on('click', function() {
+					var hubCategories = <?php echo wp_json_encode( array_values( $enabled_categories ) ); ?>;
+					var lines = [];
+					
+					hubCategories.forEach(function(cat) {
+						lines.push(cat.key + ': ');
+					});
+					
+					var textarea = $('#bulk-services-textarea');
+					var currentValue = textarea.val().trim();
+					
+					if (currentValue) {
+						// Append to existing content
+						textarea.val(currentValue + '\n' + lines.join('\n'));
+					} else {
+						// Set new content
+						textarea.val(lines.join('\n'));
+					}
+					
+					// Focus on textarea
+					textarea.focus();
+					
+					// Move cursor to end of first line
+					var firstLineEnd = lines[0].length;
+					textarea[0].setSelectionRange(firstLineEnd, firstLineEnd);
+				});
+			});
+			</script>
 
 				<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
 			</form>
