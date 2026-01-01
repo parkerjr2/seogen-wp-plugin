@@ -7488,10 +7488,39 @@ class SEOgen_Admin {
 		$vertical = isset( $_POST['vertical'] ) ? sanitize_text_field( wp_unslash( $_POST['vertical'] ) ) : 'home_services';
 		$use_defaults = isset( $_POST['use_defaults'] ) && $_POST['use_defaults'];
 		
-		SEOgen_Vertical_Profiles::set_vertical_profile( $vertical );
+		// Map business type to vertical profile
+		$vertical_profile_map = array(
+			'roofer' => 'home_services',
+			'electrician' => 'home_services',
+			'plumber' => 'home_services',
+			'hvac' => 'home_services',
+			'landscaper' => 'home_services',
+			'handyman' => 'home_services',
+			'painter' => 'home_services',
+			'concrete' => 'home_services',
+			'siding' => 'home_services',
+			'locksmith' => 'home_services',
+			'cleaning' => 'home_services',
+			'garage-door' => 'home_services',
+			'windows' => 'home_services',
+			'pest-control' => 'home_services',
+			'barbershop' => 'barbershop',
+			'spa' => 'spa',
+			'dentist' => 'dentist',
+			'restaurant' => 'restaurant',
+			'other' => 'home_services',
+		);
+		
+		$vertical_profile = isset( $vertical_profile_map[ $vertical ] ) ? $vertical_profile_map[ $vertical ] : 'home_services';
+		SEOgen_Vertical_Profiles::set_vertical_profile( $vertical_profile );
+		
+		// Also update the business config to keep dropdown in sync
+		$config = get_option( 'hyper_local_business_config', array() );
+		$config['vertical'] = $vertical;
+		update_option( 'hyper_local_business_config', $config );
 		
 		if ( $use_defaults ) {
-			$defaults = SEOgen_Vertical_Profiles::get_vertical_defaults( $vertical );
+			$defaults = SEOgen_Vertical_Profiles::get_vertical_defaults( $vertical_profile );
 			update_option( 'seogen_hub_categories', $defaults );
 			update_option( 'seogen_hub_categories_source', 'defaults' );
 		}
