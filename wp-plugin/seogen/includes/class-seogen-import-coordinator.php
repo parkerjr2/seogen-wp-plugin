@@ -178,8 +178,6 @@ trait SEOgen_Import_Coordinator {
 			'state' => isset( $item_metadata['state'] ) ? $item_metadata['state'] : '',
 			'hub_key' => isset( $item_metadata['hub_key'] ) ? $item_metadata['hub_key'] : '',
 			'hub_label' => isset( $item_metadata['hub_label'] ) ? $item_metadata['hub_label'] : '',
-			'area_name' => isset( $item_metadata['area_name'] ) ? $item_metadata['area_name'] : '',
-			'area_type' => isset( $item_metadata['area_type'] ) ? $item_metadata['area_type'] : '',
 		);
 		
 		// Log dispatch for debugging
@@ -218,11 +216,6 @@ trait SEOgen_Import_Coordinator {
 				);
 			}
 			
-		} elseif ( 'service_area' === $page_mode ) {
-			// Import service_area page (single-city area-based page)
-			// Use same import function as service_city but with area metadata
-			$result = $this->import_service_city_from_result( $result_json, $config, $item );
-			
 		} else {
 			// Default: service_city page
 			// Import using existing function from SEOgen_Admin_Import trait
@@ -236,12 +229,6 @@ trait SEOgen_Import_Coordinator {
 			update_post_meta( $result['post_id'], '_seogen_item_index', $item_index );
 			update_post_meta( $result['post_id'], '_seogen_imported_via', 'auto_import' );
 			update_post_meta( $result['post_id'], '_seogen_imported_at', current_time( 'mysql' ) );
-			
-			// Store area fields if this is a service_area page
-			if ( 'service_area' === $page_mode && ! empty( $item['area_name'] ) ) {
-				update_post_meta( $result['post_id'], '_seogen_area_name', $item['area_name'] );
-				update_post_meta( $result['post_id'], '_seogen_area_type', $item['area_type'] );
-			}
 			
 			return array(
 				'success' => true,

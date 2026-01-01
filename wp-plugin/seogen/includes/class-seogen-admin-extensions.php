@@ -48,7 +48,6 @@ trait SEOgen_Admin_Extensions {
 
 	private function get_available_verticals() {
 		return array(
-			// Home Services
 			'roofer' => 'Roofer',
 			'electrician' => 'Electrician',
 			'plumber' => 'Plumber',
@@ -63,11 +62,6 @@ trait SEOgen_Admin_Extensions {
 			'garage-door' => 'Garage Door',
 			'windows' => 'Windows',
 			'pest-control' => 'Pest Control',
-			// Single-City Verticals
-			'barbershop' => 'Barbershop',
-			'spa' => 'Spa',
-			'dentist' => 'Dentist',
-			'restaurant' => 'Restaurant',
 			'other' => 'Other',
 		);
 	}
@@ -83,43 +77,6 @@ trait SEOgen_Admin_Extensions {
 		);
 	}
 
-	private function get_example_service_for_hub( $hub_key, $hub_label ) {
-		// Generic examples based on hub key patterns
-		$examples = array(
-			'residential' => 'Residential Service',
-			'commercial' => 'Commercial Service',
-			'emergency' => 'Emergency Service',
-			'repair' => 'Repair Service',
-			'installation' => 'Installation Service',
-			'maintenance' => 'Maintenance Service',
-			'haircuts' => 'Haircut',
-			'beard_shave' => 'Beard Trim',
-			'kids_family' => 'Kids Haircut',
-			'specialty_styles' => 'Specialty Cut',
-			'packages' => 'Package Deal',
-			'first_time' => 'First Visit',
-			'facials' => 'Facial Treatment',
-			'massage' => 'Massage',
-			'body_treatments' => 'Body Treatment',
-			'wellness' => 'Wellness Service',
-			'special_occasions' => 'Special Event',
-			'preventive' => 'Preventive Care',
-			'restorative' => 'Restorative Service',
-			'cosmetic' => 'Cosmetic Service',
-			'family' => 'Family Service',
-			'new_patients' => 'New Patient',
-			'menu' => 'Menu Item',
-			'dining' => 'Dining Experience',
-			'specialties' => 'Specialty Dish',
-			'catering' => 'Catering Service',
-			'reservations' => 'Reservation',
-			'story' => 'Our Story',
-		);
-		
-		// Return specific example if found, otherwise use label
-		return isset( $examples[ $hub_key ] ) ? $examples[ $hub_key ] : $hub_label . ' Service';
-	}
-
 	public function render_business_setup_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
@@ -128,15 +85,12 @@ trait SEOgen_Admin_Extensions {
 		$config = $this->get_business_config();
 		$verticals = $this->get_available_verticals();
 		$default_hubs = $this->get_default_hubs();
-		
-		// Get hub categories (vertical profile is now same as business type)
-		$hub_categories = SEOgen_Vertical_Profiles::get_saved_hub_categories();
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Business Setup (Step 0)', 'seogen' ); ?></h1>
 			<p><?php esc_html_e( 'Configure your business type and service hubs. This is required before generating pages.', 'seogen' ); ?></p>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="business-setup-form">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'hyper_local_save_business_config', 'hyper_local_business_config_nonce' ); ?>
 				<input type="hidden" name="action" value="hyper_local_save_business_config" />
 
@@ -150,9 +104,6 @@ trait SEOgen_Admin_Extensions {
 									<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $config['vertical'], $key ); ?>><?php echo esc_html( $label ); ?></option>
 								<?php endforeach; ?>
 							</select>
-							<p class="description">
-								<?php esc_html_e( 'Select your business type. Hub categories will adapt to your industry.', 'seogen' ); ?>
-							</p>
 						</td>
 					</tr>
 					<tr>
@@ -194,101 +145,25 @@ trait SEOgen_Admin_Extensions {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Hub Categories', 'seogen' ); ?> *</th>
 						<td>
-							<style>
-								.hub-category-item {
-									display: flex;
-									align-items: center;
-									gap: 10px;
-									padding: 10px;
-									background: #f9f9f9;
-									border: 1px solid #ddd;
-									margin-bottom: 5px;
-									border-radius: 3px;
+							<p><?php esc_html_e( 'Select the service hub categories for your business:', 'seogen' ); ?></p>
+							<?php foreach ( $default_hubs as $hub ) : ?>
+								<?php
+								$checked = false;
+								if ( ! empty( $config['hubs'] ) ) {
+									foreach ( $config['hubs'] as $saved_hub ) {
+										if ( isset( $saved_hub['key'] ) && $saved_hub['key'] === $hub['key'] ) {
+											$checked = true;
+											break;
+										}
+									}
 								}
-								.hub-category-item .drag-handle {
-									cursor: move;
-									color: #999;
-								}
-								.hub-category-item .hub-category-label {
-									flex: 1;
-									min-width: 200px;
-								}
-								.hub-category-item button {
-									margin: 0 2px;
-								}
-								#hub-categories-list {
-									margin: 15px 0;
-								}
-								#new-hub-label {
-									width: 300px;
-									margin-right: 10px;
-								}
-							</style>
-							
-							<p><?php esc_html_e( 'Hub categories group your service hubs. For single-city verticals, keep these intent-based.', 'seogen' ); ?></p>
-							
-							<div id="hub-categories-list">
-								<?php foreach ( $hub_categories as $index => $category ) : ?>
-									<div class="hub-category-item" data-index="<?php echo esc_attr( $index ); ?>">
-										<span class="dashicons dashicons-menu drag-handle"></span>
-										
-										<label>
-											<input type="checkbox" 
-												name="hub_categories[<?php echo esc_attr( $index ); ?>][enabled]" 
-												value="1" 
-												<?php checked( $category['enabled'] ); ?> />
-										</label>
-										
-										<input type="text" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][label]" 
-											value="<?php echo esc_attr( $category['label'] ); ?>" 
-											class="hub-category-label" 
-											required />
-										
-										<input type="hidden" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][key]" 
-											value="<?php echo esc_attr( $category['key'] ); ?>" />
-										
-										<input type="hidden" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][sort_order]" 
-											value="<?php echo esc_attr( $category['sort_order'] ); ?>" 
-											class="hub-category-sort" />
-										
-										<input type="hidden" 
-											name="hub_categories[<?php echo esc_attr( $index ); ?>][is_custom]" 
-											value="<?php echo esc_attr( $category['is_custom'] ? '1' : '0' ); ?>" />
-										
-										<button type="button" class="button button-small hub-move-up">↑</button>
-										<button type="button" class="button button-small hub-move-down">↓</button>
-										
-										<?php if ( $category['is_custom'] ) : ?>
-											<button type="button" class="button button-small hub-delete">
-												<?php esc_html_e( 'Delete', 'seogen' ); ?>
-											</button>
-										<?php endif; ?>
-									</div>
-								<?php endforeach; ?>
-							</div>
-							
-							<div style="margin-top: 15px;">
-								<h4><?php esc_html_e( 'Add New Hub Category', 'seogen' ); ?></h4>
-								<input type="text" id="new-hub-label" placeholder="<?php esc_attr_e( 'Category Label', 'seogen' ); ?>" />
-								<button type="button" id="add-hub-category" class="button">
-									<?php esc_html_e( '+ Add Hub Category', 'seogen' ); ?>
-								</button>
-							</div>
-							
-							<div style="margin-top: 15px;">
-								<button type="button" id="reset-hub-categories" class="button">
-									<?php esc_html_e( 'Reset to Defaults for This Vertical', 'seogen' ); ?>
-								</button>
-							</div>
-							
-							<?php if ( count( $hub_categories ) > 8 ) : ?>
-								<p class="description" style="color: #d63638;">
-									<?php esc_html_e( '⚠️ Warning: Too many categories (>8) can create thin pages.', 'seogen' ); ?>
-								</p>
-							<?php endif; ?>
+								?>
+								<label style="display: block; margin-bottom: 8px;">
+									<input type="checkbox" name="hubs[]" value="<?php echo esc_attr( json_encode( $hub ) ); ?>" <?php checked( $checked ); ?> />
+									<?php echo esc_html( $hub['label'] ); ?> (<?php echo esc_html( $hub['slug'] ); ?>)
+								</label>
+							<?php endforeach; ?>
+							<p class="description"><?php esc_html_e( 'Select at least one hub category. You can add custom hubs later.', 'seogen' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -300,146 +175,9 @@ trait SEOgen_Admin_Extensions {
 					<?php echo esc_html__( 'Next Step: Services →', 'seogen' ); ?>
 				</a>
 			</p>
-		
-		<script>
-		jQuery(document).ready(function($) {
-			// Add new hub category
-			$('#add-hub-category').on('click', function() {
-				var label = $('#new-hub-label').val().trim();
-				if (!label) {
-					alert('Please enter a category label');
-					return;
-				}
-				
-				// AJAX call to add category
-				$.post(ajaxurl, {
-					action: 'seogen_save_hub_categories',
-					nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-					operation: 'add',
-					label: label
-				}, function(response) {
-					if (response.success) {
-						location.reload();
-					} else {
-						alert('Error: ' + (response.data ? response.data.message : 'Unknown error'));
-					}
-				});
-			});
-			
-			// Move up/down
-			$('.hub-move-up').on('click', function() {
-				var item = $(this).closest('.hub-category-item');
-				var prev = item.prev('.hub-category-item');
-				if (prev.length) {
-					prev.before(item);
-					updateSortOrder();
-				}
-			});
-			
-			$('.hub-move-down').on('click', function() {
-				var item = $(this).closest('.hub-category-item');
-				var next = item.next('.hub-category-item');
-				if (next.length) {
-					next.after(item);
-					updateSortOrder();
-				}
-			});
-			
-			// Delete custom category
-			$('.hub-delete').on('click', function() {
-				if (!confirm('Are you sure you want to delete this category?')) {
-					return;
-				}
-				$(this).closest('.hub-category-item').remove();
-				updateSortOrder();
-			});
-			
-			// Reset to defaults
-			$('#reset-hub-categories').on('click', function() {
-				if (!confirm('This will replace all categories with defaults for the selected business type. Continue?')) {
-					return;
-				}
-				
-				var vertical = $('#vertical').val();
-				$.post(ajaxurl, {
-					action: 'seogen_reset_hub_categories',
-					nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-					vertical: vertical
-				}, function(response) {
-					if (response.success) {
-						location.reload();
-					}
-				});
-			});
-			
-			// Business type change (also updates vertical profile)
-			var originalVertical = $('#vertical').val();
-			$('#vertical').on('change', function() {
-				var newVertical = $(this).val();
-				if (newVertical === originalVertical || !newVertical) {
-					return;
-				}
-				
-				// Check if this vertical has specific hub category defaults
-				var verticalsWithDefaults = ['barbershop', 'spa', 'dentist', 'restaurant'];
-				if (verticalsWithDefaults.indexOf(newVertical) === -1 && verticalsWithDefaults.indexOf(originalVertical) === -1) {
-					// Both are home services types, no need to prompt
-					originalVertical = newVertical;
-					return;
-				}
-				
-				var choice = confirm(
-					'You changed the business type. Would you like to:\n\n' +
-					'OK = Use default hub categories for ' + newVertical + '\n' +
-					'Cancel = Keep current hub categories'
-				);
-				
-				if (choice) {
-					// User wants to use defaults - save and reload
-					$.post(ajaxurl, {
-						action: 'seogen_change_vertical',
-						nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-						vertical: newVertical,
-						use_defaults: true
-					}, function(response) {
-						if (response.success) {
-							location.reload();
-						}
-					});
-				} else {
-					// User wants to keep current categories - just save the vertical without reload
-					$.post(ajaxurl, {
-						action: 'seogen_change_vertical',
-						nonce: '<?php echo wp_create_nonce( 'seogen_hub_categories' ); ?>',
-						vertical: newVertical,
-						use_defaults: false
-					}, function(response) {
-						// Don't reload, just update the original value
-						originalVertical = newVertical;
-					});
-				}
-			});
-			
-			function updateSortOrder() {
-				$('.hub-category-item').each(function(index) {
-					$(this).find('.hub-category-sort').val(index);
-					$(this).attr('data-index', index);
-					
-					// Update field names to maintain proper indexing
-					$(this).find('input, select').each(function() {
-						var name = $(this).attr('name');
-						if (name && name.indexOf('hub_categories[') === 0) {
-							var newName = name.replace(/hub_categories\[\d+\]/, 'hub_categories[' + index + ']');
-							$(this).attr('name', newName);
-						}
-					});
-				});
-			}
-		});
-		</script>
-	</div>
-	<?php
-}
+		</div>
+		<?php
+	}
 
 	public function handle_save_business_config() {
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -447,71 +185,6 @@ trait SEOgen_Admin_Extensions {
 		}
 
 		check_admin_referer( 'hyper_local_save_business_config', 'hyper_local_business_config_nonce' );
-
-		// Save vertical profile (same as business type)
-		if ( isset( $_POST['vertical'] ) ) {
-			$vertical = sanitize_text_field( wp_unslash( $_POST['vertical'] ) );
-			
-			// Map business type to vertical profile for hub categories
-			$vertical_profile_map = array(
-				'roofer' => 'home_services',
-				'electrician' => 'home_services',
-				'plumber' => 'home_services',
-				'hvac' => 'home_services',
-				'landscaper' => 'home_services',
-				'handyman' => 'home_services',
-				'painter' => 'home_services',
-				'concrete' => 'home_services',
-				'siding' => 'home_services',
-				'locksmith' => 'home_services',
-				'cleaning' => 'home_services',
-				'garage-door' => 'home_services',
-				'windows' => 'home_services',
-				'pest-control' => 'home_services',
-				'barbershop' => 'barbershop',
-				'spa' => 'spa',
-				'dentist' => 'dentist',
-				'restaurant' => 'restaurant',
-				'other' => 'home_services',
-			);
-			
-			$vertical_profile = isset( $vertical_profile_map[ $vertical ] ) ? $vertical_profile_map[ $vertical ] : 'home_services';
-			SEOgen_Vertical_Profiles::set_vertical_profile( $vertical_profile );
-		}
-
-		// Save hub categories
-		if ( isset( $_POST['hub_categories'] ) && is_array( $_POST['hub_categories'] ) ) {
-			$categories = array();
-			
-			foreach ( $_POST['hub_categories'] as $cat_data ) {
-				if ( ! is_array( $cat_data ) ) {
-					continue;
-				}
-				
-				$categories[] = array(
-					'key'        => isset( $cat_data['key'] ) ? sanitize_key( $cat_data['key'] ) : '',
-					'label'      => isset( $cat_data['label'] ) ? sanitize_text_field( wp_unslash( $cat_data['label'] ) ) : '',
-					'enabled'    => ! empty( $cat_data['enabled'] ),
-					'sort_order' => isset( $cat_data['sort_order'] ) ? absint( $cat_data['sort_order'] ) : 0,
-					'is_custom'  => ! empty( $cat_data['is_custom'] ),
-				);
-			}
-			
-			SEOgen_Vertical_Profiles::save_hub_categories( $categories );
-			update_option( 'seogen_hub_categories_source', 'customized' );
-			
-			// Also update legacy hubs format for backward compatibility
-			$legacy_hubs = array();
-			foreach ( $categories as $cat ) {
-				if ( $cat['enabled'] ) {
-					$legacy_hubs[] = array(
-						'key'   => $cat['key'],
-						'label' => $cat['label'],
-						'slug'  => $cat['key'] . '-services',
-					);
-				}
-			}
-		}
 
 		$config = array(
 			'vertical' => isset( $_POST['vertical'] ) ? sanitize_text_field( wp_unslash( $_POST['vertical'] ) ) : '',
@@ -521,8 +194,17 @@ trait SEOgen_Admin_Extensions {
 			'service_area_label' => isset( $_POST['service_area_label'] ) ? sanitize_text_field( wp_unslash( $_POST['service_area_label'] ) ) : '',
 			'email' => isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '',
 			'address' => isset( $_POST['address'] ) ? sanitize_text_field( wp_unslash( $_POST['address'] ) ) : '',
-			'hubs' => isset( $legacy_hubs ) ? $legacy_hubs : array(),
+			'hubs' => array(),
 		);
+
+		if ( isset( $_POST['hubs'] ) && is_array( $_POST['hubs'] ) ) {
+			foreach ( $_POST['hubs'] as $hub_json ) {
+				$hub = json_decode( stripslashes( $hub_json ), true );
+				if ( is_array( $hub ) && isset( $hub['key'], $hub['label'], $hub['slug'] ) ) {
+					$config['hubs'][] = $hub;
+				}
+			}
+		}
 
 		update_option( self::BUSINESS_CONFIG_OPTION, $config );
 
@@ -680,64 +362,7 @@ trait SEOgen_Admin_Extensions {
 
 				<h3><?php esc_html_e( 'Bulk Add Services', 'seogen' ); ?></h3>
 				<p><?php esc_html_e( 'Add multiple services at once. Format: "hub_key: Service Name" (one per line). If hub_key is omitted, the first hub will be used.', 'seogen' ); ?></p>
-			
-			<?php
-			// Get hub categories for autopopulate
-			$hub_categories = SEOgen_Vertical_Profiles::get_saved_hub_categories();
-			$enabled_categories = array_filter( $hub_categories, function( $cat ) {
-				return ! empty( $cat['enabled'] );
-			} );
-			
-			// Build placeholder text with actual hub categories
-			$placeholder_lines = array();
-			foreach ( $enabled_categories as $cat ) {
-				$example_service = $this->get_example_service_for_hub( $cat['key'], $cat['label'] );
-				$placeholder_lines[] = $cat['key'] . ': ' . $example_service;
-			}
-			$placeholder_text = implode( '&#10;', array_slice( $placeholder_lines, 0, 3 ) );
-			?>
-			
-			<div style="margin-bottom: 15px;">
-				<button type="button" id="autopopulate-hubs" class="button">
-					<?php esc_html_e( '✨ Auto-populate Hub Categories', 'seogen' ); ?>
-				</button>
-				<span style="margin-left: 10px; color: #666; font-size: 12px;">
-					<?php esc_html_e( 'Adds one line for each enabled hub category', 'seogen' ); ?>
-				</span>
-			</div>
-			
-			<textarea name="bulk_services" id="bulk-services-textarea" rows="10" class="large-text" placeholder="<?php echo esc_attr( $placeholder_text ); ?>"></textarea>
-			
-			<script>
-			jQuery(document).ready(function($) {
-				$('#autopopulate-hubs').on('click', function() {
-					var hubCategories = <?php echo wp_json_encode( array_values( $enabled_categories ) ); ?>;
-					var lines = [];
-					
-					hubCategories.forEach(function(cat) {
-						lines.push(cat.key + ': ');
-					});
-					
-					var textarea = $('#bulk-services-textarea');
-					var currentValue = textarea.val().trim();
-					
-					if (currentValue) {
-						// Append to existing content
-						textarea.val(currentValue + '\n' + lines.join('\n'));
-					} else {
-						// Set new content
-						textarea.val(lines.join('\n'));
-					}
-					
-					// Focus on textarea
-					textarea.focus();
-					
-					// Move cursor to end of first line
-					var firstLineEnd = lines[0].length;
-					textarea[0].setSelectionRange(firstLineEnd, firstLineEnd);
-				});
-			});
-			</script>
+				<textarea name="bulk_services" rows="10" class="large-text" placeholder="residential: Outlet Installation&#10;commercial: Panel Upgrade&#10;Lighting Repair"></textarea>
 
 				<?php submit_button( __( 'Save Services', 'seogen' ) ); ?>
 			</form>
@@ -745,118 +370,58 @@ trait SEOgen_Admin_Extensions {
 		
 		<!-- CITIES SECTION -->
 		<div class="hl-section">
-			<?php
-			// Get campaign settings
-			$campaign_settings = get_option( 'seogen_campaign_settings', array() );
-			$campaign_mode = isset( $campaign_settings['campaign_mode'] ) ? $campaign_settings['campaign_mode'] : 'multi_city';
-			$primary_city = isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : '';
-			$primary_state = isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : '';
-			$cities = get_option( 'hyper_local_cities_cache', array() );
-			
-			$is_single_city = ( 'single_city' === $campaign_mode );
-			?>
-			
-			<?php if ( $is_single_city ) : ?>
-				<h2><?php echo esc_html( sprintf( __( 'Locations in %s', 'seogen' ), $primary_city ) ); ?></h2>
-				<p><?php esc_html_e( 'Add neighborhoods, landmarks, districts, and other locations in your primary city. These will be used to create location-specific service pages.', 'seogen' ); ?></p>
+			<h2><?php esc_html_e( 'Cities', 'seogen' ); ?></h2>
+			<p><?php esc_html_e( 'Add and manage the cities your business serves.', 'seogen' ); ?></p>
 				
-				<?php if ( empty( $primary_city ) ) : ?>
-					<div class="notice notice-warning">
-						<p>
-							<?php esc_html_e( 'Please set your Primary City in Settings first.', 'seogen' ); ?>
-							<a href="<?php echo esc_url( admin_url( 'admin.php?page=seogen-settings' ) ); ?>"><?php esc_html_e( 'Go to Settings', 'seogen' ); ?></a>
-						</p>
-					</div>
-				<?php endif; ?>
-			<?php else : ?>
-				<h2><?php esc_html_e( 'Cities', 'seogen' ); ?></h2>
-				<p><?php esc_html_e( 'Add and manage the cities your business serves.', 'seogen' ); ?></p>
-			<?php endif; ?>
+				<?php
+				$cities = get_option( 'hyper_local_cities_cache', array() );
+				?>
 				
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 					<?php wp_nonce_field( 'hyper_local_save_cities', 'hyper_local_cities_nonce' ); ?>
 					<input type="hidden" name="action" value="hyper_local_save_cities" />
 					
-					<?php if ( $is_single_city ) : ?>
-						<h3><?php esc_html_e( 'Current Locations', 'seogen' ); ?></h3>
-						<table class="wp-list-table widefat fixed striped hl-cities-table">
-							<thead>
-								<tr>
-									<th style="width: 85%;"><?php esc_html_e( 'Location Name', 'seogen' ); ?></th>
-									<th style="width: 15%; text-align: center;"><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
-								</tr>
-							</thead>
-							<tbody>
-								<?php if ( ! empty( $cities ) ) : ?>
-									<?php foreach ( $cities as $idx => $city ) : ?>
-										<tr>
-											<td>
-												<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][name]" value="<?php echo esc_attr( $city['name'] ); ?>" class="regular-text" required />
-												<input type="hidden" name="cities[<?php echo esc_attr( $idx ); ?>][state]" value="location" />
-											</td>
-											<td style="text-align: center;">
-												<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ), 'hyper_local_delete_city_' . $idx, 'nonce' ) ); ?>" 
-												   class="button button-small" 
-												   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this location?', 'seogen' ); ?>');"><?php esc_html_e( 'Delete', 'seogen' ); ?></a>
-											</td>
-										</tr>
-									<?php endforeach; ?>
-								<?php else : ?>
+					<h3><?php esc_html_e( 'Current Cities', 'seogen' ); ?></h3>
+					<table class="wp-list-table widefat fixed striped hl-cities-table">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'City Name', 'seogen' ); ?></th>
+								<th><?php esc_html_e( 'State', 'seogen' ); ?></th>
+								<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php if ( ! empty( $cities ) ) : ?>
+								<?php foreach ( $cities as $idx => $city ) : ?>
 									<tr>
-										<td colspan="2"><?php esc_html_e( 'No locations configured yet. Add locations using the bulk add feature below.', 'seogen' ); ?></td>
+										<td>
+											<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][name]" value="<?php echo esc_attr( $city['name'] ); ?>" class="regular-text" required />
+										</td>
+										<td>
+											<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][state]" value="<?php echo esc_attr( $city['state'] ); ?>" class="regular-text" required />
+										</td>
+										<td>
+											<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ), 'hyper_local_delete_city_' . $idx, 'nonce' ) ); ?>" 
+											   class="button button-small" 
+											   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this city?', 'seogen' ); ?>');"><?php esc_html_e( 'Delete', 'seogen' ); ?></a>
+										</td>
 									</tr>
-								<?php endif; ?>
-							</tbody>
-						</table>
-						
-						<hr class="hl-section-divider" />
-						
-						<h3><?php esc_html_e( 'Bulk Add Locations', 'seogen' ); ?></h3>
-						<p><?php esc_html_e( 'Add multiple locations at once, one per line.', 'seogen' ); ?></p>
-						<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Rose District&#10;Downtown&#10;71st & Memorial&#10;Brookside&#10;Cherry Street"></textarea>
-					<?php else : ?>
-						<h3><?php esc_html_e( 'Current Cities', 'seogen' ); ?></h3>
-						<table class="wp-list-table widefat fixed striped hl-cities-table">
-							<thead>
+								<?php endforeach; ?>
+							<?php else : ?>
 								<tr>
-									<th><?php esc_html_e( 'City Name', 'seogen' ); ?></th>
-									<th><?php esc_html_e( 'State', 'seogen' ); ?></th>
-									<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
+									<td colspan="3"><?php esc_html_e( 'No cities configured yet. Add cities using the bulk add feature below.', 'seogen' ); ?></td>
 								</tr>
-							</thead>
-							<tbody>
-								<?php if ( ! empty( $cities ) ) : ?>
-									<?php foreach ( $cities as $idx => $city ) : ?>
-										<tr>
-											<td>
-												<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][name]" value="<?php echo esc_attr( $city['name'] ); ?>" class="regular-text" required />
-											</td>
-											<td>
-												<input type="text" name="cities[<?php echo esc_attr( $idx ); ?>][state]" value="<?php echo esc_attr( isset( $city['state'] ) ? $city['state'] : '' ); ?>" class="regular-text" required />
-											</td>
-											<td>
-												<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_city&index=' . $idx ), 'hyper_local_delete_city_' . $idx, 'nonce' ) ); ?>" 
-												   class="button button-small" 
-												   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this city?', 'seogen' ); ?>');"><?php esc_html_e( 'Delete', 'seogen' ); ?></a>
-											</td>
-										</tr>
-									<?php endforeach; ?>
-								<?php else : ?>
-									<tr>
-										<td colspan="3"><?php esc_html_e( 'No cities configured yet. Add cities using the bulk add feature below.', 'seogen' ); ?></td>
-									</tr>
-								<?php endif; ?>
-							</tbody>
-						</table>
-						
-						<hr class="hl-section-divider" />
-						
-						<h3><?php esc_html_e( 'Bulk Add Cities', 'seogen' ); ?></h3>
-						<p><?php esc_html_e( 'Add multiple cities at once. Format: "City Name, State" (one per line).', 'seogen' ); ?></p>
-						<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Austin, TX&#10;Dallas, TX&#10;Houston, TX"></textarea>
-					<?php endif; ?>
+							<?php endif; ?>
+						</tbody>
+					</table>
 					
-				<?php submit_button( $is_single_city ? __( 'Save Locations', 'seogen' ) : __( 'Save Cities', 'seogen' ) ); ?>
+					<hr class="hl-section-divider" />
+					
+					<h3><?php esc_html_e( 'Bulk Add Cities', 'seogen' ); ?></h3>
+					<p><?php esc_html_e( 'Add multiple cities at once. Format: "City Name, State" (one per line).', 'seogen' ); ?></p>
+					<textarea name="bulk_cities" rows="10" class="large-text" placeholder="Austin, TX&#10;Dallas, TX&#10;Houston, TX"></textarea>
+					
+				<?php submit_button( __( 'Save Cities', 'seogen' ) ); ?>
 			</form>
 		</div>
 		
