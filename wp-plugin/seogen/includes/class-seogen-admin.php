@@ -4548,7 +4548,7 @@ class SEOgen_Admin {
 				// Get business config for vertical
 				$config = $this->get_business_config();
 				$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
-		
+	
 				$item = array(
 					'page_mode'    => $page_mode,
 					'service'      => $service_name,
@@ -4561,6 +4561,7 @@ class SEOgen_Admin {
 					'phone'        => isset( $form['phone'] ) ? sanitize_text_field( (string) $form['phone'] ) : '',
 					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
 					'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
+					'cta_text'     => isset( $config['cta_text'] ) ? $config['cta_text'] : 'Request a Free Estimate',
 				);
 			
 				// Add area fields if this is a service_area page
