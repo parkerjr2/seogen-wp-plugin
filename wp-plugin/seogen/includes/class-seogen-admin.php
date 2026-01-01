@@ -322,12 +322,66 @@ class SEOgen_Admin {
 		$settings = $this->get_settings();
 		$current = ! empty( $settings['disable_theme_header_footer'] );
 		printf(
-			'<label><input type="checkbox" name="%1$s[disable_theme_header_footer]" value="1" %2$s /> %3$s</label>',
+			'<label><input type="checkbox" name="%s[disable_theme_header_footer]" value="1" %s /> %s</label>',
 			esc_attr( self::OPTION_NAME ),
 			checked( $current, true, false ),
-			esc_html__( 'Remove default theme header and footer from generated pages (uses your Header/Footer templates only).', 'seogen' )
+			esc_html__( 'Remove theme header and footer from service pages (use custom header/footer templates above)', 'seogen' )
 		);
-		echo '<p class="description">' . esc_html__( 'Works with Elementor, Gutenberg, Divi, and other page builders. Automatically detects your page builder and applies the appropriate settings.', 'seogen' ) . '</p>';
+	}
+
+	public function render_campaign_settings_section_description() {
+		echo '<p>' . esc_html__( 'Configure whether you serve multiple cities or focus on one city with multiple neighborhoods/districts.', 'seogen' ) . '</p>';
+	}
+
+	public function render_field_campaign_mode() {
+		$settings = get_option( 'seogen_campaign_settings', array() );
+		$mode = isset( $settings['campaign_mode'] ) ? $settings['campaign_mode'] : 'multi_city';
+		?>
+		<label style="display: block; margin-bottom: 8px;">
+			<input type="radio" name="seogen_campaign_settings[campaign_mode]" value="multi_city" <?php checked( $mode, 'multi_city' ); ?>>
+			<?php esc_html_e( 'Multi-City (Service + City)', 'seogen' ); ?>
+		</label>
+		<label style="display: block;">
+			<input type="radio" name="seogen_campaign_settings[campaign_mode]" value="single_city" <?php checked( $mode, 'single_city' ); ?>>
+			<?php esc_html_e( 'Single-City (Service + Neighborhood/District)', 'seogen' ); ?>
+		</label>
+		<p class="description">
+			<?php esc_html_e( 'Multi-City: Generate pages for the same service across different cities. Single-City: Generate pages for different services/areas within one city.', 'seogen' ); ?>
+		</p>
+		<?php
+	}
+
+	public function render_field_primary_city() {
+		$settings = get_option( 'seogen_campaign_settings', array() );
+		$city = isset( $settings['primary_city'] ) ? $settings['primary_city'] : '';
+		?>
+		<input type="text" name="seogen_campaign_settings[primary_city]" value="<?php echo esc_attr( $city ); ?>" class="regular-text" placeholder="e.g., Broken Arrow">
+		<p class="description">
+			<?php esc_html_e( 'The primary city you serve (only used in Single-City mode). Example: Broken Arrow', 'seogen' ); ?>
+		</p>
+		<?php
+	}
+
+	public function render_field_primary_state() {
+		$settings = get_option( 'seogen_campaign_settings', array() );
+		$state = isset( $settings['primary_state'] ) ? $settings['primary_state'] : '';
+		?>
+		<input type="text" name="seogen_campaign_settings[primary_state]" value="<?php echo esc_attr( $state ); ?>" maxlength="2" style="width: 60px; text-transform: uppercase;" placeholder="OK">
+		<p class="description">
+			<?php esc_html_e( 'State abbreviation (e.g., OK, TX, CA). Only used in Single-City mode.', 'seogen' ); ?>
+		</p>
+		<?php
+	}
+
+	public function render_field_city_anchor_page() {
+		$settings = get_option( 'seogen_campaign_settings', array() );
+		$anchor = isset( $settings['city_anchor_page'] ) ? $settings['city_anchor_page'] : '';
+		?>
+		<input type="text" name="seogen_campaign_settings[city_anchor_page]" value="<?php echo esc_attr( $anchor ); ?>" class="regular-text" placeholder="/broken-arrow-ok">
+		<p class="description">
+			<?php esc_html_e( 'Optional: URL slug for your main city page (for future linking features). Example: /broken-arrow-ok', 'seogen' ); ?>
+		</p>
+		<?php
 	}
 
 	private function get_available_templates() {
@@ -2344,27 +2398,66 @@ class SEOgen_Admin {
 	}
 
 	private function parse_service_areas( $raw_lines, $default_state = '' ) {
+		// Get campaign settings to determine parsing mode
+		$campaign_settings = get_option( 'seogen_campaign_settings', array() );
+		$campaign_mode = isset( $campaign_settings['campaign_mode'] ) ? $campaign_settings['campaign_mode'] : 'multi_city';
+		
 		$lines = $this->parse_bulk_lines( $raw_lines );
 		$areas = array();
-		foreach ( $lines as $line ) {
-			$parts = array_map( 'trim', explode( ',', (string) $line ) );
-			$parts = array_values( array_filter( $parts, static function ( $v ) {
-				return '' !== trim( (string) $v );
-			} ) );
-			if ( 1 === count( $parts ) ) {
-				// Single value (city/neighborhood only) - state is optional
-				$areas[] = array(
-					'city'  => sanitize_text_field( (string) $parts[0] ),
-					'state' => '', // Empty state for city/neighborhood-only entries
-				);
-			} elseif ( count( $parts ) >= 2 ) {
-				// Standard format: City, ST (or City, ST, extra - just use first 2)
-				$areas[] = array(
-					'city'  => sanitize_text_field( (string) $parts[0] ),
-					'state' => sanitize_text_field( (string) $parts[1] ),
-				);
+		
+		if ( 'single_city' === $campaign_mode ) {
+			// Single-city mode: parse "Area Name | Area Type" format
+			$primary_city = isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : '';
+			$primary_state = isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : '';
+			
+			foreach ( $lines as $line ) {
+				// Split by pipe delimiter
+				$parts = array_map( 'trim', explode( '|', (string) $line ) );
+				$parts = array_values( array_filter( $parts, static function ( $v ) {
+					return '' !== trim( (string) $v );
+				} ) );
+				
+				if ( count( $parts ) >= 2 ) {
+					// Format: Area Name | Area Type
+					$areas[] = array(
+						'city'      => $primary_city,
+						'state'     => $primary_state,
+						'area_name' => sanitize_text_field( (string) $parts[0] ),
+						'area_type' => sanitize_text_field( (string) $parts[1] ),
+					);
+				} elseif ( count( $parts ) === 1 ) {
+					// If no type specified, default to 'area'
+					$areas[] = array(
+						'city'      => $primary_city,
+						'state'     => $primary_state,
+						'area_name' => sanitize_text_field( (string) $parts[0] ),
+						'area_type' => 'area',
+					);
+				}
+			}
+		} else {
+			// Multi-city mode: parse "City, ST" format (existing logic)
+			foreach ( $lines as $line ) {
+				$parts = array_map( 'trim', explode( ',', (string) $line ) );
+				$parts = array_values( array_filter( $parts, static function ( $v ) {
+					return '' !== trim( (string) $v );
+				} ) );
+				if ( 1 === count( $parts ) ) {
+					// Single value (city/neighborhood only) - state is optional
+					$areas[] = array(
+						'city'  => sanitize_text_field( (string) $parts[0] ),
+						'state' => '', // Empty state for city/neighborhood-only entries
+					);
+				} elseif ( count( $parts ) >= 2 ) {
+					// Standard format: City, ST (or City, ST, extra - just use first 2)
+					$areas[] = array(
+						'city'  => sanitize_text_field( (string) $parts[0] ),
+						'state' => sanitize_text_field( (string) $parts[1] ),
+					);
+				}
 			}
 		}
+		
 		return $areas;
 	}
 
@@ -2379,6 +2472,25 @@ class SEOgen_Admin {
 			return $service . '|' . $city . '|' . $state . '|' . $hub_key;
 		}
 		return $service . '|' . $city . '|' . $state;
+	}
+
+	private function compute_canonical_key_area( $service, $area_type, $area_name, $city, $state, $hub_key = '' ) {
+		// Format: service|area_type|area_name|city|state|hub_key(optional)
+		// Normalize to lowercase and slug-safe
+		$service_slug = strtolower( str_replace( ' ', '-', trim( (string) $service ) ) );
+		$area_type_slug = strtolower( str_replace( ' ', '-', trim( (string) $area_type ) ) );
+		$area_name_slug = strtolower( str_replace( ' ', '-', trim( (string) $area_name ) ) );
+		$city_slug = strtolower( str_replace( ' ', '-', trim( (string) $city ) ) );
+		$state_slug = strtolower( trim( (string) $state ) );
+		
+		$key = "{$service_slug}|{$area_type_slug}|{$area_name_slug}|{$city_slug}|{$state_slug}";
+		
+		if ( '' !== $hub_key ) {
+			$hub_key_slug = strtolower( str_replace( ' ', '-', trim( (string) $hub_key ) ) );
+			$key .= "|{$hub_key_slug}";
+		}
+		
+		return $key;
 	}
 
 	private function compute_slug_preview( $service, $city, $state ) {
@@ -2457,15 +2569,20 @@ class SEOgen_Admin {
 
 	private function api_create_bulk_job( $api_url, $license_key, $job_name, $items ) {
 		$url = trailingslashit( (string) $api_url ) . 'bulk-jobs';
+		
+		// Get campaign settings to include in payload
+		$campaign_settings = get_option( 'seogen_campaign_settings', array() );
+		
 		$payload = array(
-			'license_key' => (string) $license_key,
-			'site_url'    => home_url(),
-			'job_name'    => (string) $job_name,
-			'items'       => $items,
+			'license_key'   => (string) $license_key,
+			'site_url'      => home_url(),
+			'job_name'      => (string) $job_name,
+			'items'         => (array) $items,
+			'campaign_mode' => isset( $campaign_settings['campaign_mode'] ) ? $campaign_settings['campaign_mode'] : 'multi_city',
+			'primary_city'  => isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : null,
+			'primary_state' => isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : null,
 		);
-		error_log( '[ADMIN] api_create_bulk_job called with ' . count( $items ) . ' items' );
-		error_log( '[ADMIN] First item in api_create_bulk_job: ' . wp_json_encode( $items[0] ) );
-		return $this->api_json_request( 'POST', $url, $payload, 60 );
+		return $this->api_json_request( 'POST', $url, $payload, 120 );
 	}
 
 	private function api_get_bulk_job_status( $api_url, $license_key, $api_job_id ) {
@@ -2607,6 +2724,53 @@ class SEOgen_Admin {
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
+
+		// Campaign Settings Section
+		add_settings_section(
+			'seogen_campaign_settings_section',
+			__( 'Campaign Settings', 'seogen' ),
+			array( $this, 'render_campaign_settings_section_description' ),
+			'seogen-settings'
+		);
+
+		add_settings_field(
+			'seogen_campaign_mode',
+			__( 'Campaign Mode', 'seogen' ),
+			array( $this, 'render_field_campaign_mode' ),
+			'seogen-settings',
+			'seogen_campaign_settings_section'
+		);
+
+		add_settings_field(
+			'seogen_primary_city',
+			__( 'Primary City', 'seogen' ),
+			array( $this, 'render_field_primary_city' ),
+			'seogen-settings',
+			'seogen_campaign_settings_section'
+		);
+
+		add_settings_field(
+			'seogen_primary_state',
+			__( 'Primary State', 'seogen' ),
+			array( $this, 'render_field_primary_state' ),
+			'seogen-settings',
+			'seogen_campaign_settings_section'
+		);
+
+		add_settings_field(
+			'seogen_city_anchor_page',
+			__( 'City Anchor Page (Optional)', 'seogen' ),
+			array( $this, 'render_field_city_anchor_page' ),
+			'seogen-settings',
+			'seogen_campaign_settings_section'
+		);
+
+		// Register campaign settings option
+		register_setting(
+			'seogen_settings_group',
+			'seogen_campaign_settings',
+			array( $this, 'sanitize_campaign_settings' )
+		);
 	}
 
 	public function sanitize_settings( $input ) {
@@ -2693,6 +2857,34 @@ class SEOgen_Admin {
 			}
 		}
 
+		return $sanitized;
+	}
+
+	public function sanitize_campaign_settings( $input ) {
+		$sanitized = array();
+		
+		// Campaign mode - must be either 'multi_city' or 'single_city'
+		$mode = isset( $input['campaign_mode'] ) ? $input['campaign_mode'] : 'multi_city';
+		if ( ! in_array( $mode, array( 'multi_city', 'single_city' ), true ) ) {
+			$mode = 'multi_city';
+		}
+		$sanitized['campaign_mode'] = $mode;
+		
+		// Primary city - sanitize text field
+		$sanitized['primary_city'] = isset( $input['primary_city'] ) ? sanitize_text_field( $input['primary_city'] ) : '';
+		
+		// Primary state - sanitize and uppercase (2 letter state code)
+		$state = isset( $input['primary_state'] ) ? sanitize_text_field( $input['primary_state'] ) : '';
+		$sanitized['primary_state'] = strtoupper( substr( $state, 0, 2 ) );
+		
+		// City anchor page - sanitize URL slug
+		$anchor = isset( $input['city_anchor_page'] ) ? sanitize_text_field( $input['city_anchor_page'] ) : '';
+		// Ensure it starts with / if not empty
+		if ( ! empty( $anchor ) && '/' !== substr( $anchor, 0, 1 ) ) {
+			$anchor = '/' . $anchor;
+		}
+		$sanitized['city_anchor_page'] = $anchor;
+		
 		return $sanitized;
 	}
 
@@ -3586,6 +3778,12 @@ class SEOgen_Admin {
 			$services_list = implode( "\n", $service_lines );
 		}
 
+		// Get campaign settings to determine mode
+		$campaign_settings = get_option( 'seogen_campaign_settings', array() );
+		$campaign_mode = isset( $campaign_settings['campaign_mode'] ) ? $campaign_settings['campaign_mode'] : 'multi_city';
+		$primary_city = isset( $campaign_settings['primary_city'] ) ? $campaign_settings['primary_city'] : '';
+		$primary_state = isset( $campaign_settings['primary_state'] ) ? $campaign_settings['primary_state'] : '';
+
 		// Build service areas list (one per line: City, ST)
 		$service_areas_list = '';
 		if ( ! empty( $cities ) && is_array( $cities ) ) {
@@ -3908,9 +4106,28 @@ class SEOgen_Admin {
 					<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Format: hub: service (e.g., residential: roof replacement)', 'seogen' ); ?></p>
 				</div>
 				<div class="hyper-local-bulk-col">
-					<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
-					<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
-					<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas or Maple Ridge', 'seogen' ); ?></p>
+					<?php if ( 'single_city' === $campaign_mode ) : ?>
+						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Areas (one per line: Area Name | Area Type)', 'seogen' ); ?></label>
+						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10" placeholder="Rose District | district&#10;Downtown | neighborhood&#10;71st & Memorial | landmark&#10;74012 | zip"></textarea>
+						<p class="description" style="margin-top:6px;">
+							<?php 
+							echo esc_html__( 'Format: Area Name | Area Type (district, neighborhood, landmark, or zip)', 'seogen' );
+							echo '<br>';
+							printf(
+								esc_html__( 'City and state will be set to: %s, %s', 'seogen' ),
+								'<strong>' . esc_html( $primary_city ) . '</strong>',
+								'<strong>' . esc_html( $primary_state ) . '</strong>'
+							);
+							if ( empty( $primary_city ) || empty( $primary_state ) ) {
+								echo '<br><span style="color: #d63638;">' . esc_html__( '⚠️ Please configure Primary City and State in Campaign Settings first!', 'seogen' ) . '</span>';
+							}
+							?>
+						</p>
+					<?php else : ?>
+						<label for="hl_bulk_service_areas"><?php echo esc_html__( 'Service Areas (one per line: City, ST or just City/Neighborhood)', 'seogen' ); ?></label>
+						<textarea name="service_areas" id="hl_bulk_service_areas" class="large-text" rows="10"><?php echo esc_textarea( (string) $defaults['service_areas'] ); ?></textarea>
+						<p class="description" style="margin-top:6px;"><?php echo esc_html__( 'Example: Dallas, TX or just Dallas or Maple Ridge', 'seogen' ); ?></p>
+					<?php endif; ?>
 				</div>
 			</div>
 				<div class="hyper-local-bulk-count" id="hyper-local-bulk-count">
@@ -4073,30 +4290,52 @@ class SEOgen_Admin {
 			foreach ( $areas as $area ) {
 				$city = isset( $area['city'] ) ? trim( (string) $area['city'] ) : '';
 				$state = isset( $area['state'] ) ? trim( (string) $area['state'] ) : '';
+				$area_name = isset( $area['area_name'] ) ? trim( (string) $area['area_name'] ) : '';
+				$area_type = isset( $area['area_type'] ) ? trim( (string) $area['area_type'] ) : '';
+			
 				if ( '' === $city ) {
 					continue;
 				}
-				
+			
 				// Create a row for EACH hub assignment
 				foreach ( $hub_assignments as $hub_data ) {
 					$hub_key = $hub_data['hub_key'];
 					$hub_label = $hub_data['hub_label'];
-					
-					// State is now optional - empty state is allowed
-					$key = $this->compute_canonical_key( $service, $city, $state, $hub_key );
+			
+					// Determine page_mode and canonical key based on whether area fields exist
+					if ( ! empty( $area_name ) ) {
+						// Single-city mode with area
+						$page_mode = 'service_area';
+						$key = $this->compute_canonical_key_area( $service, $area_type, $area_name, $city, $state, $hub_key );
+					} else {
+						// Multi-city mode
+						$page_mode = 'service_city';
+						$key = $this->compute_canonical_key( $service, $city, $state, $hub_key );
+					}
+			
 					if ( isset( $unique[ $key ] ) ) {
 						continue;
 					}
 					$unique[ $key ] = true;
-					$preview[] = array(
+			
+					$row = array(
 						'service'      => $service,
 						'city'         => $city,
 						'state'        => $state,
 						'hub_key'      => $hub_key,
 						'hub_label'    => $hub_label,
 						'key'          => $key,
+						'page_mode'    => $page_mode,
 						'slug_preview' => $this->compute_slug_preview( $service, $city, $state ),
 					);
+			
+					// Add area fields if present
+					if ( ! empty( $area_name ) ) {
+						$row['area_name'] = $area_name;
+						$row['area_type'] = $area_type;
+					}
+			
+					$preview[] = $row;
 				}
 			}
 		}
@@ -4225,8 +4464,11 @@ class SEOgen_Admin {
 		
 			// Skip adding city hub pages as service_city items - they'll be added separately below
 			if ( ! $is_city_hub ) {
-				$api_items[] = array(
-					'page_mode'    => 'service_city',
+				// Determine page_mode from validated row (set during validation)
+				$page_mode = isset( $row['page_mode'] ) ? (string) $row['page_mode'] : 'service_city';
+			
+				$item = array(
+					'page_mode'    => $page_mode,
 					'service'      => $service_name,
 					'city'         => isset( $row['city'] ) ? (string) $row['city'] : '',
 					'state'        => isset( $row['state'] ) ? (string) $row['state'] : '',
@@ -4237,6 +4479,14 @@ class SEOgen_Admin {
 					'email'        => isset( $form['email'] ) ? sanitize_email( (string) $form['email'] ) : '',
 					'address'      => isset( $form['address'] ) ? sanitize_text_field( (string) $form['address'] ) : '',
 				);
+			
+				// Add area fields if this is a service_area page
+				if ( 'service_area' === $page_mode ) {
+					$item['area_name'] = isset( $row['area_name'] ) ? (string) $row['area_name'] : '';
+					$item['area_type'] = isset( $row['area_type'] ) ? (string) $row['area_type'] : '';
+				}
+			
+				$api_items[] = $item;
 			}
 		}
 	
