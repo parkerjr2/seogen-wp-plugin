@@ -146,6 +146,10 @@ trait SEOgen_Admin_Extensions {
 						<th scope="row"><?php esc_html_e( 'Hub Categories', 'seogen' ); ?> *</th>
 						<td>
 							<p><?php esc_html_e( 'Select the service hub categories for your business:', 'seogen' ); ?></p>
+							<div class="notice notice-info inline" style="margin: 10px 0; padding: 8px 12px;">
+								<p style="margin: 0.5em 0;"><strong><?php esc_html_e( 'SEO Best Practice:', 'seogen' ); ?></strong> <?php esc_html_e( 'We recommend selecting 2-5 hub categories. Having too many hubs can dilute your SEO power and make site navigation confusing for users.', 'seogen' ); ?></p>
+							</div>
+							<h4 style="margin-top: 15px;"><?php esc_html_e( 'Standard Hub Categories', 'seogen' ); ?></h4>
 							<?php foreach ( $default_hubs as $hub ) : ?>
 								<?php
 								$checked = false;
@@ -163,7 +167,58 @@ trait SEOgen_Admin_Extensions {
 									<?php echo esc_html( $hub['label'] ); ?> (<?php echo esc_html( $hub['slug'] ); ?>)
 								</label>
 							<?php endforeach; ?>
-							<p class="description"><?php esc_html_e( 'Select at least one hub category. You can add custom hubs later.', 'seogen' ); ?></p>
+							<hr style="margin: 20px 0; border: 0; border-top: 1px solid #ddd;" />
+							<h4><?php esc_html_e( 'Custom Hub Categories', 'seogen' ); ?></h4>
+							<p class="description"><?php esc_html_e( 'Add custom hub categories specific to your business. Each hub should represent a distinct service category or customer segment.', 'seogen' ); ?></p>
+							<?php
+							// Get custom hubs (those not in default list)
+							$custom_hubs = array();
+							if ( ! empty( $config['hubs'] ) ) {
+								$default_hub_keys = array_column( $default_hubs, 'key' );
+								foreach ( $config['hubs'] as $hub ) {
+									if ( ! in_array( $hub['key'], $default_hub_keys, true ) ) {
+										$custom_hubs[] = $hub;
+									}
+								}
+							}
+							?>
+							<div id="custom-hubs-container">
+								<?php if ( ! empty( $custom_hubs ) ) : ?>
+									<?php foreach ( $custom_hubs as $idx => $hub ) : ?>
+										<div class="custom-hub-row" style="margin-bottom: 10px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 3px;">
+											<label style="display: inline-block; width: 150px; font-weight: 600;"><?php esc_html_e( 'Hub Label:', 'seogen' ); ?></label>
+											<input type="text" name="custom_hubs[<?php echo esc_attr( $idx ); ?>][label]" value="<?php echo esc_attr( $hub['label'] ); ?>" class="regular-text" placeholder="e.g., Industrial" required />
+											<br/>
+											<label style="display: inline-block; width: 150px; font-weight: 600; margin-top: 8px;"><?php esc_html_e( 'Hub Key:', 'seogen' ); ?></label>
+											<input type="text" name="custom_hubs[<?php echo esc_attr( $idx ); ?>][key]" value="<?php echo esc_attr( $hub['key'] ); ?>" class="regular-text" placeholder="e.g., industrial" pattern="[a-z0-9-]+" required />
+											<span class="description"><?php esc_html_e( '(lowercase, no spaces)', 'seogen' ); ?></span>
+											<button type="button" class="button button-small" onclick="this.parentElement.remove();" style="margin-left: 10px; color: #b32d2e;"><?php esc_html_e( 'Remove', 'seogen' ); ?></button>
+										</div>
+									<?php endforeach; ?>
+								<?php endif; ?>
+							</div>
+							<button type="button" id="add-custom-hub" class="button button-secondary" style="margin-top: 10px;"><?php esc_html_e( '+ Add Custom Hub', 'seogen' ); ?></button>
+							<script>
+							document.addEventListener('DOMContentLoaded', function() {
+								var customHubIndex = <?php echo count( $custom_hubs ); ?>;
+								document.getElementById('add-custom-hub').addEventListener('click', function() {
+									var container = document.getElementById('custom-hubs-container');
+									var newRow = document.createElement('div');
+									newRow.className = 'custom-hub-row';
+									newRow.style.cssText = 'margin-bottom: 10px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 3px;';
+									newRow.innerHTML = '<label style="display: inline-block; width: 150px; font-weight: 600;"><?php esc_html_e( 'Hub Label:', 'seogen' ); ?></label>' +
+										'<input type="text" name="custom_hubs[' + customHubIndex + '][label]" class="regular-text" placeholder="e.g., Industrial" required />' +
+										'<br/>' +
+										'<label style="display: inline-block; width: 150px; font-weight: 600; margin-top: 8px;"><?php esc_html_e( 'Hub Key:', 'seogen' ); ?></label>' +
+										'<input type="text" name="custom_hubs[' + customHubIndex + '][key]" class="regular-text" placeholder="e.g., industrial" pattern="[a-z0-9-]+" required />' +
+										'<span class="description"><?php esc_html_e( '(lowercase, no spaces)', 'seogen' ); ?></span>' +
+										'<button type="button" class="button button-small" onclick="this.parentElement.remove();" style="margin-left: 10px; color: #b32d2e;"><?php esc_html_e( 'Remove', 'seogen' ); ?></button>';
+									container.appendChild(newRow);
+									customHubIndex++;
+								});
+							});
+							</script>
+							<p class="description" style="margin-top: 15px;"><?php esc_html_e( 'Select at least one hub category (standard or custom).', 'seogen' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -197,11 +252,43 @@ trait SEOgen_Admin_Extensions {
 			'hubs' => array(),
 		);
 
+		// Process standard hubs (checkboxes)
 		if ( isset( $_POST['hubs'] ) && is_array( $_POST['hubs'] ) ) {
 			foreach ( $_POST['hubs'] as $hub_json ) {
 				$hub = json_decode( stripslashes( $hub_json ), true );
 				if ( is_array( $hub ) && isset( $hub['key'], $hub['label'], $hub['slug'] ) ) {
 					$config['hubs'][] = $hub;
+				}
+			}
+		}
+		
+		// Process custom hubs
+		if ( isset( $_POST['custom_hubs'] ) && is_array( $_POST['custom_hubs'] ) ) {
+			foreach ( $_POST['custom_hubs'] as $custom_hub ) {
+				if ( isset( $custom_hub['label'], $custom_hub['key'] ) && 
+					 ! empty( trim( $custom_hub['label'] ) ) && 
+					 ! empty( trim( $custom_hub['key'] ) ) ) {
+					
+					$hub_label = sanitize_text_field( $custom_hub['label'] );
+					$hub_key = sanitize_key( $custom_hub['key'] );
+					$hub_slug = sanitize_title( $hub_key . '-services' );
+					
+					// Avoid duplicate keys
+					$key_exists = false;
+					foreach ( $config['hubs'] as $existing_hub ) {
+						if ( $existing_hub['key'] === $hub_key ) {
+							$key_exists = true;
+							break;
+						}
+					}
+					
+					if ( ! $key_exists ) {
+						$config['hubs'][] = array(
+							'key' => $hub_key,
+							'label' => $hub_label,
+							'slug' => $hub_slug,
+						);
+					}
 				}
 			}
 		}
