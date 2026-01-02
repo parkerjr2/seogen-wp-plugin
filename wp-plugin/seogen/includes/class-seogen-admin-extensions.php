@@ -87,7 +87,7 @@ trait SEOgen_Admin_Extensions {
 		$default_hubs = $this->get_default_hubs();
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Business Setup (Step 0)', 'seogen' ); ?></h1>
+			<h1><?php esc_html_e( 'Business Info (Step 2)', 'seogen' ); ?></h1>
 			<p><?php esc_html_e( 'Configure your business type and service hubs. This is required before generating pages.', 'seogen' ); ?></p>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -364,7 +364,7 @@ trait SEOgen_Admin_Extensions {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Services & Cities', 'seogen' ); ?></h1>
+			<h1><?php esc_html_e( 'Services & Cities (Step 3)', 'seogen' ); ?></h1>
 			<p><?php esc_html_e( 'Configure the services your business offers and the cities you serve.', 'seogen' ); ?></p>
 			
 			<style>
@@ -758,7 +758,7 @@ trait SEOgen_Admin_Extensions {
 		if ( empty( $config['vertical'] ) || empty( $hubs ) ) {
 			?>
 			<div class="wrap">
-				<h1><?php esc_html_e( 'Service Hubs (Step 3.5)', 'seogen' ); ?></h1>
+				<h1><?php esc_html_e( 'Service Hubs (Step 4)', 'seogen' ); ?></h1>
 				<div class="notice notice-error">
 					<p><?php esc_html_e( 'Please complete Business Setup first before creating hub pages.', 'seogen' ); ?></p>
 				</div>
@@ -768,7 +768,7 @@ trait SEOgen_Admin_Extensions {
 		}
 		?>
 		<div class="wrap">
-			<h1><?php esc_html_e( 'Service Hubs (Step 3.5)', 'seogen' ); ?></h1>
+			<h1><?php esc_html_e( 'Service Hubs (Step 4)', 'seogen' ); ?></h1>
 			<p><?php esc_html_e( 'Create or update service hub pages. These are top-level pages that link to all service+city pages in that category.', 'seogen' ); ?></p>
 			
 			<div class="notice notice-info">

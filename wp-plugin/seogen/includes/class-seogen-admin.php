@@ -3545,7 +3545,7 @@ class SEOgen_Admin {
 		?>
 		<div class="wrap">
 			<?php $this->render_test_connection_notice(); ?>
-			<h1><?php echo esc_html__( 'Settings', 'seogen' ); ?></h1>
+			<h1><?php echo esc_html__( 'Settings (Step 1)', 'seogen' ); ?></h1>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="seogen_test_connection" />
@@ -3651,7 +3651,7 @@ class SEOgen_Admin {
 		$cancel_nonce = wp_create_nonce( 'hyper_local_bulk_job_cancel' );
 		?>
 		<div class="wrap">
-			<h1><?php echo esc_html__( 'Bulk Generate', 'seogen' ); ?></h1>
+			<h1><?php echo esc_html__( 'Generate Service Pages (Step 5)', 'seogen' ); ?></h1>
 			
 			<script>
 			console.log('[SEOgen Bulk] Page loaded');
