@@ -317,6 +317,16 @@ trait SEOgen_Admin_Extensions {
 				<input type="hidden" name="action" value="hyper_local_save_services" />
 
 				<h3><?php esc_html_e( 'Current Services', 'seogen' ); ?></h3>
+				<?php if ( ! empty( $services ) ) : ?>
+					<p>
+						<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_all_services' ), 'hyper_local_delete_all_services', 'nonce' ) ); ?>" 
+						   class="button button-secondary" 
+						   style="color: #b32d2e;"
+						   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete ALL services? This action cannot be undone.', 'seogen' ); ?>');">
+							<?php esc_html_e( 'Delete All Services', 'seogen' ); ?>
+						</a>
+					</p>
+				<?php endif; ?>
 				<table class="wp-list-table widefat fixed striped hl-services-table">
 					<thead>
 						<tr>
@@ -382,6 +392,16 @@ trait SEOgen_Admin_Extensions {
 					<input type="hidden" name="action" value="hyper_local_save_cities" />
 					
 					<h3><?php esc_html_e( 'Current Cities', 'seogen' ); ?></h3>
+					<?php if ( ! empty( $cities ) ) : ?>
+						<p>
+							<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_all_cities' ), 'hyper_local_delete_all_cities', 'nonce' ) ); ?>" 
+							   class="button button-secondary" 
+							   style="color: #b32d2e;"
+							   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete ALL cities? This action cannot be undone.', 'seogen' ); ?>');">
+								<?php esc_html_e( 'Delete All Cities', 'seogen' ); ?>
+							</a>
+						</p>
+					<?php endif; ?>
 					<table class="wp-list-table widefat fixed striped hl-cities-table">
 						<thead>
 							<tr>
@@ -540,6 +560,24 @@ trait SEOgen_Admin_Extensions {
 			'page' => 'hyper-local-services',
 			'hl_notice' => 'created',
 			'hl_msg' => rawurlencode( 'Services saved successfully.' ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public function handle_delete_all_services() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		check_admin_referer( 'hyper_local_delete_all_services', 'nonce' );
+
+		// Clear all services
+		update_option( self::SERVICES_CACHE_OPTION, array() );
+
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-services',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( 'All services deleted successfully.' ),
 		), admin_url( 'admin.php' ) ) );
 		exit;
 	}

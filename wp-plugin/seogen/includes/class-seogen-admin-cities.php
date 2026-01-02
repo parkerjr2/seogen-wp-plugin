@@ -86,6 +86,27 @@ trait SEOgen_Admin_Cities {
 	}
 
 	/**
+	 * Handle delete all cities action
+	 */
+	public function handle_delete_all_cities() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		check_admin_referer( 'hyper_local_delete_all_cities', 'nonce' );
+
+		// Clear all cities
+		update_option( 'hyper_local_cities_cache', array() );
+
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-services',
+			'hl_notice' => 'created',
+			'hl_msg' => rawurlencode( 'All cities deleted successfully.' ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
 	 * Handle delete city action
 	 */
 	public function handle_delete_city() {

@@ -51,14 +51,16 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_save_business_config', array( $this, 'handle_save_business_config' ) );
 		add_action( 'admin_post_hyper_local_save_services', array( $this, 'handle_save_services' ) );
 		add_action( 'admin_post_hyper_local_delete_service', array( $this, 'handle_delete_service' ) );
+		add_action( 'admin_post_hyper_local_delete_all_services', array( $this, 'handle_delete_all_services' ) );
 		add_action( 'admin_post_hyper_local_hub_preview', array( $this, 'handle_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
 		add_action( 'wp_ajax_seogen_test_connection', array( $this, 'ajax_test_connection' ) );
-		add_action( 'wp_ajax_seogen_regenerate_secret', array( $this, 'ajax_regenerate_secret' ) );
+		add_action( 'wp_ajax_seogen_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
 		add_action( 'admin_post_hyper_local_city_hub_preview', array( $this, 'handle_city_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_city_hub_create', array( $this, 'handle_city_hub_create' ) );
 		add_action( 'admin_post_hyper_local_save_cities', array( $this, 'handle_save_cities' ) );
 		add_action( 'admin_post_hyper_local_delete_city', array( $this, 'handle_delete_city' ) );
+		add_action( 'admin_post_hyper_local_delete_all_cities', array( $this, 'handle_delete_all_cities' ) );
 		
 		// Deactivation/reactivation handling
 		add_action( 'admin_notices', array( $this, 'show_reactivation_notice' ) );
