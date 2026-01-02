@@ -1971,6 +1971,12 @@ class SEOgen_Admin {
 		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			foreach ( $job['rows'] as $row ) {
 				$row_copy = $row;
+				
+				// DEBUG: Log hub_label presence
+				if ( ! isset( $row['hub_label'] ) || empty( $row['hub_label'] ) ) {
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Row missing hub_label: service=' . ( isset( $row['service'] ) ? $row['service'] : 'N/A' ) . ' hub_key=' . ( isset( $row['hub_key'] ) ? $row['hub_key'] : 'N/A' ) . PHP_EOL, FILE_APPEND );
+				}
+				
 				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
 					$row_copy['edit_url'] = admin_url( 'post.php?post=' . (int) $row['post_id'] . '&action=edit' );
 				}
@@ -4242,6 +4248,12 @@ class SEOgen_Admin {
 		}
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
+		
+		// DEBUG: Log first row to verify hub_label is present
+		if ( ! empty( $job_rows ) ) {
+			$first_row = $job_rows[0];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] DEBUG First job row: service=' . ( isset( $first_row['service'] ) ? $first_row['service'] : 'MISSING' ) . ' hub_key=' . ( isset( $first_row['hub_key'] ) ? $first_row['hub_key'] : 'MISSING' ) . ' hub_label=' . ( isset( $first_row['hub_label'] ) ? $first_row['hub_label'] : 'MISSING' ) . PHP_EOL, FILE_APPEND );
+		}
 
 		// Load config and services BEFORE building API items so we can determine vertical
 		$services = $this->get_services();
