@@ -5135,12 +5135,13 @@ class SEOgen_Admin {
 					$edit_url = get_edit_post_link( (int) $row['post_id'], 'raw' );
 				}
 				$rows[] = array(
-					'service'  => isset( $row['service'] ) ? (string) $row['service'] : '',
-					'city'     => isset( $row['city'] ) ? (string) $row['city'] : '',
-					'state'    => isset( $row['state'] ) ? (string) $row['state'] : '',
-					'status'   => $row_status,
-					'message'  => isset( $row['message'] ) ? (string) $row['message'] : '',
-					'edit_url' => $edit_url ? (string) $edit_url : '',
+					'service'   => isset( $row['service'] ) ? (string) $row['service'] : '',
+					'hub_label' => isset( $row['hub_label'] ) ? (string) $row['hub_label'] : '',
+					'city'      => isset( $row['city'] ) ? (string) $row['city'] : '',
+					'state'     => isset( $row['state'] ) ? (string) $row['state'] : '',
+					'status'    => $row_status,
+					'message'   => isset( $row['message'] ) ? (string) $row['message'] : '',
+					'edit_url'  => $edit_url ? (string) $edit_url : '',
 				);
 			}
 		}
