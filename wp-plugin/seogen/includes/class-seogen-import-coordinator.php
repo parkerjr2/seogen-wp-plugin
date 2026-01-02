@@ -85,19 +85,39 @@ trait SEOgen_Import_Coordinator {
 	}
 	
 	/**
-	 * Acquire import lock
+	 * Acquire import lock using atomic operation
 	 * 
 	 * @param string $lock_key Lock key
 	 * @return bool True if lock acquired, false if already held
 	 */
 	private function acquire_import_lock( $lock_key ) {
-		// Check if lock already exists
-		if ( get_transient( $lock_key ) ) {
+		global $wpdb;
+		
+		// Use database-level atomic operation to prevent race conditions
+		// add_option returns false if option already exists (atomic check-and-set)
+		$lock_option = '_seogen_lock_' . md5( $lock_key );
+		$lock_value = array(
+			'acquired_at' => time(),
+			'process_id' => getmypid(),
+		);
+		
+		// Try to acquire lock atomically
+		$acquired = add_option( $lock_option, $lock_value, '', 'no' );
+		
+		if ( ! $acquired ) {
+			// Lock already held - check if it's stale (older than 60 seconds)
+			$existing_lock = get_option( $lock_option );
+			if ( is_array( $existing_lock ) && isset( $existing_lock['acquired_at'] ) ) {
+				$age = time() - $existing_lock['acquired_at'];
+				if ( $age > 60 ) {
+					// Stale lock - force release and try again
+					delete_option( $lock_option );
+					return add_option( $lock_option, $lock_value, '', 'no' );
+				}
+			}
 			return false;
 		}
 		
-		// Set lock with 60 second TTL
-		set_transient( $lock_key, time(), 60 );
 		return true;
 	}
 	
@@ -107,7 +127,8 @@ trait SEOgen_Import_Coordinator {
 	 * @param string $lock_key Lock key
 	 */
 	private function release_import_lock( $lock_key ) {
-		delete_transient( $lock_key );
+		$lock_option = '_seogen_lock_' . md5( $lock_key );
+		delete_option( $lock_option );
 	}
 	
 	/**
