@@ -418,17 +418,49 @@ trait SEOgen_Admin_Import {
 			
 			$post_id = wp_update_post( $post_data, true );
 		} else {
-			// Create new post
-			$post_data = array(
-				'post_type' => 'service_page',
-				'post_status' => $post_status,
-				'post_title' => $title,
-				'post_name' => sanitize_title( $slug ),
-				'post_content' => $gutenberg_markup,
-				'post_parent' => $city_hub_parent_id,
-			);
-			
-			$post_id = wp_insert_post( $post_data, true );
+			// CRITICAL: Final duplicate check right before creating post
+			// Re-check in case another process created it while we were building content
+			if ( isset( $canonical_key ) && ! empty( $canonical_key ) ) {
+				$final_check = $this->find_existing_post_id_by_key( $canonical_key );
+				if ( $final_check > 0 ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						error_log( sprintf( '[SEOgen RACE CONDITION PREVENTED] Post %d was created by another process for key=%s', $final_check, $canonical_key ) );
+					}
+					// Another process created it, use that post instead
+					$existing_post_id = $final_check;
+					$post_data = array(
+						'ID' => $existing_post_id,
+						'post_content' => $gutenberg_markup,
+						'post_status' => $post_status,
+						'post_parent' => $city_hub_parent_id,
+					);
+					$post_id = wp_update_post( $post_data, true );
+				} else {
+					// Create new post
+					$post_data = array(
+						'post_type' => 'service_page',
+						'post_status' => $post_status,
+						'post_title' => $title,
+						'post_name' => sanitize_title( $slug ),
+						'post_content' => $gutenberg_markup,
+						'post_parent' => $city_hub_parent_id,
+					);
+					
+					$post_id = wp_insert_post( $post_data, true );
+				}
+			} else {
+				// No canonical key available, create post normally
+				$post_data = array(
+					'post_type' => 'service_page',
+					'post_status' => $post_status,
+					'post_title' => $title,
+					'post_name' => sanitize_title( $slug ),
+					'post_content' => $gutenberg_markup,
+					'post_parent' => $city_hub_parent_id,
+				);
+				
+				$post_id = wp_insert_post( $post_data, true );
+			}
 		}
 		
 		if ( is_wp_error( $post_id ) ) {
