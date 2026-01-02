@@ -1968,6 +1968,14 @@ class SEOgen_Admin {
 	 */
 	private function prepare_bulk_job_response( $job ) {
 		$rows_with_urls = array();
+		
+		// DEBUG: Log if job has rows
+		if ( ! isset( $job['rows'] ) || ! is_array( $job['rows'] ) ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] prepare_bulk_job_response: job has NO rows array!' . PHP_EOL, FILE_APPEND );
+		} else {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] prepare_bulk_job_response: job has ' . count( $job['rows'] ) . ' rows' . PHP_EOL, FILE_APPEND );
+		}
+		
 		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			foreach ( $job['rows'] as $row ) {
 				$row_copy = $row;
@@ -1983,10 +1991,6 @@ class SEOgen_Admin {
 								break;
 							}
 						}
-					} else {
-						// DEBUG: Log what fields ARE present
-						$available_fields = implode( ', ', array_keys( $row_copy ) );
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Row missing hub_key AND hub_label. Available fields: ' . $available_fields . PHP_EOL, FILE_APPEND );
 					}
 				}
 				
