@@ -2029,6 +2029,12 @@ class SEOgen_Admin {
 			}
 		}
 		
+		// DEBUG: Log first row in response to verify hub_label
+		if ( ! empty( $rows_with_urls ) ) {
+			$first_response_row = $rows_with_urls[0];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] AJAX Response first row hub_key=' . ( isset( $first_response_row['hub_key'] ) ? $first_response_row['hub_key'] : 'MISSING' ) . ' hub_label=' . ( isset( $first_response_row['hub_label'] ) ? $first_response_row['hub_label'] : 'MISSING' ) . PHP_EOL, FILE_APPEND );
+		}
+		
 		return array(
 			'status' => isset( $job['status'] ) ? $job['status'] : 'running',
 			'rows' => $rows_with_urls,
