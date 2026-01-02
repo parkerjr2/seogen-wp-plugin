@@ -187,11 +187,9 @@ trait SEOgen_Admin_Extensions {
 									<?php foreach ( $custom_hubs as $idx => $hub ) : ?>
 										<div class="custom-hub-row" style="margin-bottom: 10px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 3px;">
 											<label style="display: inline-block; width: 150px; font-weight: 600;"><?php esc_html_e( 'Hub Label:', 'seogen' ); ?></label>
-											<input type="text" name="custom_hubs[<?php echo esc_attr( $idx ); ?>][label]" value="<?php echo esc_attr( $hub['label'] ); ?>" class="regular-text" placeholder="e.g., Industrial" required />
-											<br/>
-											<label style="display: inline-block; width: 150px; font-weight: 600; margin-top: 8px;"><?php esc_html_e( 'Hub Key:', 'seogen' ); ?></label>
-											<input type="text" name="custom_hubs[<?php echo esc_attr( $idx ); ?>][key]" value="<?php echo esc_attr( $hub['key'] ); ?>" class="regular-text" placeholder="e.g., industrial" pattern="[a-z0-9-]+" required />
-											<span class="description"><?php esc_html_e( '(lowercase, no spaces)', 'seogen' ); ?></span>
+											<input type="text" name="custom_hubs[<?php echo esc_attr( $idx ); ?>][label]" value="<?php echo esc_attr( $hub['label'] ); ?>" class="regular-text custom-hub-label-input" placeholder="e.g., Industrial" required />
+											<input type="hidden" name="custom_hubs[<?php echo esc_attr( $idx ); ?>][key]" value="<?php echo esc_attr( $hub['key'] ); ?>" class="custom-hub-key-input" />
+											<span class="description" style="margin-left: 10px;"><?php esc_html_e( 'Key:', 'seogen' ); ?> <code class="custom-hub-key-display"><?php echo esc_html( $hub['key'] ); ?></code></span>
 											<button type="button" class="button button-small" onclick="this.parentElement.remove();" style="margin-left: 10px; color: #b32d2e;"><?php esc_html_e( 'Remove', 'seogen' ); ?></button>
 										</div>
 									<?php endforeach; ?>
@@ -201,19 +199,51 @@ trait SEOgen_Admin_Extensions {
 							<script>
 							document.addEventListener('DOMContentLoaded', function() {
 								var customHubIndex = <?php echo count( $custom_hubs ); ?>;
+								
+								// Function to generate key from label
+								function generateHubKey(label) {
+									return label.toLowerCase()
+										.replace(/[^a-z0-9\s-]/g, '')
+										.replace(/\s+/g, '-')
+										.replace(/-+/g, '-')
+										.replace(/^-|-$/g, '');
+								}
+								
+								// Auto-generate key for existing custom hubs
+								document.querySelectorAll('.custom-hub-label-input').forEach(function(input) {
+									input.addEventListener('input', function() {
+										var row = this.closest('.custom-hub-row');
+										var keyInput = row.querySelector('.custom-hub-key-input');
+										var keyDisplay = row.querySelector('.custom-hub-key-display');
+										var generatedKey = generateHubKey(this.value);
+										keyInput.value = generatedKey;
+										keyDisplay.textContent = generatedKey || '(auto-generated)';
+									});
+								});
+								
 								document.getElementById('add-custom-hub').addEventListener('click', function() {
 									var container = document.getElementById('custom-hubs-container');
 									var newRow = document.createElement('div');
 									newRow.className = 'custom-hub-row';
 									newRow.style.cssText = 'margin-bottom: 10px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 3px;';
 									newRow.innerHTML = '<label style="display: inline-block; width: 150px; font-weight: 600;"><?php esc_html_e( 'Hub Label:', 'seogen' ); ?></label>' +
-										'<input type="text" name="custom_hubs[' + customHubIndex + '][label]" class="regular-text" placeholder="e.g., Industrial" required />' +
-										'<br/>' +
-										'<label style="display: inline-block; width: 150px; font-weight: 600; margin-top: 8px;"><?php esc_html_e( 'Hub Key:', 'seogen' ); ?></label>' +
-										'<input type="text" name="custom_hubs[' + customHubIndex + '][key]" class="regular-text" placeholder="e.g., industrial" pattern="[a-z0-9-]+" required />' +
-										'<span class="description"><?php esc_html_e( '(lowercase, no spaces)', 'seogen' ); ?></span>' +
+										'<input type="text" name="custom_hubs[' + customHubIndex + '][label]" class="regular-text custom-hub-label-input" placeholder="e.g., Industrial" required />' +
+										'<input type="hidden" name="custom_hubs[' + customHubIndex + '][key]" class="custom-hub-key-input" />' +
+										'<span class="description" style="margin-left: 10px;"><?php esc_html_e( 'Key:', 'seogen' ); ?> <code class="custom-hub-key-display">(auto-generated)</code></span>' +
 										'<button type="button" class="button button-small" onclick="this.parentElement.remove();" style="margin-left: 10px; color: #b32d2e;"><?php esc_html_e( 'Remove', 'seogen' ); ?></button>';
 									container.appendChild(newRow);
+									
+									// Add event listener to new input
+									var newInput = newRow.querySelector('.custom-hub-label-input');
+									newInput.addEventListener('input', function() {
+										var row = this.closest('.custom-hub-row');
+										var keyInput = row.querySelector('.custom-hub-key-input');
+										var keyDisplay = row.querySelector('.custom-hub-key-display');
+										var generatedKey = generateHubKey(this.value);
+										keyInput.value = generatedKey;
+										keyDisplay.textContent = generatedKey || '(auto-generated)';
+									});
+									
 									customHubIndex++;
 								});
 							});
