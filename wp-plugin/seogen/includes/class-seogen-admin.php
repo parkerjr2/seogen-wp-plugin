@@ -1972,9 +1972,16 @@ class SEOgen_Admin {
 			foreach ( $job['rows'] as $row ) {
 				$row_copy = $row;
 				
-				// DEBUG: Log hub_label presence
-				if ( ! isset( $row['hub_label'] ) || empty( $row['hub_label'] ) ) {
-					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: Row missing hub_label: service=' . ( isset( $row['service'] ) ? $row['service'] : 'N/A' ) . ' hub_key=' . ( isset( $row['hub_key'] ) ? $row['hub_key'] : 'N/A' ) . PHP_EOL, FILE_APPEND );
+				// CRITICAL FIX: Ensure hub_label is preserved in response
+				// If hub_label is missing but hub_key exists, reconstruct it from hub data
+				if ( ( ! isset( $row_copy['hub_label'] ) || empty( $row_copy['hub_label'] ) ) && isset( $row_copy['hub_key'] ) && ! empty( $row_copy['hub_key'] ) ) {
+					$hubs = $this->get_hubs();
+					foreach ( $hubs as $hub ) {
+						if ( isset( $hub['hub_key'] ) && $hub['hub_key'] === $row_copy['hub_key'] && isset( $hub['hub_label'] ) ) {
+							$row_copy['hub_label'] = $hub['hub_label'];
+							break;
+						}
+					}
 				}
 				
 				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
@@ -4248,12 +4255,6 @@ class SEOgen_Admin {
 		}
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
-		
-		// DEBUG: Log first row to verify hub_label is present
-		if ( ! empty( $job_rows ) ) {
-			$first_row = $job_rows[0];
-			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] DEBUG First job row: service=' . ( isset( $first_row['service'] ) ? $first_row['service'] : 'MISSING' ) . ' hub_key=' . ( isset( $first_row['hub_key'] ) ? $first_row['hub_key'] : 'MISSING' ) . ' hub_label=' . ( isset( $first_row['hub_label'] ) ? $first_row['hub_label'] : 'MISSING' ) . PHP_EOL, FILE_APPEND );
-		}
 
 		// Load config and services BEFORE building API items so we can determine vertical
 		$services = $this->get_services();
