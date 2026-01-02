@@ -1974,13 +1974,19 @@ class SEOgen_Admin {
 				
 				// CRITICAL FIX: Ensure hub_label is preserved in response
 				// If hub_label is missing but hub_key exists, reconstruct it from hub data
-				if ( ( ! isset( $row_copy['hub_label'] ) || empty( $row_copy['hub_label'] ) ) && isset( $row_copy['hub_key'] ) && ! empty( $row_copy['hub_key'] ) ) {
-					$hubs = $this->get_hubs();
-					foreach ( $hubs as $hub ) {
-						if ( isset( $hub['hub_key'] ) && $hub['hub_key'] === $row_copy['hub_key'] && isset( $hub['hub_label'] ) ) {
-							$row_copy['hub_label'] = $hub['hub_label'];
-							break;
+				if ( ! isset( $row_copy['hub_label'] ) || empty( $row_copy['hub_label'] ) ) {
+					if ( isset( $row_copy['hub_key'] ) && ! empty( $row_copy['hub_key'] ) ) {
+						$hubs = $this->get_hubs();
+						foreach ( $hubs as $hub ) {
+							if ( isset( $hub['hub_key'] ) && $hub['hub_key'] === $row_copy['hub_key'] && isset( $hub['hub_label'] ) ) {
+								$row_copy['hub_label'] = $hub['hub_label'];
+								break;
+							}
 						}
+					} else {
+						// DEBUG: Log what fields ARE present
+						$available_fields = implode( ', ', array_keys( $row_copy ) );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Row missing hub_key AND hub_label. Available fields: ' . $available_fields . PHP_EOL, FILE_APPEND );
 					}
 				}
 				
