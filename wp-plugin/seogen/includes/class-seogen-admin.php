@@ -4261,6 +4261,13 @@ class SEOgen_Admin {
 		}
 	
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Creating job with ' . count( $job_rows ) . ' rows.' . PHP_EOL, FILE_APPEND );
+		
+		// DEBUG: Log first job row fields
+		if ( ! empty( $job_rows ) ) {
+			$first_row = $job_rows[0];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] First job row fields: ' . implode( ', ', array_keys( $first_row ) ) . PHP_EOL, FILE_APPEND );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] First job row hub_key=' . ( isset( $first_row['hub_key'] ) ? $first_row['hub_key'] : 'MISSING' ) . ' hub_label=' . ( isset( $first_row['hub_label'] ) ? $first_row['hub_label'] : 'MISSING' ) . PHP_EOL, FILE_APPEND );
+		}
 
 		// Load config and services BEFORE building API items so we can determine vertical
 		$services = $this->get_services();
