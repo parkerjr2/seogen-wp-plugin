@@ -374,7 +374,13 @@ class SEOgen_Admin {
 
 	// Removed: render_field_primary_cta_label() - now using Business Setup CTA text
 
-	public function build_gutenberg_content_from_blocks( array $blocks, $page_mode = '' ) {
+	public function build_gutenberg_content_from_blocks( array $blocks, $page_mode = '', $metadata = array() ) {
+		// Extract metadata for intent-based content
+		$intent_group = isset( $metadata['intent_group'] ) ? $metadata['intent_group'] : '';
+		$service_slug = isset( $metadata['service_slug'] ) ? $metadata['service_slug'] : '';
+		$city_name = isset( $metadata['city_name'] ) ? $metadata['city_name'] : '';
+		$city_slug = isset( $metadata['city_slug'] ) ? $metadata['city_slug'] : '';
+		
 		// Infer page_mode if empty (fallback for legacy call sites)
 		if ( '' === $page_mode ) {
 			foreach ( $blocks as $block ) {
@@ -588,6 +594,35 @@ class SEOgen_Admin {
 
 			$open_body_group_if_needed();
 		};
+		
+		$why_block_inserted = false;
+		$insert_why_block = function () use ( &$output, &$why_block_inserted, $page_mode, $intent_group, $service_slug, $city_name, $city_slug, $open_body_group_if_needed ) {
+			// Only insert for service_city pages with valid intent data
+			if ( $why_block_inserted || 'service_city' !== $page_mode || '' === $intent_group || '' === $service_slug || '' === $city_name || '' === $city_slug ) {
+				return;
+			}
+			
+			$open_body_group_if_needed();
+			
+			// Get "Why This Page Exists" content from templates
+			$why_content = SEOgen_Intent_Templates::get_why_content( $service_slug, $city_name, $city_slug, $intent_group );
+			
+			// Split into paragraphs (content is already formatted with double line breaks)
+			$paragraphs = array_filter( array_map( 'trim', explode( "\n\n", $why_content ) ) );
+			
+			// Output as paragraph blocks
+			foreach ( $paragraphs as $paragraph ) {
+				$output[] = '<!-- wp:paragraph {"className":"seogen-why-exists"} -->';
+				$output[] = '<p class="seogen-why-exists">' . esc_html( $paragraph ) . '</p>';
+				$output[] = '<!-- /wp:paragraph -->';
+			}
+			
+			$why_block_inserted = true;
+			
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				$output[] = '<!-- seogen_debug: inserted why_this_page_exists block (intent=' . esc_attr( $intent_group ) . ') -->';
+			}
+		};
 
 		foreach ( $blocks as $block ) {
 			if ( ! is_array( $block ) || empty( $block['type'] ) ) {
@@ -615,6 +650,7 @@ class SEOgen_Admin {
 				}
 
 				$emit_hero_if_ready( true );
+				$insert_why_block();
 				$open_body_group_if_needed();
 
 				if ( 1 === $level ) {
@@ -640,6 +676,7 @@ class SEOgen_Admin {
 						$shortcode = $matches[2];
 						
 						$emit_hero_if_ready( true );
+						$insert_why_block();
 						$open_body_group_if_needed();
 						
 						// Output text before shortcode as paragraph (if any)
@@ -674,6 +711,7 @@ class SEOgen_Admin {
 				}
 
 				$emit_hero_if_ready( true );
+				$insert_why_block();
 				$open_body_group_if_needed();
 
 				if ( $hero_emitted ) {
@@ -688,6 +726,7 @@ class SEOgen_Admin {
 
 			if ( 'faq' === $type ) {
 				$emit_hero_if_ready( true );
+				$insert_why_block();
 				$close_body_group_if_open();
 
 				if ( ! $faq_heading_added ) {
@@ -735,6 +774,7 @@ class SEOgen_Admin {
 
 			if ( 'nap' === $type ) {
 				$emit_hero_if_ready( true );
+				$insert_why_block();
 				$close_body_group_if_open();
 				$add_separator();
 
@@ -838,6 +878,7 @@ class SEOgen_Admin {
 
 			if ( 'cta' === $type ) {
 				$emit_hero_if_ready( true );
+				$insert_why_block();
 				$close_body_group_if_open();
 				$add_separator();
 				
@@ -911,6 +952,7 @@ class SEOgen_Admin {
 		}
 
 		$emit_hero_if_ready( true );
+		$insert_why_block();
 		$close_body_group_if_open();
 		$output[] = '</div>';
 		$output[] = '<!-- /wp:group -->';
