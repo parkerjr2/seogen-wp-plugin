@@ -3386,9 +3386,9 @@ class SEOgen_Admin {
 			echo '<th scope="row">' . esc_html__( 'Site Registration', 'seogen' ) . '</th>';
 			echo '<td>';
 			if ( $is_registered ) {
-				echo '<span style="color: #46b450;">✓ ' . esc_html__( 'Registered', 'seogen' ) . '</span>';
+				echo '<span style="color: #0a7d00; font-weight: 600;">✅ ' . esc_html__( 'Registered', 'seogen' ) . '</span>';
 			} else {
-				echo '<span style="color: #dc3232;">✗ ' . esc_html__( 'Not registered', 'seogen' ) . '</span>';
+				echo '<span style="color: #b32d2e; font-weight: 600;">❌ ' . esc_html__( 'Not registered', 'seogen' ) . '</span>';
 				echo '<p class="description">' . esc_html__( 'Site will register automatically when you save your API key.', 'seogen' ) . '</p>';
 			}
 			echo '</td>';
@@ -3401,11 +3401,11 @@ class SEOgen_Admin {
 				echo '<td>';
 				
 				if ( 'active' === $license_status ) {
-					echo '<span style="color: #46b450; font-weight: bold;">✓ ' . esc_html__( 'Active', 'seogen' ) . '</span>';
+					echo '<span style="color: #0a7d00; font-weight: 600;">✅ ' . esc_html__( 'Active', 'seogen' ) . '</span>';
 				} elseif ( 'expired' === $license_status ) {
-					echo '<span style="color: #dc3232; font-weight: bold;">✗ ' . esc_html__( 'Expired', 'seogen' ) . '</span>';
+					echo '<span style="color: #b32d2e; font-weight: 600;">❌ ' . esc_html__( 'Expired', 'seogen' ) . '</span>';
 				} else {
-					echo '<span style="color: #ffb900; font-weight: bold;">⚠ ' . esc_html( ucfirst( $license_status ) ) . '</span>';
+					echo '<span style="color: #dba617; font-weight: 600;">⚠️ ' . esc_html( ucfirst( $license_status ) ) . '</span>';
 				}
 				
 				if ( ! empty( $expires_at ) ) {
