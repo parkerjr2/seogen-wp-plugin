@@ -450,6 +450,7 @@ trait SEOgen_Admin_Extensions {
 							<th><?php esc_html_e( 'Service Name', 'seogen' ); ?></th>
 							<th><?php esc_html_e( 'Slug', 'seogen' ); ?></th>
 							<th><?php esc_html_e( 'Hub Category', 'seogen' ); ?></th>
+							<th><?php esc_html_e( 'Intent Type', 'seogen' ); ?></th>
 							<th><?php esc_html_e( 'Actions', 'seogen' ); ?></th>
 						</tr>
 					</thead>
@@ -471,6 +472,24 @@ trait SEOgen_Admin_Extensions {
 										</select>
 									</td>
 									<td>
+										<?php
+										$intent_group = isset( $service['intent_group'] ) ? $service['intent_group'] : 'repair_service';
+										$intent_options = array(
+											'emergency_response' => 'Emergency Response',
+											'repair_service' => 'Repair Service',
+											'inspection_diagnostic' => 'Inspection/Diagnostic',
+											'replacement_installation' => 'Replacement/Installation',
+											'preventative_maintenance' => 'Preventative Maintenance',
+											'compliance_safety' => 'Compliance/Safety',
+										);
+										?>
+										<select name="services[<?php echo esc_attr( $idx ); ?>][intent_group]" required>
+											<?php foreach ( $intent_options as $value => $label ) : ?>
+												<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $intent_group, $value ); ?>><?php echo esc_html( $label ); ?></option>
+											<?php endforeach; ?>
+										</select>
+									</td>
+									<td>
 										<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=hyper_local_delete_service&index=' . $idx ), 'hyper_local_delete_service_' . $idx, 'nonce' ) ); ?>" 
 										   class="button button-small" 
 										   onclick="return confirm('<?php esc_attr_e( 'Are you sure you want to delete this service?', 'seogen' ); ?>');">
@@ -481,7 +500,7 @@ trait SEOgen_Admin_Extensions {
 							<?php endforeach; ?>
 						<?php else : ?>
 							<tr>
-								<td colspan="4"><?php esc_html_e( 'No services configured yet. Add services using the bulk add feature below.', 'seogen' ); ?></td>
+								<td colspan="5"><?php esc_html_e( 'No services configured yet. Add services using the bulk add feature below.', 'seogen' ); ?></td>
 							</tr>
 						<?php endif; ?>
 					</tbody>
@@ -582,7 +601,7 @@ trait SEOgen_Admin_Extensions {
 		$hubs = isset( $config['hubs'] ) ? $config['hubs'] : array();
 		$default_hub_key = ! empty( $hubs ) ? $hubs[0]['key'] : 'residential';
 
-		// Migrate old services cache from 'category' to 'hub_key' and add hub_label
+		// Migrate old services cache from 'category' to 'hub_key' and add hub_label + intent_group
 		$old_services = get_option( self::SERVICES_CACHE_OPTION, array() );
 		$needs_update = false;
 		if ( ! empty( $old_services ) && is_array( $old_services ) ) {
@@ -606,6 +625,12 @@ trait SEOgen_Admin_Extensions {
 					$service['hub_label'] = $hub_label;
 					$needs_update = true;
 				}
+				
+				// Add intent_group if missing (default to repair_service)
+				if ( ! isset( $service['intent_group'] ) ) {
+					$service['intent_group'] = 'repair_service';
+					$needs_update = true;
+				}
 			}
 			if ( $needs_update ) {
 				update_option( self::SERVICES_CACHE_OPTION, $old_services );
@@ -626,11 +651,15 @@ trait SEOgen_Admin_Extensions {
 						}
 					}
 					
+					// Get intent_group with default
+					$intent_group = isset( $service_data['intent_group'] ) ? sanitize_text_field( $service_data['intent_group'] ) : 'repair_service';
+					
 					$services[] = array(
 						'name' => sanitize_text_field( $service_data['name'] ),
 						'slug' => sanitize_title( $service_data['slug'] ),
 						'hub_key' => sanitize_text_field( $service_data['hub_key'] ),
 						'hub_label' => $hub_label,
+						'intent_group' => $intent_group,
 					);
 				}
 			}
@@ -667,6 +696,7 @@ trait SEOgen_Admin_Extensions {
 					'slug' => sanitize_title( $service_name ),
 					'hub_key' => sanitize_text_field( $hub_key ),
 					'hub_label' => $hub_label,
+					'intent_group' => 'repair_service', // Default for bulk-added services
 				);
 			}
 		}

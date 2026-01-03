@@ -14,6 +14,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-import.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-admin-duplicate-cleanup.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-import-coordinator.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/city-hub-helper.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-intent-templates.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
