@@ -54,6 +54,7 @@ class SEOgen_Admin {
 		add_action( 'admin_post_hyper_local_delete_all_services', array( $this, 'handle_delete_all_services' ) );
 		add_action( 'admin_post_hyper_local_hub_preview', array( $this, 'handle_hub_preview' ) );
 		add_action( 'admin_post_hyper_local_hub_create', array( $this, 'handle_hub_create' ) );
+		add_action( 'admin_post_hyper_local_hub_create_all', array( $this, 'handle_hub_create_all' ) );
 		add_action( 'wp_ajax_seogen_test_connection', array( $this, 'ajax_test_connection' ) );
 		add_action( 'wp_ajax_seogen_bulk_job_status', array( $this, 'ajax_bulk_job_status' ) );
 		add_action( 'admin_post_hyper_local_city_hub_preview', array( $this, 'handle_city_hub_preview' ) );

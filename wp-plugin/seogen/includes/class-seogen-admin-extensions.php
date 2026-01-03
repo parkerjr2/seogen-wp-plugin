@@ -775,6 +775,15 @@ trait SEOgen_Admin_Extensions {
 				<p><strong><?php esc_html_e( 'Permalink Strategy:', 'seogen' ); ?></strong> <?php esc_html_e( 'Service Pages are created under /service-area/ by default (e.g., /service-area/residential-services/). If a WordPress Page already exists with the same slug at root level, it will take precedence and your hub page will only be accessible via the /service-area/ URL.', 'seogen' ); ?></p>
 			</div>
 
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom: 20px;">
+				<?php wp_nonce_field( 'hyper_local_hub_create_all', 'hyper_local_hub_create_all_nonce' ); ?>
+				<input type="hidden" name="action" value="hyper_local_hub_create_all" />
+				<button type="submit" class="button button-primary button-large" onclick="return confirm('<?php esc_attr_e( 'This will generate or update all hub pages. This may take several minutes. Continue?', 'seogen' ); ?>');">
+					<?php esc_html_e( 'Generate/Update All Hub Pages', 'seogen' ); ?>
+				</button>
+				<p class="description"><?php esc_html_e( 'Generate or update all hub pages at once. This will create AI-generated content for each hub category.', 'seogen' ); ?></p>
+			</form>
+
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
 					<tr>
@@ -1358,6 +1367,215 @@ trait SEOgen_Admin_Extensions {
 			);
 		}
 		
+		wp_redirect( add_query_arg( array(
+			'page' => 'hyper-local-service-hubs',
+			'hl_notice' => $notice_type,
+			'hl_msg' => rawurlencode( $notice_msg ),
+		), admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	public function handle_hub_create_all() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Unauthorized' );
+		}
+
+		check_admin_referer( 'hyper_local_hub_create_all', 'hyper_local_hub_create_all_nonce' );
+
+		$config = $this->get_business_config();
+		$hubs = isset( $config['hubs'] ) ? $config['hubs'] : array();
+
+		if ( empty( $hubs ) ) {
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-service-hubs',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'No hub categories configured.' ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
+		$settings = $this->get_settings();
+		$api_url = isset( $settings['api_url'] ) ? rtrim( $settings['api_url'], '/' ) : '';
+		$license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
+
+		if ( empty( $api_url ) || empty( $license_key ) ) {
+			wp_redirect( add_query_arg( array(
+				'page' => 'hyper-local-service-hubs',
+				'hl_notice' => 'error',
+				'hl_msg' => rawurlencode( 'API URL or License key is not configured.' ),
+			), admin_url( 'admin.php' ) ) );
+			exit;
+		}
+
+		$services = $this->get_services();
+		$success_count = 0;
+		$error_count = 0;
+		$errors = array();
+
+		// Process each hub
+		foreach ( $hubs as $hub ) {
+			$hub_key = $hub['key'];
+			
+			// Get services for this hub
+			$hub_services = array_filter( $services, function( $service ) use ( $hub_key ) {
+				return isset( $service['hub_key'] ) && $service['hub_key'] === $hub_key;
+			} );
+
+			$services_for_hub = array_map( function( $service ) {
+				return array(
+					'name' => $service['name'],
+					'slug' => $service['slug'],
+				);
+			}, array_values( $hub_services ) );
+
+			// Prepare API payload
+			$payload = array(
+				'license_key' => $license_key,
+				'data' => array(
+					'page_mode' => 'service_hub',
+					'vertical' => $config['vertical'],
+					'business_name' => $config['business_name'],
+					'phone' => $config['phone'],
+					'cta_text' => $config['cta_text'],
+					'service_area_label' => $config['service_area_label'],
+					'hub_key' => $hub['key'],
+					'hub_label' => $hub['label'],
+					'hub_slug' => $hub['slug'],
+					'services_for_hub' => $services_for_hub,
+				),
+				'preview' => false,
+			);
+
+			// Call API
+			$response = wp_remote_post( $api_url . '/generate-page', array(
+				'headers' => array( 'Content-Type' => 'application/json' ),
+				'body' => wp_json_encode( $payload ),
+				'timeout' => 90,
+			) );
+
+			if ( is_wp_error( $response ) ) {
+				$error_count++;
+				$errors[] = $hub['label'] . ': ' . $response->get_error_message();
+				continue;
+			}
+
+			$status_code = wp_remote_retrieve_response_code( $response );
+			$body = wp_remote_retrieve_body( $response );
+			$data = json_decode( $body, true );
+
+			if ( $status_code !== 200 || ! is_array( $data ) || ! isset( $data['title'], $data['blocks'] ) ) {
+				$error_count++;
+				$error_message = is_array( $data ) && isset( $data['detail'] ) ? $data['detail'] : 'Invalid response';
+				$errors[] = $hub['label'] . ': ' . $error_message;
+				continue;
+			}
+
+			// Build content
+			$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : 'service_hub';
+			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'], $page_mode );
+			$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'] );
+
+			// Add header/footer templates
+			$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
+			if ( $header_template_id > 0 ) {
+				$header_content = $this->get_template_content( $header_template_id );
+				if ( '' !== $header_content ) {
+					$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
+				}
+			}
+
+			$footer_template_id = isset( $settings['footer_template_id'] ) ? (int) $settings['footer_template_id'] : 0;
+			if ( $footer_template_id > 0 ) {
+				$footer_content = $this->get_template_content( $footer_template_id );
+				if ( '' !== $footer_content ) {
+					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
+				}
+			}
+
+			// Create or update post
+			$existing_hub_page = $this->find_hub_page( $hub_key );
+
+			$post_data = array(
+				'post_title' => $data['title'],
+				'post_content' => $gutenberg_markup,
+				'post_status' => 'publish',
+				'post_type' => 'service_page',
+				'post_name' => sanitize_title( $hub['slug'] ),
+			);
+
+			if ( $existing_hub_page ) {
+				$post_data['ID'] = $existing_hub_page->ID;
+				$post_id = wp_update_post( $post_data );
+			} else {
+				$post_id = wp_insert_post( $post_data );
+			}
+
+			if ( is_wp_error( $post_id ) ) {
+				$error_count++;
+				$errors[] = $hub['label'] . ': ' . $post_id->get_error_message();
+				continue;
+			}
+
+			// Add meta fields
+			update_post_meta( $post_id, '_hyper_local_managed', '1' );
+			update_post_meta( $post_id, '_hl_page_type', 'service_hub' );
+			update_post_meta( $post_id, '_seogen_page_mode', 'service_hub' );
+			update_post_meta( $post_id, '_seogen_vertical', $config['vertical'] );
+			update_post_meta( $post_id, '_seogen_hub_key', $hub['key'] );
+			update_post_meta( $post_id, '_seogen_hub_slug', $hub['slug'] );
+			update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $data ) );
+			update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
+
+			// SEO meta
+			$meta_description = isset( $data['meta_description'] ) ? $data['meta_description'] : '';
+			$vertical = isset( $config['vertical'] ) ? strtolower( $config['vertical'] ) : 'electrician';
+			$trade_name_map = array(
+				'roofer' => 'Roofing', 'roofing' => 'Roofing',
+				'electrician' => 'Electrical', 'electrical' => 'Electrical',
+				'plumber' => 'Plumbing', 'plumbing' => 'Plumbing',
+				'hvac' => 'HVAC', 'hvac technician' => 'HVAC',
+			);
+			$trade_name = isset( $trade_name_map[ $vertical ] ) ? $trade_name_map[ $vertical ] : 'Services';
+			$focus_keyword = $hub['label'] . ' ' . $trade_name;
+
+			if ( empty( $meta_description ) || strlen( $meta_description ) < 100 ) {
+				$meta_description = sprintf(
+					'Expert %s %s services. Licensed professionals, quality workmanship, and reliable service. %s',
+					strtolower( $hub['label'] ),
+					strtolower( $trade_name ),
+					isset( $config['cta_text'] ) ? $config['cta_text'] : 'Contact us today'
+				);
+			}
+
+			if ( strlen( $meta_description ) > 160 ) {
+				$meta_description = substr( $meta_description, 0, 157 ) . '...';
+			}
+
+			update_post_meta( $post_id, '_hyper_local_meta_description', $meta_description );
+			$this->apply_seo_plugin_meta( $post_id, $focus_keyword, $data['title'], $meta_description, true );
+
+			// Apply page builder settings
+			if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
+				$this->apply_page_builder_settings( $post_id );
+			}
+
+			$success_count++;
+		}
+
+		// Build result message
+		$messages = array();
+		if ( $success_count > 0 ) {
+			$messages[] = sprintf( '%d hub page(s) generated/updated successfully.', $success_count );
+		}
+		if ( $error_count > 0 ) {
+			$messages[] = sprintf( '%d hub page(s) failed: %s', $error_count, implode( '; ', array_slice( $errors, 0, 3 ) ) );
+		}
+
+		$notice_type = $error_count === 0 ? 'created' : ( $success_count > 0 ? 'warning' : 'error' );
+		$notice_msg = implode( ' ', $messages );
+
 		wp_redirect( add_query_arg( array(
 			'page' => 'hyper-local-service-hubs',
 			'hl_notice' => $notice_type,
