@@ -775,14 +775,70 @@ trait SEOgen_Admin_Extensions {
 				<p><strong><?php esc_html_e( 'Permalink Strategy:', 'seogen' ); ?></strong> <?php esc_html_e( 'Service Pages are created under /service-area/ by default (e.g., /service-area/residential-services/). If a WordPress Page already exists with the same slug at root level, it will take precedence and your hub page will only be accessible via the /service-area/ URL.', 'seogen' ); ?></p>
 			</div>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom: 20px;">
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin-bottom: 20px;" id="bulk-hub-form">
 				<?php wp_nonce_field( 'hyper_local_hub_create_all', 'hyper_local_hub_create_all_nonce' ); ?>
 				<input type="hidden" name="action" value="hyper_local_hub_create_all" />
-				<button type="submit" class="button button-primary button-large" onclick="return confirm('<?php esc_attr_e( 'This will generate or update all hub pages. This may take several minutes. Continue?', 'seogen' ); ?>');">
+				<button type="submit" class="button button-primary button-large" id="bulk-hub-button">
 					<?php esc_html_e( 'Generate/Update All Hub Pages', 'seogen' ); ?>
 				</button>
 				<p class="description"><?php esc_html_e( 'Generate or update all hub pages at once. This will create AI-generated content for each hub category.', 'seogen' ); ?></p>
 			</form>
+
+			<!-- Progress Indicator -->
+			<div id="bulk_hub_progress" style="display:none; margin-bottom: 20px; padding: 20px; background: #fff; border-left: 4px solid #2271b1; box-shadow: 0 1px 1px rgba(0,0,0,.04);">
+				<h3 style="margin-top: 0;"><?php esc_html_e( 'Generating Hub Pages...', 'seogen' ); ?></h3>
+				<p id="bulk_hub_status" style="font-size: 14px; margin: 10px 0;">
+					<?php esc_html_e( 'Preparing to generate hub pages...', 'seogen' ); ?>
+				</p>
+				<div style="background: #f0f0f1; height: 30px; border-radius: 3px; overflow: hidden; margin: 15px 0;">
+					<div id="bulk_hub_progress_bar" style="background: #2271b1; height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px;"></div>
+				</div>
+				<p id="bulk_hub_details" style="font-size: 12px; color: #666; margin: 5px 0;">
+					<?php esc_html_e( 'This may take several minutes. Please do not close this page.', 'seogen' ); ?>
+				</p>
+			</div>
+
+			<script>
+			jQuery(document).ready(function($) {
+				$('#bulk-hub-form').on('submit', function(e) {
+					if (!confirm('<?php esc_attr_e( 'This will generate or update all hub pages. This may take several minutes. Continue?', 'seogen' ); ?>')) {
+						e.preventDefault();
+						return false;
+					}
+					
+					// Show progress indicator
+					$('#bulk_hub_progress').show();
+					$('#bulk-hub-button').prop('disabled', true).text('<?php esc_attr_e( 'Generating...', 'seogen' ); ?>');
+					
+					// Simulate progress updates (since we can't get real-time updates from synchronous PHP)
+					var totalHubs = <?php echo count( $hubs ); ?>;
+					var currentHub = 0;
+					var hubNames = <?php echo wp_json_encode( array_column( $hubs, 'label' ) ); ?>;
+					
+					// Update progress every 15 seconds (estimated time per hub)
+					var progressInterval = setInterval(function() {
+						if (currentHub < totalHubs) {
+							currentHub++;
+							var percent = Math.round((currentHub / totalHubs) * 100);
+							$('#bulk_hub_progress_bar').css('width', percent + '%').text(percent + '%');
+							$('#bulk_hub_status').text('Processing hub ' + currentHub + ' of ' + totalHubs + ': ' + hubNames[currentHub - 1]);
+							$('#bulk_hub_details').text('Generating AI content and creating page... This may take 10-30 seconds per hub.');
+						} else {
+							clearInterval(progressInterval);
+							$('#bulk_hub_status').text('Finalizing...');
+						}
+					}, 15000); // Update every 15 seconds
+					
+					// Initial update
+					setTimeout(function() {
+						currentHub = 1;
+						var percent = Math.round((1 / totalHubs) * 100);
+						$('#bulk_hub_progress_bar').css('width', percent + '%').text(percent + '%');
+						$('#bulk_hub_status').text('Processing hub 1 of ' + totalHubs + ': ' + hubNames[0]);
+					}, 1000);
+				});
+			});
+			</script>
 
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
