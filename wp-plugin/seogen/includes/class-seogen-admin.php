@@ -1265,7 +1265,17 @@ class SEOgen_Admin {
 			'inputs'           => $post_data,
 		);
 		$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : '';
-		$last_preview['gutenberg_markup'] = $this->build_gutenberg_content_from_blocks( $last_preview['blocks'], $page_mode );
+
+		// Extract metadata for intent-based content
+		$metadata = array();
+		if ( 'service_city' === $page_mode ) {
+			$metadata['intent_group'] = isset( $post_data['intent_group'] ) ? $post_data['intent_group'] : '';
+			$metadata['service_slug'] = isset( $post_data['service_slug'] ) ? $post_data['service_slug'] : '';
+			$metadata['city_name'] = isset( $post_data['city'] ) ? $post_data['city'] : '';
+			$metadata['city_slug'] = isset( $post_data['city'] ) ? sanitize_title( $post_data['city'] ) : '';
+		}
+
+		$last_preview['gutenberg_markup'] = $this->build_gutenberg_content_from_blocks( $last_preview['blocks'], $page_mode, $metadata );
 		$last_preview['source_json']      = $data;
 		set_transient( $last_preview_key, $last_preview, 30 * MINUTE_IN_SECONDS );
 
