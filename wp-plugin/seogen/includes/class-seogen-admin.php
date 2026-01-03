@@ -3329,6 +3329,111 @@ class SEOgen_Admin {
 	}
 
 	/**
+	 * Render consolidated system status and license section
+	 */
+	private function render_consolidated_status_section( $settings, $status, $has_license_key ) {
+		echo '<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">';
+		echo '<h2>' . esc_html__( 'System Status & License', 'seogen' ) . '</h2>';
+		
+		echo '<table class="form-table">';
+		
+		// License Key Status
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'License Key', 'seogen' ) . '</th>';
+		echo '<td>';
+		if ( $has_license_key ) {
+			echo '<span style="color: #0a7d00; font-weight: 600;">✅ ' . esc_html__( 'Set', 'seogen' ) . '</span>';
+		} else {
+			echo '<span style="color: #b32d2e; font-weight: 600;">❌ ' . esc_html__( 'Missing', 'seogen' ) . '</span>';
+		}
+		echo '</td>';
+		echo '</tr>';
+		
+		// API Connection Status
+		echo '<tr>';
+		echo '<th scope="row">' . esc_html__( 'API Connection', 'seogen' ) . '</th>';
+		echo '<td>';
+		if ( ! empty( $status['ok'] ) ) {
+			echo '<span style="color: #0a7d00; font-weight: 600;">✅ ' . esc_html__( 'Connected', 'seogen' ) . '</span>';
+		} else {
+			$is_timeout = ! empty( $status['error'] ) && ( strpos( $status['error'], 'timed out' ) !== false || strpos( $status['error'], 'cURL error 28' ) !== false );
+			if ( $is_timeout ) {
+				echo '<span style="color: #dba617; font-weight: 600;">⚠️ ' . esc_html__( 'Health Check Timeout', 'seogen' ) . '</span>';
+			} else {
+				echo '<span style="color: #b32d2e; font-weight: 600;">❌ ' . esc_html__( 'Not Connected', 'seogen' ) . '</span>';
+			}
+		}
+		if ( empty( $status['ok'] ) && ! empty( $status['error'] ) ) {
+			$is_timeout = strpos( $status['error'], 'timed out' ) !== false || strpos( $status['error'], 'cURL error 28' ) !== false;
+			echo '<p class="description" style="' . ( $is_timeout ? 'color: #646970;' : '' ) . '">';
+			echo esc_html( $status['error'] );
+			if ( $is_timeout ) {
+				echo '<br><em>' . esc_html__( 'Note: Page generation may still work. This only affects the health check.', 'seogen' ) . '</em>';
+			}
+			echo '</p>';
+		}
+		echo '</td>';
+		echo '</tr>';
+		
+		// License & Subscription info (if available)
+		if ( class_exists( 'SEOgen_License' ) ) {
+			$license_status = SEOgen_License::get_license_status();
+			$expires_at = SEOgen_License::get_license_expires_at();
+			$is_registered = SEOgen_License::is_site_registered();
+			
+			// Registration status
+			echo '<tr>';
+			echo '<th scope="row">' . esc_html__( 'Site Registration', 'seogen' ) . '</th>';
+			echo '<td>';
+			if ( $is_registered ) {
+				echo '<span style="color: #46b450;">✓ ' . esc_html__( 'Registered', 'seogen' ) . '</span>';
+			} else {
+				echo '<span style="color: #dc3232;">✗ ' . esc_html__( 'Not registered', 'seogen' ) . '</span>';
+				echo '<p class="description">' . esc_html__( 'Site will register automatically when you save your API key.', 'seogen' ) . '</p>';
+			}
+			echo '</td>';
+			echo '</tr>';
+			
+			// License status
+			if ( 'unknown' !== $license_status ) {
+				echo '<tr>';
+				echo '<th scope="row">' . esc_html__( 'License Status', 'seogen' ) . '</th>';
+				echo '<td>';
+				
+				if ( 'active' === $license_status ) {
+					echo '<span style="color: #46b450; font-weight: bold;">✓ ' . esc_html__( 'Active', 'seogen' ) . '</span>';
+				} elseif ( 'expired' === $license_status ) {
+					echo '<span style="color: #dc3232; font-weight: bold;">✗ ' . esc_html__( 'Expired', 'seogen' ) . '</span>';
+				} else {
+					echo '<span style="color: #ffb900; font-weight: bold;">⚠ ' . esc_html( ucfirst( $license_status ) ) . '</span>';
+				}
+				
+				if ( ! empty( $expires_at ) ) {
+					echo '<p class="description">' . esc_html__( 'Expires:', 'seogen' ) . ' ' . esc_html( date( 'F j, Y', strtotime( $expires_at ) ) ) . '</p>';
+				}
+				
+				echo '</td>';
+				echo '</tr>';
+			}
+			
+			// Manual registration button
+			if ( ! $is_registered ) {
+				echo '</table>';
+				echo '<p style="margin-top: 10px;">';
+				echo '<a href="' . esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=seogen_force_registration' ), 'seogen_force_registration', 'nonce' ) ) . '" class="button button-primary">';
+				echo esc_html__( 'Register Site Now', 'seogen' );
+				echo '</a>';
+				echo ' <span class="description">' . esc_html__( '(Manually trigger site registration)', 'seogen' ) . '</span>';
+				echo '</p>';
+				echo '<table class="form-table" style="display:none;">'; // Hidden table to close properly
+			}
+		}
+		
+		echo '</table>';
+		echo '</div>';
+	}
+
+	/**
 	 * Render license status section
 	 */
 	private function render_license_status_section() {
@@ -3448,46 +3553,8 @@ class SEOgen_Admin {
 				</p>
 			</div>
 
-			<!-- Status Overview -->
-			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
-				<h2><?php echo esc_html__( 'System Status', 'seogen' ); ?></h2>
-				
-				<p>
-					<strong><?php echo esc_html__( 'License Key:', 'seogen' ); ?></strong>
-					<?php if ( $has_license_key ) : ?>
-						<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Set', 'seogen' ); ?></span>
-					<?php else : ?>
-						<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Missing', 'seogen' ); ?></span>
-					<?php endif; ?>
-				</p>
-
-				<p>
-					<strong><?php echo esc_html__( 'API Connection:', 'seogen' ); ?></strong>
-					<?php if ( ! empty( $status['ok'] ) ) : ?>
-						<span style="color: #0a7d00; font-weight: 600;">✅ <?php echo esc_html__( 'Connected', 'seogen' ); ?></span>
-					<?php else : ?>
-						<?php
-						$is_timeout = ! empty( $status['error'] ) && ( strpos( $status['error'], 'timed out' ) !== false || strpos( $status['error'], 'cURL error 28' ) !== false );
-						if ( $is_timeout ) :
-						?>
-							<span style="color: #dba617; font-weight: 600;">⚠️ <?php echo esc_html__( 'Health Check Timeout', 'seogen' ); ?></span>
-						<?php else : ?>
-							<span style="color: #b32d2e; font-weight: 600;">❌ <?php echo esc_html__( 'Not Connected', 'seogen' ); ?></span>
-						<?php endif; ?>
-					<?php endif; ?>
-				</p>
-				<?php if ( empty( $status['ok'] ) && ! empty( $status['error'] ) ) : ?>
-					<?php
-					$is_timeout = strpos( $status['error'], 'timed out' ) !== false || strpos( $status['error'], 'cURL error 28' ) !== false;
-					?>
-					<p class="description" style="<?php echo $is_timeout ? 'color: #646970;' : ''; ?>">
-						<?php echo esc_html( $status['error'] ); ?>
-						<?php if ( $is_timeout ) : ?>
-							<br><em><?php echo esc_html__( 'Note: Page generation may still work. This only affects the health check.', 'seogen' ); ?></em>
-						<?php endif; ?>
-					</p>
-				<?php endif; ?>
-			</div>
+			<!-- System Status & License -->
+			<?php $this->render_consolidated_status_section( $settings, $status, $has_license_key ); ?>
 
 			<!-- Page Statistics -->
 			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
@@ -3511,25 +3578,6 @@ class SEOgen_Admin {
 						<div style="font-size: 13px; color: #646970; margin-top: 5px;"><?php echo esc_html__( 'Drafts', 'seogen' ); ?></div>
 					</div>
 				</div>
-			</div>
-
-			<!-- License & Subscription -->
-			<?php $this->render_license_status_section(); ?>
-
-			<!-- Quick Actions -->
-			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
-				<h2><?php echo esc_html__( 'Quick Actions', 'seogen' ); ?></h2>
-				<p>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-bulk' ) ); ?>" class="button button-secondary">
-						<?php echo esc_html__( 'Generate Service Pages', 'seogen' ); ?>
-					</a>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-city-hubs' ) ); ?>" class="button button-secondary">
-						<?php echo esc_html__( 'Generate City Hubs', 'seogen' ); ?>
-					</a>
-					<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=service_page' ) ); ?>" class="button button-secondary">
-						<?php echo esc_html__( 'View All Pages', 'seogen' ); ?>
-					</a>
-				</p>
 			</div>
 		</div>
 		<?php
