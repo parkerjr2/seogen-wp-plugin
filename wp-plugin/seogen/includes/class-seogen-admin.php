@@ -3332,8 +3332,8 @@ class SEOgen_Admin {
 	 * Render consolidated system status and license section
 	 */
 	private function render_consolidated_status_section( $settings, $status, $has_license_key ) {
-		echo '<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">';
-		echo '<h2>' . esc_html__( 'System Status & License', 'seogen' ) . '</h2>';
+		echo '<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;">';
+		echo '<h2 style="margin-top:0;">' . esc_html__( 'System Status & License', 'seogen' ) . '</h2>';
 		
 		echo '<table class="form-table">';
 		
@@ -3533,30 +3533,35 @@ class SEOgen_Admin {
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Hyper Local Dashboard', 'seogen' ); ?></h1>
 			
-			<!-- Quick Start Guide -->
-			<div style="background:#e7f5ff;border-left:4px solid #2271b1;padding:20px;margin:20px 0;">
-				<h2 style="margin-top:0;"><?php echo esc_html__( '🚀 Quick Start Guide', 'seogen' ); ?></h2>
-				<p style="font-size:16px;margin-bottom:15px;"><strong><?php echo esc_html__( 'Follow these steps to generate your pages:', 'seogen' ); ?></strong></p>
-				
-				<ol style="font-size:14px;line-height:1.8;">
-					<li><strong>Settings:</strong> Configure your API connection and license key</li>
-					<li><strong>Business Info:</strong> Enter your business details (name, phone, address, etc.)</li>
-					<li><strong>Services:</strong> Add all services you offer</li>
-					<li><strong>Service Hubs:</strong> Create hub categories to organize your services</li>
-					<li><strong>Generate Service Pages:</strong> Bulk generate pages for all service/city combinations</li>
-				</ol>
-				
-				<p style="margin-top:15px;">
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-settings' ) ); ?>" class="button button-primary button-large">
-						<?php echo esc_html__( 'Start Setup →', 'seogen' ); ?>
-					</a>
-				</p>
+			<!-- Top Row: 2 Columns -->
+			<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+				<!-- Left Column: Quick Start Guide -->
+				<div style="background:#e7f5ff;border-left:4px solid #2271b1;padding:20px;">
+					<h2 style="margin-top:0;"><?php echo esc_html__( '🚀 Quick Start Guide', 'seogen' ); ?></h2>
+					<p style="font-size:16px;margin-bottom:15px;"><strong><?php echo esc_html__( 'Follow these steps to generate your pages:', 'seogen' ); ?></strong></p>
+					
+					<ol style="font-size:14px;line-height:1.8;">
+						<li><strong>Settings:</strong> Configure your API connection and license key</li>
+						<li><strong>Business Info:</strong> Enter your business details (name, phone, address, etc.)</li>
+						<li><strong>Services:</strong> Add all services you offer</li>
+						<li><strong>Service Hubs:</strong> Create hub categories to organize your services</li>
+						<li><strong>Generate Service Pages:</strong> Bulk generate pages for all service/city combinations</li>
+					</ol>
+					
+					<p style="margin-top:15px;">
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=hyper-local-settings' ) ); ?>" class="button button-primary button-large">
+							<?php echo esc_html__( 'Start Setup →', 'seogen' ); ?>
+						</a>
+					</p>
+				</div>
+
+				<!-- Right Column: System Status & License -->
+				<div>
+					<?php $this->render_consolidated_status_section( $settings, $status, $has_license_key ); ?>
+				</div>
 			</div>
 
-			<!-- System Status & License -->
-			<?php $this->render_consolidated_status_section( $settings, $status, $has_license_key ); ?>
-
-			<!-- Page Statistics -->
+			<!-- Row 2: Page Statistics (Full Width) -->
 			<div style="background:#fff;border:1px solid #ccd0d4;padding:20px;margin:20px 0;">
 				<h2><?php echo esc_html__( 'Generated Pages', 'seogen' ); ?></h2>
 				<?php
