@@ -811,31 +811,36 @@ trait SEOgen_Admin_Extensions {
 					$('#bulk-hub-button').prop('disabled', true).text('<?php esc_attr_e( 'Generating...', 'seogen' ); ?>');
 					
 					// Simulate progress updates (since we can't get real-time updates from synchronous PHP)
-					var totalHubs = <?php echo count( $hubs ); ?>;
-					var currentHub = 0;
-					var hubNames = <?php echo wp_json_encode( array_column( $hubs, 'label' ) ); ?>;
-					
-					// Update progress every 15 seconds (estimated time per hub)
-					var progressInterval = setInterval(function() {
-						if (currentHub < totalHubs) {
-							currentHub++;
-							var percent = Math.round((currentHub / totalHubs) * 100);
-							$('#bulk_hub_progress_bar').css('width', percent + '%').text(percent + '%');
-							$('#bulk_hub_status').text('Processing hub ' + currentHub + ' of ' + totalHubs + ': ' + hubNames[currentHub - 1]);
-							$('#bulk_hub_details').text('Generating AI content and creating page... This may take 10-30 seconds per hub.');
-						} else {
-							clearInterval(progressInterval);
-							$('#bulk_hub_status').text('Finalizing...');
-						}
-					}, 15000); // Update every 15 seconds
-					
-					// Initial update
-					setTimeout(function() {
-						currentHub = 1;
-						var percent = Math.round((1 / totalHubs) * 100);
+				var totalHubs = <?php echo count( $hubs ); ?>;
+				var currentHub = 0;
+				var hubNames = <?php echo wp_json_encode( array_column( $hubs, 'label' ) ); ?>;
+				
+				// Update progress every 15 seconds (estimated time per hub)
+				// Cap at 95% to avoid showing 100% before completion
+				var progressInterval = setInterval(function() {
+					if (currentHub < totalHubs) {
+						currentHub++;
+						// Calculate percent but cap at 95% until done
+						var rawPercent = (currentHub / totalHubs) * 100;
+						var percent = Math.min(Math.round(rawPercent * 0.95), 95);
 						$('#bulk_hub_progress_bar').css('width', percent + '%').text(percent + '%');
-						$('#bulk_hub_status').text('Processing hub 1 of ' + totalHubs + ': ' + hubNames[0]);
-					}, 1000);
+						$('#bulk_hub_status').text('Processing hub ' + currentHub + ' of ' + totalHubs + ': ' + hubNames[currentHub - 1]);
+						$('#bulk_hub_details').text('Generating AI content and creating page... This may take 10-30 seconds per hub.');
+					} else {
+						clearInterval(progressInterval);
+						$('#bulk_hub_progress_bar').css('width', '95%').text('95%');
+						$('#bulk_hub_status').text('Finalizing and saving pages...');
+					}
+				}, 15000); // Update every 15 seconds
+				
+				// Initial update
+				setTimeout(function() {
+					currentHub = 1;
+					var rawPercent = (1 / totalHubs) * 100;
+					var percent = Math.min(Math.round(rawPercent * 0.95), 95);
+					$('#bulk_hub_progress_bar').css('width', percent + '%').text(percent + '%');
+					$('#bulk_hub_status').text('Processing hub 1 of ' + totalHubs + ': ' + hubNames[0]);
+				}, 1000);
 				});
 			});
 			</script>
