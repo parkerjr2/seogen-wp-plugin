@@ -18,61 +18,29 @@ class SEOgen_FAQ_City_Stripper {
 	
 	/**
 	 * Normalize FAQ content for service_city pages
-	 * Ensures exactly one city-specific question, zero city mentions in other FAQs
+	 * 
+	 * IMPORTANT: The localized FAQ template is inserted separately and is THE city-specific FAQ.
+	 * ALL backend FAQs must be completely generic (no city in question or answer).
 	 * 
 	 * @param array $faq_blocks Array of FAQ blocks from backend
 	 * @param string $city_name City name to detect/strip
-	 * @param string $service_slug Service slug for deterministic selection
-	 * @param string $city_slug City slug for deterministic selection
-	 * @param string $intent_group Intent group for deterministic selection
-	 * @return array Normalized FAQ blocks
+	 * @return array Normalized FAQ blocks (all generic)
 	 */
-	public static function normalize_service_city_faqs( $faq_blocks, $city_name, $service_slug = '', $city_slug = '', $intent_group = '' ) {
+	public static function normalize_service_city_faqs( $faq_blocks, $city_name ) {
 		if ( empty( $faq_blocks ) || '' === $city_name ) {
 			return $faq_blocks;
 		}
 		
-		// Step 1: Identify which FAQs have city in question
-		$city_in_question = array();
-		foreach ( $faq_blocks as $index => $block ) {
-			$question = isset( $block['question'] ) ? $block['question'] : '';
-			if ( self::contains_city( $question, $city_name ) ) {
-				$city_in_question[] = $index;
-			}
-		}
-		
-		$city_faq_index = null;
-		
-		// Step 2: Determine which FAQ should be the city-specific one
-		if ( count( $city_in_question ) === 1 ) {
-			// Perfect - already have exactly one
-			$city_faq_index = $city_in_question[0];
-		} elseif ( count( $city_in_question ) === 0 ) {
-			// Need to convert one FAQ to city-specific
-			$city_faq_index = self::select_faq_for_localization( $faq_blocks, $service_slug, $city_slug, $intent_group );
-		} else {
-			// Multiple city questions - keep the first one
-			$city_faq_index = $city_in_question[0];
-		}
-		
-		// Step 3: Normalize all FAQ items
+		// Strip city mentions from ALL backend FAQ items
+		// The localized FAQ template (inserted separately) is the ONE city-specific FAQ
 		$normalized = array();
-		foreach ( $faq_blocks as $index => $block ) {
+		foreach ( $faq_blocks as $block ) {
 			$question = isset( $block['question'] ) ? $block['question'] : '';
 			$answer = isset( $block['answer'] ) ? $block['answer'] : '';
 			
-			if ( $index === $city_faq_index ) {
-				// This is THE city-specific FAQ
-				// Ensure question has city mention
-				if ( ! self::contains_city( $question, $city_name ) ) {
-					$question = self::add_city_to_question( $question, $city_name );
-				}
-				// Answer can stay as-is (may or may not mention city - that's OK for the one localized FAQ)
-			} else {
-				// This is a generic FAQ - strip ALL city mentions
-				$question = self::strip_city_from_text( $question, $city_name );
-				$answer = self::strip_city_from_text( $answer, $city_name );
-			}
+			// Strip ALL city mentions from both question and answer
+			$question = self::strip_city_from_text( $question, $city_name );
+			$answer = self::strip_city_from_text( $answer, $city_name );
 			
 			$normalized[] = array(
 				'question' => $question,
@@ -84,57 +52,6 @@ class SEOgen_FAQ_City_Stripper {
 	}
 	
 	/**
-	 * Check if text contains city name
-	 * 
-	 * @param string $text Text to check
-	 * @param string $city_name City name to look for
-	 * @return bool True if city found
-	 */
-	private static function contains_city( $text, $city_name ) {
-		return stripos( $text, $city_name ) !== false;
-	}
-	
-	/**
-	 * Select which FAQ should become the city-specific one
-	 * Uses deterministic selection
-	 * 
-	 * @param array $faq_blocks FAQ blocks
-	 * @param string $service_slug Service slug
-	 * @param string $city_slug City slug
-	 * @param string $intent_group Intent group
-	 * @return int Index of selected FAQ
-	 */
-	private static function select_faq_for_localization( $faq_blocks, $service_slug, $city_slug, $intent_group ) {
-		if ( empty( $faq_blocks ) ) {
-			return 0;
-		}
-		
-		// Deterministic selection using hash
-		$hash_input = $service_slug . '|' . $city_slug . '|' . $intent_group . '|faq_localization|' . self::TEMPLATE_VERSION;
-		$hash = crc32( $hash_input );
-		$selected_index = abs( $hash ) % count( $faq_blocks );
-		
-		return $selected_index;
-	}
-	
-	/**
-	 * Add city mention to question
-	 * Appends "in {City}" naturally to the question
-	 * 
-	 * @param string $question Original question
-	 * @param string $city_name City name to add
-	 * @return string Question with city mention
-	 */
-	private static function add_city_to_question( $question, $city_name ) {
-		// Remove trailing question mark if present
-		$question = rtrim( $question, '?' );
-		$question = rtrim( $question );
-		
-		// Add "in {City}?" at the end
-		return $question . ' in ' . $city_name . '?';
-	}
-	
-	/**
 	 * Strip city mentions from text
 	 * Removes "in {City}" and similar patterns
 	 * 
@@ -143,19 +60,34 @@ class SEOgen_FAQ_City_Stripper {
 	 * @return string Cleaned text
 	 */
 	private static function strip_city_from_text( $text, $city_name ) {
-		// Pattern 1: "in {City}" (most common)
-		$text = preg_replace( '/\s+in\s+' . preg_quote( $city_name, '/' ) . '\b/i', '', $text );
+		$city_escaped = preg_quote( $city_name, '/' );
 		
-		// Pattern 2: "{City}" at start of sentence (less common)
-		$text = preg_replace( '/\b' . preg_quote( $city_name, '/' ) . '\s+/i', '', $text );
+		// Pattern 1: "in {City}" - most common
+		$text = preg_replace( '/\s+in\s+' . $city_escaped . '\b/i', '', $text );
 		
-		// Pattern 3: ", {City}" or "({City})"
-		$text = preg_replace( '/[,\(]\s*' . preg_quote( $city_name, '/' ) . '\s*[\),]/i', '', $text );
+		// Pattern 2: "around {City}"
+		$text = preg_replace( '/\s+around\s+' . $city_escaped . '\b/i', '', $text );
+		
+		// Pattern 3: "near {City}"
+		$text = preg_replace( '/\s+near\s+' . $city_escaped . '\b/i', '', $text );
+		
+		// Pattern 4: "{City} businesses" or "{City} property" at start
+		$text = preg_replace( '/\b' . $city_escaped . '\s+(businesses|business owners|properties|property|residents|homeowners|contractors|providers)\b/i', '$1', $text );
+		
+		// Pattern 5: ", {City}" or "({City})" - punctuation-wrapped
+		$text = preg_replace( '/[,\(]\s*' . $city_escaped . '\s*[\),]/i', '', $text );
+		
+		// Pattern 6: Standalone city at start of sentence (after period/newline)
+		$text = preg_replace( '/(^|\.\s+)' . $city_escaped . '\s+/i', '$1', $text );
 		
 		// Clean up any double spaces or awkward punctuation
 		$text = preg_replace( '/\s+/', ' ', $text );
 		$text = preg_replace( '/\s+([.,;:?!])/', '$1', $text );
 		$text = preg_replace( '/([.,;:?!])\s*([.,;:?!])/', '$1', $text );
+		
+		// Clean up awkward phrases left after stripping
+		$text = preg_replace( '/\s+,/', ',', $text );
+		$text = str_replace( '  ', ' ', $text );
 		
 		return trim( $text );
 	}
@@ -192,8 +124,9 @@ class SEOgen_FAQ_City_Stripper {
 			return $blocks;
 		}
 		
-		// Normalize FAQ blocks
-		$normalized_faqs = self::normalize_service_city_faqs( $faq_blocks, $city_name, $service_slug, $city_slug, $intent_group );
+		// Normalize FAQ blocks - strip city from ALL backend FAQs
+		// The localized FAQ template (inserted separately) is the ONE city-specific FAQ
+		$normalized_faqs = self::normalize_service_city_faqs( $faq_blocks, $city_name );
 		
 		// Replace FAQ blocks in original array
 		foreach ( $faq_indices as $i => $original_index ) {
