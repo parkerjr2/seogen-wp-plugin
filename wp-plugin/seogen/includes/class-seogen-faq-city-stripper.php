@@ -106,44 +106,165 @@ class SEOgen_FAQ_City_Stripper {
 	}
 	
 	/**
-	 * Strip city mentions from text
-	 * Removes "in {City}" and similar patterns
+	 * Strip city token from text - AGGRESSIVE removal
+	 * Removes city name wherever it appears using word boundaries
 	 * 
 	 * @param string $text Text to clean
 	 * @param string $city_name City name to remove
-	 * @return string Cleaned text
+	 * @return string Cleaned text with zero city mentions
 	 */
 	private static function strip_city_from_text( $text, $city_name ) {
+		if ( '' === $city_name || '' === $text ) {
+			return $text;
+		}
+		
 		$city_escaped = preg_quote( $city_name, '/' );
 		
-		// Pattern 1: "in {City}" - most common
-		$text = preg_replace( '/\s+in\s+' . $city_escaped . '\b/i', '', $text );
+		// Pattern 1: "{City}'s" possessive - remove entire token
+		$text = preg_replace( '/\b' . $city_escaped . '\'s\b/i', '', $text );
 		
-		// Pattern 2: "around {City}"
-		$text = preg_replace( '/\s+around\s+' . $city_escaped . '\b/i', '', $text );
+		// Pattern 2: "{City}-based" or "{City}-area" - remove city part, keep suffix
+		$text = preg_replace( '/\b' . $city_escaped . '[\-–—]/i', '', $text );
 		
-		// Pattern 3: "near {City}"
-		$text = preg_replace( '/\s+near\s+' . $city_escaped . '\b/i', '', $text );
+		// Pattern 3: "in {City}" "around {City}" "near {City}" - remove preposition + city
+		$text = preg_replace( '/\s+(in|around|near|throughout|across)\s+' . $city_escaped . '\b/i', '', $text );
 		
-		// Pattern 4: "{City} businesses" or "{City} property" at start
-		$text = preg_replace( '/\b' . $city_escaped . '\s+(businesses|business owners|properties|property|residents|homeowners|contractors|providers)\b/i', '$1', $text );
+		// Pattern 4: "{City} [noun]" - remove city, keep noun
+		$text = preg_replace( '/\b' . $city_escaped . '\s+/i', '', $text );
 		
 		// Pattern 5: ", {City}" or "({City})" - punctuation-wrapped
 		$text = preg_replace( '/[,\(]\s*' . $city_escaped . '\s*[\),]/i', '', $text );
 		
-		// Pattern 6: Standalone city at start of sentence (after period/newline)
-		$text = preg_replace( '/(^|\.\s+)' . $city_escaped . '\s+/i', '$1', $text );
+		// Pattern 6: Standalone city token (word boundary on both sides)
+		$text = preg_replace( '/\b' . $city_escaped . '\b/i', '', $text );
 		
-		// Clean up any double spaces or awkward punctuation
-		$text = preg_replace( '/\s+/', ' ', $text );
-		$text = preg_replace( '/\s+([.,;:?!])/', '$1', $text );
-		$text = preg_replace( '/([.,;:?!])\s*([.,;:?!])/', '$1', $text );
+		// CLEANUP PHASE - fix artifacts from removal
 		
-		// Clean up awkward phrases left after stripping
+		// Fix orphaned prepositions at sentence start: "In ," -> ""
+		$text = preg_replace( '/^(In|Around|Near|Throughout|Across)\s*[,\.]/i', '', $text );
+		
+		// Fix orphaned prepositions mid-sentence: "word. In ," -> "word."
+		$text = preg_replace( '/\.\s+(In|Around|Near|Throughout|Across)\s*[,\.]/i', '.', $text );
+		
+		// Fix double punctuation: ", ," or ". ." or ", ."
+		$text = preg_replace( '/([.,;:?!])\s*[,\.]+/', '$1', $text );
+		
+		// Fix orphaned commas: "word , word" -> "word, word"
 		$text = preg_replace( '/\s+,/', ',', $text );
-		$text = str_replace( '  ', ' ', $text );
+		
+		// Fix space before punctuation: "word ." -> "word."
+		$text = preg_replace( '/\s+([.,;:?!])/', '$1', $text );
+		
+		// Collapse multiple spaces
+		$text = preg_replace( '/\s{2,}/', ' ', $text );
+		
+		// Fix sentence starts after cleanup: ". word" -> ". Word"
+		$text = preg_replace_callback( '/\.\s+([a-z])/', function( $matches ) {
+			return '. ' . strtoupper( $matches[1] );
+		}, $text );
+		
+		// Fix start of text: "word" -> "Word"
+		if ( strlen( $text ) > 0 ) {
+			$text = strtoupper( substr( $text, 0, 1 ) ) . substr( $text, 1 );
+		}
 		
 		return trim( $text );
+	}
+	
+	/**
+	 * Test city stripping with known failing examples
+	 * For debugging - can be called to verify stripping works
+	 */
+	public static function test_city_stripping() {
+		$test_cases = array(
+			'This can happen in older Tulsa commercial properties where wiring is outdated.',
+			'In Tulsa, many commercial buildings built before 1979 have outdated wiring.',
+			'Tulsa-based businesses often face these issues.',
+			'Properties around Tulsa may require upgrades.',
+			'Tulsa\'s commercial properties often need inspection.',
+			'older Tulsa commercial properties',
+		);
+		
+		$results = array();
+		foreach ( $test_cases as $input ) {
+			$output = self::strip_city_from_text( $input, 'Tulsa' );
+			$has_tulsa = stripos( $output, 'Tulsa' ) !== false;
+			$results[] = array(
+				'input' => $input,
+				'output' => $output,
+				'pass' => ! $has_tulsa,
+			);
+		}
+		
+		return $results;
+	}
+	
+	/**
+	 * Validate FAQ compliance - CRITICAL ASSERTION
+	 * Ensures exactly 1 city-specific question, zero city in other answers
+	 * 
+	 * @param array $faq_blocks FAQ blocks to validate
+	 * @param string $city_name City name to check for
+	 * @param int $post_id Post ID for logging
+	 * @return array Validation result with 'pass' boolean and 'violations' array
+	 */
+	public static function validate_faq_compliance( $faq_blocks, $city_name, $post_id = 0 ) {
+		$violations = array();
+		$city_in_questions = 0;
+		$city_in_answers = 0;
+		
+		foreach ( $faq_blocks as $index => $block ) {
+			$question = isset( $block['question'] ) ? $block['question'] : '';
+			$answer = isset( $block['answer'] ) ? $block['answer'] : '';
+			
+			// Check question for city
+			if ( stripos( $question, $city_name ) !== false ) {
+				$city_in_questions++;
+			}
+			
+			// Check answer for city (should be ZERO for all non-local FAQs)
+			if ( stripos( $answer, $city_name ) !== false ) {
+				$city_in_answers++;
+				$violations[] = array(
+					'type' => 'city_in_answer',
+					'index' => $index,
+					'question' => $question,
+					'answer' => substr( $answer, 0, 100 ) . '...',
+				);
+			}
+		}
+		
+		// Check question count
+		if ( $city_in_questions !== 1 ) {
+			$violations[] = array(
+				'type' => 'wrong_question_count',
+				'expected' => 1,
+				'actual' => $city_in_questions,
+			);
+		}
+		
+		$pass = ( $city_in_questions === 1 && $city_in_answers === 0 );
+		
+		// Log violations
+		if ( ! $pass && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( sprintf(
+				'SEOgen FAQ Compliance VIOLATION - Post %d, City: %s, Questions with city: %d (expected 1), Answers with city: %d (expected 0)',
+				$post_id,
+				$city_name,
+				$city_in_questions,
+				$city_in_answers
+			) );
+			foreach ( $violations as $v ) {
+				error_log( 'SEOgen FAQ Violation: ' . print_r( $v, true ) );
+			}
+		}
+		
+		return array(
+			'pass' => $pass,
+			'violations' => $violations,
+			'city_in_questions' => $city_in_questions,
+			'city_in_answers' => $city_in_answers,
+		);
 	}
 	
 	/**
@@ -186,6 +307,36 @@ class SEOgen_FAQ_City_Stripper {
 		// If localized FAQ will be inserted: strip city from ALL backend FAQs
 		// If NO localized FAQ: convert ONE backend FAQ to city-specific
 		$normalized_faqs = self::normalize_service_city_faqs( $faq_blocks, $city_name, $has_localized_faq, $service_slug, $city_slug, $intent_group );
+		
+		// CRITICAL: Validate compliance BEFORE returning
+		// Backend FAQs should have zero city mentions in answers (always)
+		// Backend FAQs should have 1 city mention in questions (only if no localized template)
+		$expected_city_questions = $has_localized_faq ? 0 : 1;
+		$city_in_questions = 0;
+		$city_in_answers = 0;
+		
+		foreach ( $normalized_faqs as $faq ) {
+			if ( stripos( $faq['question'], $city_name ) !== false ) {
+				$city_in_questions++;
+			}
+			if ( stripos( $faq['answer'], $city_name ) !== false ) {
+				$city_in_answers++;
+			}
+		}
+		
+		// Log if validation fails
+		if ( $city_in_questions !== $expected_city_questions || $city_in_answers !== 0 ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( sprintf(
+					'SEOgen FAQ Backend Validation: City=%s, Has_Localized=%s, Questions_with_city=%d (expected %d), Answers_with_city=%d (expected 0)',
+					$city_name,
+					$has_localized_faq ? 'yes' : 'no',
+					$city_in_questions,
+					$expected_city_questions,
+					$city_in_answers
+				) );
+			}
+		}
 		
 		// Replace FAQ blocks in original array
 		foreach ( $faq_indices as $i => $original_index ) {
