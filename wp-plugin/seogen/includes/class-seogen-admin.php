@@ -24,6 +24,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-breadcrumbs.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-phrase-rotation.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-faq-normalizer.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-faq-city-stripper.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-faq-final-compliance.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
@@ -469,6 +470,66 @@ class SEOgen_Admin {
 		}
 
 		$details_available = class_exists( 'WP_Block_Type_Registry' ) && WP_Block_Type_Registry::get_instance()->is_registered( 'core/details' );
+
+		// CRITICAL: Apply FINAL FAQ compliance pass for service_city pages
+		// This runs AFTER blocks are processed but BEFORE rendering
+		if ( 'service_city' === $page_mode && '' !== $city_name ) {
+			// Collect all FAQ blocks
+			$faq_blocks_for_compliance = array();
+			
+			// Add localized FAQ if it will be inserted
+			if ( '' !== $intent_group && '' !== $service_slug ) {
+				$localized_faq = SEOgen_Localized_FAQ_Templates::get_localized_faq( $intent_group, $service_slug, $city_name, $city_slug );
+				if ( ! empty( $localized_faq ) && isset( $localized_faq['question'], $localized_faq['answer'] ) ) {
+					$faq_blocks_for_compliance[] = array(
+						'question' => $localized_faq['question'],
+						'answer' => $localized_faq['answer'],
+						'is_localized_template' => true,
+					);
+				}
+			}
+			
+			// Add backend FAQ blocks
+			foreach ( $blocks as $block ) {
+				if ( is_array( $block ) && isset( $block['type'] ) && 'faq' === $block['type'] ) {
+					$faq_blocks_for_compliance[] = array(
+						'question' => isset( $block['question'] ) ? $block['question'] : '',
+						'answer' => isset( $block['answer'] ) ? $block['answer'] : '',
+						'is_localized_template' => false,
+					);
+				}
+			}
+			
+			// Apply FINAL compliance enforcement
+			if ( ! empty( $faq_blocks_for_compliance ) ) {
+				$faq_blocks_for_compliance = SEOgen_FAQ_Final_Compliance::enforce_faq_city_compliance(
+					$faq_blocks_for_compliance,
+					$city_name,
+					$service_slug,
+					$city_slug,
+					$intent_group
+				);
+				
+				// Update blocks array with compliant FAQs
+				$faq_index = 0;
+				$localized_faq_updated = false;
+				foreach ( $blocks as $i => $block ) {
+					if ( is_array( $block ) && isset( $block['type'] ) && 'faq' === $block['type'] ) {
+						// Skip localized template in blocks array (it's inserted separately)
+						if ( ! $localized_faq_updated && '' !== $intent_group && '' !== $service_slug ) {
+							$faq_index++; // Skip first FAQ in compliance array (localized template)
+							$localized_faq_updated = true;
+						}
+						
+						if ( isset( $faq_blocks_for_compliance[ $faq_index ] ) ) {
+							$blocks[ $i ]['question'] = $faq_blocks_for_compliance[ $faq_index ]['question'];
+							$blocks[ $i ]['answer'] = $faq_blocks_for_compliance[ $faq_index ]['answer'];
+							$faq_index++;
+						}
+					}
+				}
+			}
+		}
 
 		$user_id = get_current_user_id();
 		if ( $user_id > 0 ) {
