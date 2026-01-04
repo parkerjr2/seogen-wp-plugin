@@ -520,6 +520,20 @@ trait SEOgen_Admin_Import {
 			$this->apply_page_builder_settings( $post_id );
 		}
 		
+		// Validate content for doorway-page risk mitigation
+		$validation_result = SEOgen_Content_Validator::validate_content( $gutenberg_markup, $page_mode, $metadata );
+		SEOgen_Content_Validator::apply_validation_result( $post_id, $validation_result );
+		
+		// Block publish if unsafe truth violations detected
+		if ( $validation_result['should_block'] ) {
+			$this->release_import_lock( $lock_key );
+			return array(
+				'success' => false,
+				'error' => 'Content validation failed: ' . implode( ', ', $validation_result['issues'] ),
+				'validation_blocked' => true,
+			);
+		}
+		
 		// Apply SEO plugin meta
 		$service = isset( $item['service'] ) ? $item['service'] : '';
 		$city = isset( $item['city'] ) ? $item['city'] : '';
