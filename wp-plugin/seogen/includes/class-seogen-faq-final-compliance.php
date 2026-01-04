@@ -31,21 +31,11 @@ class SEOgen_FAQ_Final_Compliance {
 	 */
 	public static function enforce_faq_city_compliance( $faqs, $city_name, $service_slug = '', $city_slug = '', $intent_group = '' ) {
 		// CRITICAL DEBUG
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( sprintf(
-				'SEOgen FINAL FAQ Compliance: city_name="%s", faq_count=%d, service_slug="%s", city_slug="%s", intent_group="%s"',
-				$city_name,
-				count( $faqs ),
-				$service_slug,
-				$city_slug,
-				$intent_group
-			) );
-		}
+		$log_file = WP_CONTENT_DIR . '/seogen-debug.log';
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] city_name="' . $city_name . '", faq_count=' . count( $faqs ) . ', service_slug="' . $service_slug . '", city_slug="' . $city_slug . '", intent_group="' . $intent_group . '"' . PHP_EOL, FILE_APPEND );
 		
 		if ( empty( $faqs ) || '' === $city_name ) {
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( 'SEOgen FINAL FAQ Compliance: SKIPPED - empty faqs or city_name' );
-			}
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] SKIPPED - empty faqs or city_name' . PHP_EOL, FILE_APPEND );
 			return $faqs;
 		}
 		
@@ -53,9 +43,7 @@ class SEOgen_FAQ_Final_Compliance {
 		$city_parts = explode( ',', $city_name );
 		$city_name_clean = trim( $city_parts[0] );
 		
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( sprintf( 'SEOgen FINAL FAQ: Using city_name_clean="%s" (from "%s")', $city_name_clean, $city_name ) );
-		}
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Using city_name_clean="' . $city_name_clean . '" (from "' . $city_name . '")' . PHP_EOL, FILE_APPEND );
 		
 		// Step 1: Identify which FAQs have city in question
 		$city_in_question_indices = array();
@@ -63,9 +51,7 @@ class SEOgen_FAQ_Final_Compliance {
 			$question = isset( $faq['question'] ) ? $faq['question'] : '';
 			if ( self::contains_city_token( $question, $city_name_clean ) ) {
 				$city_in_question_indices[] = $index;
-				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-					error_log( sprintf( 'SEOgen FINAL FAQ: Found city in question #%d: "%s"', $index, substr( $question, 0, 80 ) ) );
-				}
+				file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Found city in question #' . $index . ': "' . substr( $question, 0, 80 ) . '"' . PHP_EOL, FILE_APPEND );
 			}
 		}
 		
@@ -74,37 +60,29 @@ class SEOgen_FAQ_Final_Compliance {
 		// Step 2: Determine THE local FAQ index
 		$count = count( $city_in_question_indices );
 		
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( sprintf( 'SEOgen FINAL FAQ: Found %d questions with city mention', $count ) );
-		}
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Found ' . $count . ' questions with city mention' . PHP_EOL, FILE_APPEND );
 		
 		if ( 1 === $count ) {
 			// Perfect - exactly one city-specific question
 			$local_faq_index = $city_in_question_indices[0];
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( sprintf( 'SEOgen FINAL FAQ: Using existing city question at index %d', $local_faq_index ) );
-			}
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Using existing city question at index ' . $local_faq_index . PHP_EOL, FILE_APPEND );
 		} elseif ( 0 === $count ) {
 			// No city-specific question - select one deterministically
 			$local_faq_index = self::select_local_faq_index( $faqs, $service_slug, $city_slug, $intent_group );
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( sprintf( 'SEOgen FINAL FAQ: No city questions found, selecting index %d to add city', $local_faq_index ) );
-				error_log( sprintf( 'SEOgen FINAL FAQ: Original question: "%s"', $faqs[ $local_faq_index ]['question'] ) );
-			}
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] No city questions found, selecting index ' . $local_faq_index . ' to add city' . PHP_EOL, FILE_APPEND );
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Original question: "' . $faqs[ $local_faq_index ]['question'] . '"' . PHP_EOL, FILE_APPEND );
+			
 			// Add city to selected question
 			$faqs[ $local_faq_index ]['question'] = self::add_city_to_question( 
 				$faqs[ $local_faq_index ]['question'], 
 				$city_name_clean 
 			);
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( sprintf( 'SEOgen FINAL FAQ: Modified question: "%s"', $faqs[ $local_faq_index ]['question'] ) );
-			}
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Modified question: "' . $faqs[ $local_faq_index ]['question'] . '"' . PHP_EOL, FILE_APPEND );
 		} else {
 			// Multiple city-specific questions - keep first, strip others
 			$local_faq_index = $city_in_question_indices[0];
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				error_log( sprintf( 'SEOgen FINAL FAQ: Multiple city questions, keeping first at index %d, stripping %d others', $local_faq_index, $count - 1 ) );
-			}
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Multiple city questions, keeping first at index ' . $local_faq_index . ', stripping ' . ($count - 1) . ' others' . PHP_EOL, FILE_APPEND );
+			
 			// Strip city from other questions that had it
 			for ( $i = 1; $i < $count; $i++ ) {
 				$idx = $city_in_question_indices[ $i ];
@@ -124,9 +102,7 @@ class SEOgen_FAQ_Final_Compliance {
 			}
 		}
 		
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( 'SEOgen FINAL FAQ: Compliance enforcement complete' );
-		}
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Compliance enforcement complete' . PHP_EOL, FILE_APPEND );
 		
 		return $faqs;
 	}
