@@ -216,6 +216,37 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
+	 * Insert city hub connective explainer block
+	 * TOPICAL HIERARCHY: Explain why local services are organized into separate pages
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $hub_key Hub key for deterministic variant selection
+	 * @param string $city_slug City slug for deterministic variant selection
+	 * @return string Modified markup
+	 */
+	private function insert_city_hub_connective_explainer( $markup, $hub_key, $city_slug ) {
+		// Check if explainer already exists (prevent duplicates)
+		if ( false !== strpos( $markup, 'seogen-hub-connective-explainer' ) ) {
+			return $markup;
+		}
+		
+		// Get explainer content from templates
+		$explainer_text = SEOgen_Hub_Explainer_Templates::get_city_hub_explainer( $hub_key, $city_slug );
+		
+		// Wrap in paragraph with class for identification
+		$explainer_block = "\n\n<!-- wp:paragraph {\"className\":\"seogen-hub-connective-explainer\"} -->\n<p class=\"seogen-hub-connective-explainer\">" . esc_html( $explainer_text ) . "</p>\n<!-- /wp:paragraph -->\n\n";
+		
+		// Insert after intro paragraph, before service list
+		// Look for end of first paragraph block
+		if ( preg_match( '/<!-- \/wp:paragraph -->/s', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+			$insert_pos = $matches[0][1] + strlen( $matches[0][0] );
+			$markup = substr_replace( $markup, $explainer_block, $insert_pos, 0 );
+		}
+		
+		return $markup;
+	}
+
+	/**
 	 * Callback for removing service list blocks
 	 * 
 	 * Only removes list blocks that contain multiple service page links.
@@ -1502,6 +1533,13 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$markup = $this->enhance_generic_city_hub_intro( $markup, $hub_key, $city['slug'] );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 1.65: Insert city hub connective explainer (TOPICAL HIERARCHY)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// Explain why local services are organized into separate pages
+		$city_slug = isset( $city['slug'] ) ? $city['slug'] : '';
+		$markup = $this->insert_city_hub_connective_explainer( $markup, $hub_key, $city_slug );
+		
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 1.7: Integrate service links section naturally (CONTENT COMPOSITION)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// Remove redundant "Services We Offer" section and integrate service links
@@ -1509,7 +1547,6 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// This makes service links feel authored, not dropped in.
 		$markup = $this->integrate_service_links_section( $markup, $hub_key, $city['slug'], $city );
 		
-		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 2: Add EXACTLY ONE city-specific differentiator (LOCAL SEO + SCALE SAFETY GUARD)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// Use deterministic template selection instead of GPT to ensure:

@@ -164,14 +164,58 @@ trait SEOgen_Service_Hub_Helpers {
 	}
 
 	/**
+	 * E) Insert hub connective explainer block
+	 * TOPICAL HIERARCHY: Explain why services are organized into separate pages
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $hub_key Hub key for deterministic variant selection
+	 * @return string Modified markup
+	 */
+	private function insert_service_hub_connective_explainer( $markup, $hub_key ) {
+		// Check if explainer already exists (prevent duplicates)
+		if ( false !== strpos( $markup, 'seogen-hub-connective-explainer' ) ) {
+			return $markup;
+		}
+		
+		// Get explainer content from templates
+		$explainer_text = SEOgen_Hub_Explainer_Templates::get_service_hub_explainer( $hub_key );
+		
+		// Wrap in paragraph with class for identification
+		$explainer_block = "\n\n<!-- wp:paragraph {\"className\":\"seogen-hub-connective-explainer\"} -->\n<p class=\"seogen-hub-connective-explainer\">" . esc_html( $explainer_text ) . "</p>\n<!-- /wp:paragraph -->\n\n";
+		
+		// Insert after hero/intro section, before service list
+		// Look for first occurrence of service links or list patterns
+		// Insert after first paragraph or framing sentence
+		$framing_pos = strpos( $markup, 'seogen-hub-framing' );
+		if ( false !== $framing_pos ) {
+			// Insert after framing sentence
+			$p_close = strpos( $markup, '</p>', $framing_pos );
+			if ( false !== $p_close ) {
+				$insert_pos = $p_close + 4;
+				$markup = substr_replace( $markup, $explainer_block, $insert_pos, 0 );
+			}
+		} else {
+			// Fallback: Insert after first paragraph
+			$first_p_close = strpos( $markup, '</p>' );
+			if ( false !== $first_p_close ) {
+				$insert_pos = $first_p_close + 4;
+				$markup = substr_replace( $markup, $explainer_block, $insert_pos, 0 );
+			}
+		}
+		
+		return $markup;
+	}
+
+	/**
 	 * Apply all Service Hub quality improvements to Gutenberg markup
-	 * INCLUDES FOUR SCALE SAFETY GUARDS (DETERMINISTIC POST-GENERATION CLEANUP)
+	 * INCLUDES FIVE SCALE SAFETY GUARDS (DETERMINISTIC POST-GENERATION CLEANUP)
 	 * 
 	 * @param string $markup Gutenberg markup
 	 * @param string $hub_label Hub label for framing and heading cleanup
+	 * @param string $hub_key Hub key for connective explainer (optional)
 	 * @return string Improved markup with scale safety guards enforced
 	 */
-	private function apply_service_hub_quality_improvements( $markup, $hub_label ) {
+	private function apply_service_hub_quality_improvements( $markup, $hub_label, $hub_key = '' ) {
 		// A) Remove duplicate FAQ headings (MANDATORY)
 		$markup = $this->remove_duplicate_faq_headings( $markup );
 		
@@ -181,7 +225,12 @@ trait SEOgen_Service_Hub_Helpers {
 		// C) Insert service hub framing sentence (CLARITY)
 		$markup = $this->insert_service_hub_framing_sentence( $markup, $hub_label );
 		
-		// D) Soften repetitive service headings (ANTI-TEMPLATE SIGNAL)
+		// D) Insert hub connective explainer (TOPICAL HIERARCHY)
+		if ( ! empty( $hub_key ) ) {
+			$markup = $this->insert_service_hub_connective_explainer( $markup, $hub_key );
+		}
+		
+		// E) Soften repetitive service headings (ANTI-TEMPLATE SIGNAL)
 		$markup = $this->soften_repetitive_service_headings( $markup, $hub_label );
 		
 		return $markup;

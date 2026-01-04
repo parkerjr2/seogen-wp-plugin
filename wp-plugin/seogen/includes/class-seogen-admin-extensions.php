@@ -1245,8 +1245,9 @@ trait SEOgen_Admin_Extensions {
 		$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : 'service_hub';
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'], $page_mode );
 
-		// Apply Service Hub quality improvements (FAQ deduplication, city link rules, framing, heading variation)
-		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'] );
+		// Apply Service Hub quality improvements (FAQ deduplication, city link rules, framing, heading variation, connective explainer)
+		$hub_key = isset( $hub['key'] ) ? $hub['key'] : '';
+		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'], $hub_key );
 
 		// Prepend header template if configured (same as service+city pages)
 		$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;
@@ -1564,7 +1565,8 @@ trait SEOgen_Admin_Extensions {
 			// Build content
 			$page_mode = isset( $data['page_mode'] ) ? $data['page_mode'] : 'service_hub';
 			$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $data['blocks'], $page_mode );
-			$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'] );
+			$hub_key = isset( $hub['key'] ) ? $hub['key'] : '';
+			$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub['label'], $hub_key );
 
 			// Add header/footer templates
 			$header_template_id = isset( $settings['header_template_id'] ) ? (int) $settings['header_template_id'] : 0;

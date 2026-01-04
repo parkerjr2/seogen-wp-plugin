@@ -54,8 +54,8 @@ trait SEOgen_Admin_Import {
 		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
 		error_log( '[IMPORT] Built Gutenberg content, length: ' . strlen( $gutenberg_markup ) );
 		
-		// Apply Service Hub quality improvements (FAQ dedup, framing, heading variation)
-		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub_label );
+		// Apply Service Hub quality improvements (FAQ dedup, framing, heading variation, connective explainer)
+		$gutenberg_markup = $this->apply_service_hub_quality_improvements( $gutenberg_markup, $hub_label, $hub_key );
 		
 		// Apply header/footer templates
 		$settings = $this->get_settings();
