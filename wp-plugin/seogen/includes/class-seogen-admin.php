@@ -23,6 +23,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-localized-faq-templates.
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-breadcrumbs.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-phrase-rotation.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-faq-normalizer.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-faq-city-stripper.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
@@ -388,6 +389,10 @@ class SEOgen_Admin {
 		$service_slug = isset( $metadata['service_slug'] ) ? $metadata['service_slug'] : '';
 		$city_name = isset( $metadata['city_name'] ) ? $metadata['city_name'] : '';
 		$city_slug = isset( $metadata['city_slug'] ) ? $metadata['city_slug'] : '';
+		
+		// CRITICAL: Strip city mentions from FAQ blocks BEFORE processing
+		// Ensures exactly ONE city-specific FAQ question, zero city mentions in other FAQs
+		$blocks = SEOgen_FAQ_City_Stripper::process_content_blocks( $blocks, $page_mode, $city_name, $service_slug, $city_slug, $intent_group );
 		
 		// Infer page_mode if empty (fallback for legacy call sites)
 		if ( '' === $page_mode ) {
