@@ -22,6 +22,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-audience-templa
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-localized-faq-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-breadcrumbs.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-phrase-rotation.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-faq-normalizer.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
@@ -732,12 +733,17 @@ class SEOgen_Admin {
 			}
 
 			if ( 'faq' === $type ) {
-				$emit_hero_if_ready( true );
-				$insert_why_block();
-				$close_body_group_if_open();
+			// RULE: city_hub pages must have ZERO FAQs
+			if ( 'city_hub' === $page_mode ) {
+				continue; // Skip all FAQ blocks for city hubs
+			}
+			
+			$emit_hero_if_ready( true );
+			$insert_why_block();
+			$close_body_group_if_open();
 
-				if ( ! $faq_heading_added ) {
-					$add_separator();
+			if ( ! $faq_heading_added ) {
+				$add_separator();
 			
 				// Insert scope boundary block before FAQ (service+city pages only)
 				if ( 'service_city' === $page_mode && '' !== $intent_group ) {
@@ -814,27 +820,60 @@ class SEOgen_Admin {
 					}
 				}
 			}
-			
-			$question = isset( $block['question'] ) ? esc_html( (string) $block['question'] ) : '';
-			$answer   = isset( $block['answer'] ) ? esc_html( (string) $block['answer'] ) : '';
-
-				if ( $details_available ) {
-					$output[] = '<!-- wp:details -->';
-					$output[] = '<details class="wp-block-details"><summary>' . $question . '</summary>';
-					$output[] = '<!-- wp:paragraph -->';
-					$output[] = '<p>' . $answer . '</p>';
-					$output[] = '<!-- /wp:paragraph -->';
-					$output[] = '</details>';
-					$output[] = '<!-- /wp:details -->';
-				} else {
-					$output[] = '<!-- wp:heading {"level":3} -->';
-					$output[] = '<h3>' . $question . '</h3>';
-					$output[] = '<!-- /wp:heading -->';
-					$output[] = '<!-- wp:paragraph -->';
-					$output[] = '<p>' . $answer . '</p>';
-					$output[] = '<!-- /wp:paragraph -->';
+		
+		$question = isset( $block['question'] ) ? esc_html( (string) $block['question'] ) : '';
+		$answer   = isset( $block['answer'] ) ? esc_html( (string) $block['answer'] ) : '';
+		
+		// RULE: service_hub pages must have ZERO city-specific FAQs
+		if ( 'service_hub' === $page_mode && '' !== $city_name ) {
+			if ( stripos( $question, $city_name ) !== false ) {
+				// Skip this FAQ - it mentions the city in the question
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					$output[] = '<!-- seogen_debug: skipped city-specific FAQ on service_hub (question mentions city) -->';
 				}
 				continue;
+			}
+		}
+		
+		// RULE: service_city pages must have exactly ONE city-specific FAQ
+		// Track if this is a city-specific FAQ
+		$is_city_specific = false;
+		if ( 'service_city' === $page_mode && '' !== $city_name ) {
+			if ( stripos( $question, $city_name ) !== false ) {
+				$is_city_specific = true;
+				// Count city-specific FAQs (excluding the localized one we already added)
+				if ( ! isset( $city_faq_count ) ) {
+					$city_faq_count = 0;
+				}
+				$city_faq_count++;
+				
+				// Skip if this is beyond the first city-specific FAQ
+				if ( $city_faq_count > 1 ) {
+					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+						$output[] = '<!-- seogen_debug: skipped duplicate city-specific FAQ (already have one) -->';
+					}
+					continue;
+				}
+			}
+		}
+
+		if ( $details_available ) {
+			$output[] = '<!-- wp:details -->';
+			$output[] = '<details class="wp-block-details"><summary>' . $question . '</summary>';
+			$output[] = '<!-- wp:paragraph -->';
+			$output[] = '<p>' . $answer . '</p>';
+			$output[] = '<!-- /wp:paragraph -->';
+			$output[] = '</details>';
+			$output[] = '<!-- /wp:details -->';
+		} else {
+			$output[] = '<!-- wp:heading {"level":3} -->';
+			$output[] = '<h3>' . $question . '</h3>';
+			$output[] = '<!-- /wp:heading -->';
+			$output[] = '<!-- wp:paragraph -->';
+			$output[] = '<p>' . $answer . '</p>';
+			$output[] = '<!-- /wp:paragraph -->';
+		}
+		continue;
 			}
 
 			if ( 'nap' === $type ) {
