@@ -17,6 +17,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/city-hub-helper.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-intent-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-content-validator.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-hub-explainer-templates.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-scope-boundary-templates.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
@@ -733,7 +734,34 @@ class SEOgen_Admin {
 
 				if ( ! $faq_heading_added ) {
 					$add_separator();
+			
+				// Insert scope boundary block before FAQ (service+city pages only)
+				if ( 'service_city' === $page_mode && '' !== $intent_group ) {
+					// Check if scope boundary block hasn't been inserted yet
+					$scope_boundary_marker = 'seogen-scope-boundary-heading';
+					$already_inserted = false;
+					foreach ( $output as $line ) {
+						if ( false !== strpos( $line, $scope_boundary_marker ) ) {
+							$already_inserted = true;
+							break;
+						}
+					}
 				
+					if ( ! $already_inserted ) {
+						$scope_boundary_block = SEOgen_Scope_Boundary_Templates::get_scope_boundary_block( $intent_group );
+						if ( '' !== $scope_boundary_block ) {
+							$output[] = '';
+							$output[] = $scope_boundary_block;
+							$output[] = '';
+							$add_separator();
+						
+							if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+								$output[] = '<!-- seogen_debug: inserted scope_boundary block (intent=' . esc_attr( $intent_group ) . ') -->';
+							}
+						}
+					}
+				}
+			
 				// Add city hub link shortcode before FAQ section (service+city pages only)
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted ) {
 					$output[] = '<!-- wp:shortcode -->';
@@ -744,6 +772,7 @@ class SEOgen_Admin {
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 						$output[] = '<!-- seogen_debug: inserted city hub link shortcode before FAQ (page_mode=service_city) -->';
 					}
+				}
 				}
 				
 				$output[] = '<!-- wp:heading {"level":2} -->';
