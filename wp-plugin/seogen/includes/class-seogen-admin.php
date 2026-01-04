@@ -899,7 +899,13 @@ class SEOgen_Admin {
 				}
 
 				$text = isset( $block['text'] ) ? esc_html( (string) $block['text'] ) : '';
-				
+			
+				// Override CTA button text with intent-specific variant for service_city pages
+				$cta_button_text = esc_html__( 'Call Now for Free Quote', 'seogen' );
+				if ( 'service_city' === $page_mode && '' !== $intent_group && '' !== $service_slug && '' !== $city_slug ) {
+					$cta_button_text = SEOgen_Intent_Templates::get_cta_text( $service_slug, $city_slug, $intent_group );
+				}
+			
 				// Use phone from CTA block itself, fallback to last_phone or context_phone
 				$cta_phone = '';
 				if ( isset( $block['phone'] ) && '' !== trim( (string) $block['phone'] ) ) {
@@ -933,7 +939,7 @@ class SEOgen_Admin {
 				$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
 				$output[] = '<div class="wp-block-buttons">';
 				$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
-				$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html__( 'Call Now for Free Quote', 'seogen' ) . '</a></div>';
+				$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html( $cta_button_text ) . '</a></div>';
 				$output[] = '<!-- /wp:button -->';
 				$output[] = '</div>';
 				$output[] = '<!-- /wp:buttons -->';
