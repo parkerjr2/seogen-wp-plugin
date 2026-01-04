@@ -198,7 +198,8 @@ class SEOgen_FAQ_Final_Compliance {
 		$text = preg_replace( '/\bin\s+commercial\s+properties\s+near\s+[^,]+,/i', 'in commercial properties,', $text );
 		
 		// Pattern 10: "If you're in a X property near Y" -> "If you're in a X property"
-		$text = preg_replace( '/\bIf\s+you[\'\'']re\s+in\s+a\s+([^,]+)\s+near\s+[^,]+,/i', 'If you\'re in a $1,', $text );
+		// Match any apostrophe character (straight or curly)
+		$text = preg_replace( '/\bIf\s+you[\'\']re\s+in\s+a\s+([^,]+)\s+near\s+[^,]+,/i', 'If you\'re in a $1,', $text );
 		
 		// Cleanup: Remove double spaces, fix punctuation
 		$text = preg_replace( '/\s{2,}/', ' ', $text );
