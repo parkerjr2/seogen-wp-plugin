@@ -183,13 +183,25 @@ class SEOgen_FAQ_Final_Compliance {
 		// Pattern 6: District/neighborhood references
 		$text = preg_replace( '/\b(district|neighborhood|downtown|uptown|midtown)\b[^.]*?\./i', '.', $text );
 		
-		// Pattern 7: Location-proxy housing year claims
-		// "homes built around 1979" -> "older homes"
-		$text = preg_replace( '/\bhomes\s+built\s+(around|before|in)\s+19\d{2}\b/i', 'older homes', $text );
-		// "buildings built around 1979" -> "older buildings"
-		$text = preg_replace( '/\bbuildings\s+built\s+(around|before|in)\s+19\d{2}\b/i', 'older buildings', $text );
-		// "built around 1979" -> "in older buildings"
-		$text = preg_replace( '/\bbuilt\s+(around|before|in)\s+19\d{2}\b/i', 'in older buildings', $text );
+		// Pattern 7: Location-proxy year-built claims (COMPREHENSIVE)
+		// Match: built/constructed + around/in/before + 19xx/20xx
+		// Also match: built/constructed in the 1970s/1980s/etc.
+	
+		// "homes built/constructed around 1979" -> "older homes"
+		$text = preg_replace( '/\bhomes\s+(built|constructed)\s+(around|before|in)\s+(19\d{2}|20\d{2})\b/i', 'older homes', $text );
+		// "buildings built/constructed around 1979" -> "older buildings"
+		$text = preg_replace( '/\bbuildings\s+(built|constructed)\s+(around|before|in)\s+(19\d{2}|20\d{2})\b/i', 'older buildings', $text );
+		// "properties built/constructed around 1979" -> "older properties"
+		$text = preg_replace( '/\bproperties\s+(built|constructed)\s+(around|before|in)\s+(19\d{2}|20\d{2})\b/i', 'older properties', $text );
+	
+		// Generic: "built/constructed around 1979" -> "older buildings"
+		$text = preg_replace( '/\b(built|constructed)\s+(around|before|in)\s+(19\d{2}|20\d{2})\b/i', 'older buildings', $text );
+	
+		// Decade references: "built in the 1970s" -> "older buildings"
+		$text = preg_replace( '/\b(built|constructed)\s+in\s+the\s+(19\d{2}s|20\d{2}s|1970s|1980s|1990s|2000s|2010s)\b/i', 'older buildings', $text );
+	
+		// Cleanup: "especially in older buildings" artifacts
+		$text = preg_replace( '/\bespecially\s+in\s+older buildings\b/i', 'especially in older buildings', $text );
 		
 		// Pattern 8: "where X is common" (location-proxy claims)
 		$text = preg_replace( '/,?\s*where\s+[^,]+\s+is\s+common/i', '', $text );
@@ -381,8 +393,12 @@ class SEOgen_FAQ_Final_Compliance {
 		if ( preg_match( '/\b(district|neighborhood|downtown|uptown|midtown)\b/i', $text ) ) {
 			return 'district_reference';
 		}
-		if ( preg_match( '/\bbuilt\s+(around|before|in)\s+19\d{2}\b/i', $text ) ) {
-			return 'housing_year_proxy';
+		// ENHANCED: Check for ALL year-built patterns (built/constructed + year/decade)
+		if ( preg_match( '/\b(built|constructed)\s+(around|before|in)\s+(19\d{2}|20\d{2})\b/i', $text ) ) {
+			return 'year_built_proxy';
+		}
+		if ( preg_match( '/\b(built|constructed)\s+in\s+the\s+(19\d{2}s|20\d{2}s|1970s|1980s|1990s|2000s|2010s)\b/i', $text ) ) {
+			return 'decade_built_proxy';
 		}
 		if ( preg_match( '/,?\s*where\s+[^,]+\s+is\s+common/i', $text ) ) {
 			return 'where_common';
