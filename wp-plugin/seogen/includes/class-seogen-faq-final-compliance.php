@@ -110,6 +110,12 @@ class SEOgen_FAQ_Final_Compliance {
 			}
 		}
 		
+		// Step 4: FINAL grammar cleanup to fix redaction artifacts
+		foreach ( $faqs as $index => $faq ) {
+			$faqs[ $index ]['question'] = self::cleanup_faq_grammar( $faqs[ $index ]['question'] );
+			$faqs[ $index ]['answer'] = self::cleanup_faq_grammar( $faqs[ $index ]['answer'] );
+		}
+		
 		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [FINAL FAQ] Compliance enforcement complete' . PHP_EOL, FILE_APPEND );
 		
 		return $faqs;
@@ -220,6 +226,76 @@ class SEOgen_FAQ_Final_Compliance {
 		$text = preg_replace( '/\.\s*\./', '.', $text );
 		
 		// Fix capitalization after sentence cleanup
+		$text = preg_replace_callback( '/\.\s+([a-z])/', function( $matches ) {
+			return '. ' . strtoupper( $matches[1] );
+		}, $text );
+		
+		// Ensure first character is capitalized
+		if ( strlen( $text ) > 0 ) {
+			$text = strtoupper( substr( $text, 0, 1 ) ) . substr( $text, 1 );
+		}
+		
+		return trim( $text );
+	}
+	
+	/**
+	 * Cleanup FAQ grammar - Fix redaction artifacts from locality stripping
+	 * 
+	 * Fixes common grammatical issues created by removing city tokens and clauses:
+	 * - Duplicate words ("the the" -> "the")
+	 * - Broken building phrases ("in a building older buildings" -> "in an older building")
+	 * - Orphaned punctuation ("In ," -> "")
+	 * - Article corrections ("a older" -> "an older")
+	 * 
+	 * STRICT: Deterministic only, no AI, no content expansion
+	 * 
+	 * @param string $text Text to clean
+	 * @return string Cleaned text
+	 */
+	private static function cleanup_faq_grammar( $text ) {
+		if ( '' === $text ) {
+			return $text;
+		}
+		
+		// Rule 1: Fix broken "building older buildings" patterns (specific)
+		// "in a building older buildings" -> "in an older building"
+		$text = preg_replace( '/\bin\s+a\s+building\s+older\s+buildings\b/i', 'in an older building', $text );
+		$text = preg_replace( '/\bin\s+an\s+building\s+older\s+buildings\b/i', 'in an older building', $text );
+		$text = preg_replace( '/\bin\s+(a|an)\s+building\s+older\s+building\b/i', 'in an older building', $text );
+		// "in building older buildings" -> "in older buildings"
+		$text = preg_replace( '/\bin\s+building\s+older\s+buildings\b/i', 'in older buildings', $text );
+		
+		// Rule 2: Remove duplicate/repeated words (generic)
+		// "the the" -> "the", "in in" -> "in", "older older" -> "older"
+		$text = preg_replace( '/\b(\w+)\s+\1\b/i', '$1', $text );
+		
+		// Rule 3: Fix orphaned determiners from clause removal
+		// "In ," -> ""
+		$text = preg_replace( '/\bIn\s*,\s*/i', '', $text );
+		// "Around ," -> ""
+		$text = preg_replace( '/\b(Around|Near|Throughout)\s*,\s*/i', '', $text );
+		
+		// Rule 4: Fix double punctuation artifacts
+		// ", ," -> ","
+		$text = preg_replace( '/,\s*,/', ',', $text );
+		// ".." -> "."
+		$text = preg_replace( '/\.\s*\./', '.', $text );
+		// ",." -> "."
+		$text = preg_replace( '/,\s*\./', '.', $text );
+		
+		// Rule 5: Article correction (a/an)
+		// "a older" -> "an older"
+		$text = preg_replace( '/\ba\s+older\b/i', 'an older', $text );
+		
+		// Rule 6: Spacing cleanup
+		// Collapse multiple spaces
+		$text = preg_replace( '/\s{2,}/', ' ', $text );
+		// Ensure space after punctuation
+		$text = preg_replace( '/([.,;:?!])([A-Z])/', '$1 $2', $text );
+		// Remove space before punctuation
+		$text = preg_replace( '/\s+([.,;:?!])/', '$1', $text );
+		
+		// Rule 7: Fix capitalization after cleanup
 		$text = preg_replace_callback( '/\.\s+([a-z])/', function( $matches ) {
 			return '. ' . strtoupper( $matches[1] );
 		}, $text );
