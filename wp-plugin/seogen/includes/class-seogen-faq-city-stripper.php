@@ -19,28 +19,47 @@ class SEOgen_FAQ_City_Stripper {
 	/**
 	 * Normalize FAQ content for service_city pages
 	 * 
-	 * IMPORTANT: The localized FAQ template is inserted separately and is THE city-specific FAQ.
-	 * ALL backend FAQs must be completely generic (no city in question or answer).
-	 * 
 	 * @param array $faq_blocks Array of FAQ blocks from backend
 	 * @param string $city_name City name to detect/strip
-	 * @return array Normalized FAQ blocks (all generic)
+	 * @param bool $has_localized_faq Whether localized FAQ template will be inserted
+	 * @param string $service_slug Service slug for deterministic selection
+	 * @param string $city_slug City slug for deterministic selection
+	 * @param string $intent_group Intent group for deterministic selection
+	 * @return array Normalized FAQ blocks
 	 */
-	public static function normalize_service_city_faqs( $faq_blocks, $city_name ) {
+	public static function normalize_service_city_faqs( $faq_blocks, $city_name, $has_localized_faq = true, $service_slug = '', $city_slug = '', $intent_group = '' ) {
 		if ( empty( $faq_blocks ) || '' === $city_name ) {
 			return $faq_blocks;
 		}
 		
-		// Strip city mentions from ALL backend FAQ items
-		// The localized FAQ template (inserted separately) is the ONE city-specific FAQ
+		$city_faq_index = null;
+		
+		// If localized FAQ template will be inserted, ALL backend FAQs should be generic
+		// If NO localized FAQ template, we must convert ONE backend FAQ to city-specific
+		if ( ! $has_localized_faq ) {
+			// Select one FAQ to become city-specific
+			$city_faq_index = self::select_faq_for_localization( $faq_blocks, $service_slug, $city_slug, $intent_group );
+		}
+		
+		// Process all FAQ items
 		$normalized = array();
-		foreach ( $faq_blocks as $block ) {
+		foreach ( $faq_blocks as $index => $block ) {
 			$question = isset( $block['question'] ) ? $block['question'] : '';
 			$answer = isset( $block['answer'] ) ? $block['answer'] : '';
 			
-			// Strip ALL city mentions from both question and answer
-			$question = self::strip_city_from_text( $question, $city_name );
-			$answer = self::strip_city_from_text( $answer, $city_name );
+			if ( $index === $city_faq_index ) {
+				// This is THE city-specific FAQ (fallback when no localized template)
+				// Ensure question has city mention
+				if ( ! self::contains_city( $question, $city_name ) ) {
+					$question = self::add_city_to_question( $question, $city_name );
+				}
+				// Strip city from answer to keep it clean
+				$answer = self::strip_city_from_text( $answer, $city_name );
+			} else {
+				// This is a generic FAQ - strip ALL city mentions
+				$question = self::strip_city_from_text( $question, $city_name );
+				$answer = self::strip_city_from_text( $answer, $city_name );
+			}
 			
 			$normalized[] = array(
 				'question' => $question,
@@ -49,6 +68,41 @@ class SEOgen_FAQ_City_Stripper {
 		}
 		
 		return $normalized;
+	}
+	
+	/**
+	 * Check if text contains city name
+	 */
+	private static function contains_city( $text, $city_name ) {
+		return stripos( $text, $city_name ) !== false;
+	}
+	
+	/**
+	 * Select which FAQ should become the city-specific one
+	 */
+	private static function select_faq_for_localization( $faq_blocks, $service_slug, $city_slug, $intent_group ) {
+		if ( empty( $faq_blocks ) ) {
+			return 0;
+		}
+		
+		// Deterministic selection using hash
+		$hash_input = $service_slug . '|' . $city_slug . '|' . $intent_group . '|faq_localization|' . self::TEMPLATE_VERSION;
+		$hash = crc32( $hash_input );
+		$selected_index = abs( $hash ) % count( $faq_blocks );
+		
+		return $selected_index;
+	}
+	
+	/**
+	 * Add city mention to question
+	 */
+	private static function add_city_to_question( $question, $city_name ) {
+		// Remove trailing question mark if present
+		$question = rtrim( $question, '?' );
+		$question = rtrim( $question );
+		
+		// Add "in {City}?" at the end
+		return $question . ' in ' . $city_name . '?';
 	}
 	
 	/**
@@ -124,9 +178,14 @@ class SEOgen_FAQ_City_Stripper {
 			return $blocks;
 		}
 		
-		// Normalize FAQ blocks - strip city from ALL backend FAQs
-		// The localized FAQ template (inserted separately) is the ONE city-specific FAQ
-		$normalized_faqs = self::normalize_service_city_faqs( $faq_blocks, $city_name );
+		// Determine if localized FAQ template will be inserted
+		// It requires: page_mode=service_city AND intent_group AND service_slug AND city_name
+		$has_localized_faq = ( '' !== $intent_group && '' !== $service_slug && '' !== $city_name );
+		
+		// Normalize FAQ blocks
+		// If localized FAQ will be inserted: strip city from ALL backend FAQs
+		// If NO localized FAQ: convert ONE backend FAQ to city-specific
+		$normalized_faqs = self::normalize_service_city_faqs( $faq_blocks, $city_name, $has_localized_faq, $service_slug, $city_slug, $intent_group );
 		
 		// Replace FAQ blocks in original array
 		foreach ( $faq_indices as $i => $original_index ) {
