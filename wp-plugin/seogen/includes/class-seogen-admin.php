@@ -733,17 +733,17 @@ class SEOgen_Admin {
 			}
 
 			if ( 'faq' === $type ) {
-			// RULE: city_hub pages must have ZERO FAQs
-			if ( 'city_hub' === $page_mode ) {
-				continue; // Skip all FAQ blocks for city hubs
-			}
-			
-			$emit_hero_if_ready( true );
-			$insert_why_block();
-			$close_body_group_if_open();
+				// RULE: city_hub pages must have ZERO FAQs
+				if ( 'city_hub' === $page_mode ) {
+					continue; // Skip all FAQ blocks for city hubs
+				}
+				
+				$emit_hero_if_ready( true );
+				$insert_why_block();
+				$close_body_group_if_open();
 
-			if ( ! $faq_heading_added ) {
-				$add_separator();
+				if ( ! $faq_heading_added ) {
+					$add_separator();
 			
 				// Insert scope boundary block before FAQ (service+city pages only)
 				if ( 'service_city' === $page_mode && '' !== $intent_group ) {
