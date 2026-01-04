@@ -362,11 +362,25 @@ trait SEOgen_Admin_Import {
 		
 		// Extract metadata for intent-based content
 		$metadata = array();
-		if ( 'service_city' === $page_mode && isset( $item['intent_group'], $item['service_slug'], $item['city'] ) ) {
-			$metadata['intent_group'] = $item['intent_group'];
-			$metadata['service_slug'] = $item['service_slug'];
-			$metadata['city_name'] = $item['city'];
-			$metadata['city_slug'] = sanitize_title( $item['city'] );
+		if ( 'service_city' === $page_mode ) {
+			// Always set city_name for service_city pages (required for FAQ compliance)
+			if ( isset( $item['city'] ) ) {
+				$metadata['city_name'] = $item['city'];
+				$metadata['city_slug'] = sanitize_title( $item['city'] );
+			}
+			
+			// Optional: intent_group and service_slug (for localized FAQ template)
+			if ( isset( $item['intent_group'] ) ) {
+				$metadata['intent_group'] = $item['intent_group'];
+			}
+			if ( isset( $item['service_slug'] ) ) {
+				$metadata['service_slug'] = $item['service_slug'];
+			}
+			
+			// Fallback: generate service_slug from service name if not provided
+			if ( empty( $metadata['service_slug'] ) && isset( $item['service'] ) ) {
+				$metadata['service_slug'] = sanitize_title( $item['service'] );
+			}
 		}
 		
 		// Build Gutenberg content
