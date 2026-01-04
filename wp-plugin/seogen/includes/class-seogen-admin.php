@@ -21,6 +21,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-scope-boundary-templates
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-audience-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-localized-faq-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-breadcrumbs.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-phrase-rotation.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
