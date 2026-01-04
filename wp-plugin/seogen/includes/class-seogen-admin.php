@@ -385,11 +385,16 @@ class SEOgen_Admin {
 	// Removed: render_field_primary_cta_label() - now using Business Setup CTA text
 
 	public function build_gutenberg_content_from_blocks( array $blocks, $page_mode = '', $metadata = array() ) {
+		$log_file = WP_CONTENT_DIR . '/seogen-debug.log';
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [BUILD CONTENT] ENTRY - page_mode="' . $page_mode . '", block_count=' . count($blocks) . PHP_EOL, FILE_APPEND );
+		
 		// Extract metadata for intent-based content
 		$intent_group = isset( $metadata['intent_group'] ) ? $metadata['intent_group'] : '';
 		$service_slug = isset( $metadata['service_slug'] ) ? $metadata['service_slug'] : '';
 		$city_name = isset( $metadata['city_name'] ) ? $metadata['city_name'] : '';
 		$city_slug = isset( $metadata['city_slug'] ) ? $metadata['city_slug'] : '';
+		
+		file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [BUILD CONTENT] Metadata - intent_group="' . $intent_group . '", service_slug="' . $service_slug . '", city_name="' . $city_name . '", city_slug="' . $city_slug . '"' . PHP_EOL, FILE_APPEND );
 		
 		// CRITICAL: Strip city mentions from FAQ blocks BEFORE processing
 		// Ensures exactly ONE city-specific FAQ question, zero city mentions in other FAQs
