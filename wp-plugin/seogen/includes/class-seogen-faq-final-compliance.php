@@ -231,10 +231,10 @@ class SEOgen_FAQ_Final_Compliance {
 		
 		// Remove all city token patterns
 		$text = preg_replace( '/\b' . $city_escaped . '\'s\b/i', '', $text );
-		$text = preg_replace( '/\b' . $city_escaped . '\s*[\-–—]\s*/i', '', $text );
+		$text = preg_replace( '/\b' . $city_escaped . '\s*[-–—]\s*/i', '', $text );
 		$text = preg_replace( '/\s+(in|around|near|throughout|across)\s+' . $city_escaped . '\b/i', '', $text );
 		$text = preg_replace( '/\b' . $city_escaped . '\s+/i', '', $text );
-		$text = preg_replace( '/[,\(]\s*' . $city_escaped . '\s*[\),]/i', '', $text );
+		$text = preg_replace( '/[,(]\s*' . $city_escaped . '\s*[),]/i', '', $text );
 		$text = preg_replace( '/\b' . $city_escaped . '\b/i', '', $text );
 		
 		// Cleanup artifacts
