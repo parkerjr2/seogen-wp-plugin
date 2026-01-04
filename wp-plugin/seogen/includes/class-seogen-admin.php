@@ -777,7 +777,6 @@ class SEOgen_Admin {
 						$output[] = '<!-- seogen_debug: inserted city hub link shortcode before FAQ (page_mode=service_city) -->';
 					}
 				}
-				}
 				
 				$output[] = '<!-- wp:heading {"level":2} -->';
 				$output[] = '<h2>' . esc_html__( 'FAQ', 'seogen' ) . '</h2>';
@@ -814,9 +813,10 @@ class SEOgen_Admin {
 						}
 					}
 				}
-				
-				$question = isset( $block['question'] ) ? esc_html( (string) $block['question'] ) : '';
-				$answer   = isset( $block['answer'] ) ? esc_html( (string) $block['answer'] ) : '';
+			}
+			
+			$question = isset( $block['question'] ) ? esc_html( (string) $block['question'] ) : '';
+			$answer   = isset( $block['answer'] ) ? esc_html( (string) $block['answer'] ) : '';
 
 				if ( $details_available ) {
 					$output[] = '<!-- wp:details -->';
