@@ -247,6 +247,44 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	}
 
 	/**
+	 * Insert city hub audience framing block
+	 * AUDIENCE CLARITY: Explain who this hub is for and how needs differ
+	 * 
+	 * @param string $markup Gutenberg markup
+	 * @param string $hub_key Hub key for audience detection
+	 * @param string $hub_label Hub label for audience detection
+	 * @param string $city_name City name for content
+	 * @param string $city_slug City slug for deterministic selection
+	 * @return string Modified markup
+	 */
+	private function insert_city_hub_audience_framing( $markup, $hub_key, $hub_label, $city_name, $city_slug ) {
+		// Check if audience framing already exists (prevent duplicates)
+		if ( false !== strpos( $markup, 'seogen-city-hub-audience-framing' ) ) {
+			return $markup;
+		}
+		
+		// Skip if city name is missing
+		if ( empty( $city_name ) ) {
+			return $markup;
+		}
+		
+		// Get audience framing content from templates
+		$framing_text = SEOgen_City_Hub_Audience_Templates::get_audience_framing( $hub_label, $hub_key, $city_name, $city_slug );
+		
+		// Wrap in paragraph with class for identification
+		$framing_block = "\n\n<!-- wp:paragraph {\"className\":\"seogen-city-hub-audience-framing\"} -->\n<p class=\"seogen-city-hub-audience-framing\">" . esc_html( $framing_text ) . "</p>\n<!-- /wp:paragraph -->\n\n";
+		
+		// Insert after intro paragraph, before connective explainer or service list
+		// Look for end of first paragraph block
+		if ( preg_match( '/<!-- \/wp:paragraph -->/s', $markup, $matches, PREG_OFFSET_CAPTURE ) ) {
+			$insert_pos = $matches[0][1] + strlen( $matches[0][0] );
+			$markup = substr_replace( $markup, $framing_block, $insert_pos, 0 );
+		}
+		
+		return $markup;
+	}
+
+	/**
 	 * Callback for removing service list blocks
 	 * 
 	 * Only removes list blocks that contain multiple service page links.
@@ -1533,10 +1571,26 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		$markup = $this->enhance_generic_city_hub_intro( $markup, $hub_key, $city['slug'] );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// PRIORITY 1.63: Insert city hub audience framing (AUDIENCE CLARITY + EEAT)
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// Explain who this hub is for and how needs differ across audiences
+		$city_name = isset( $city['name'] ) ? $city['name'] : '';
+		$city_slug = isset( $city['slug'] ) ? $city['slug'] : '';
+		// Get hub_label from hub data if available
+		$hubs = $this->get_hubs();
+		$hub_label = '';
+		foreach ( $hubs as $hub ) {
+			if ( isset( $hub['key'] ) && $hub['key'] === $hub_key ) {
+				$hub_label = isset( $hub['label'] ) ? $hub['label'] : '';
+				break;
+			}
+		}
+		$markup = $this->insert_city_hub_audience_framing( $markup, $hub_key, $hub_label, $city_name, $city_slug );
+		
+		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 1.65: Insert city hub connective explainer (TOPICAL HIERARCHY)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// Explain why local services are organized into separate pages
-		$city_slug = isset( $city['slug'] ) ? $city['slug'] : '';
 		$markup = $this->insert_city_hub_connective_explainer( $markup, $hub_key, $city_slug );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

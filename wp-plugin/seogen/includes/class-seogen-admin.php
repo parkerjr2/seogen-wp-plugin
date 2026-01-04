@@ -18,6 +18,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-intent-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-content-validator.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-hub-explainer-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-scope-boundary-templates.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-audience-templates.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
