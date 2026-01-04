@@ -4175,7 +4175,7 @@ class SEOgen_Admin {
 		$services = $this->parse_bulk_lines( $form['services'] );
 		$areas = $this->parse_service_areas( $form['service_areas'] );
 		
-		// Get services cache to look up hub_key for each service
+		// Get services cache to look up hub_key and intent_group for each service
 		$services_cache = $this->get_services();
 		$service_hub_map = array();
 		foreach ( $services_cache as $service_data ) {
@@ -4188,6 +4188,8 @@ class SEOgen_Admin {
 				$service_hub_map[ $service_name_lower ][] = array(
 					'hub_key' => $service_data['hub_key'],
 					'hub_label' => isset( $service_data['hub_label'] ) ? $service_data['hub_label'] : ucfirst( $service_data['hub_key'] ),
+					'intent_group' => isset( $service_data['intent_group'] ) ? $service_data['intent_group'] : 'repair_service',
+					'service_slug' => isset( $service_data['slug'] ) ? $service_data['slug'] : sanitize_title( $service_data['name'] ),
 				);
 			}
 		}
@@ -4220,6 +4222,8 @@ class SEOgen_Admin {
 				foreach ( $hub_assignments as $hub_data ) {
 					$hub_key = $hub_data['hub_key'];
 					$hub_label = $hub_data['hub_label'];
+					$intent_group = $hub_data['intent_group'];
+					$service_slug = $hub_data['service_slug'];
 					
 					// State is now optional - empty state is allowed
 					$key = $this->compute_canonical_key( $service, $city, $state, $hub_key );
@@ -4233,6 +4237,8 @@ class SEOgen_Admin {
 						'state'        => $state,
 						'hub_key'      => $hub_key,
 						'hub_label'    => $hub_label,
+						'intent_group' => $intent_group,
+						'service_slug' => $service_slug,
 						'key'          => $key,
 						'slug_preview' => $this->compute_slug_preview( $service, $city, $state ),
 					);

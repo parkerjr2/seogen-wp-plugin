@@ -360,8 +360,17 @@ trait SEOgen_Admin_Import {
 			);
 		}
 		
+		// Extract metadata for intent-based content
+		$metadata = array();
+		if ( 'service_city' === $page_mode && isset( $item['intent_group'], $item['service_slug'], $item['city'] ) ) {
+			$metadata['intent_group'] = $item['intent_group'];
+			$metadata['service_slug'] = $item['service_slug'];
+			$metadata['city_name'] = $item['city'];
+			$metadata['city_slug'] = sanitize_title( $item['city'] );
+		}
+		
 		// Build Gutenberg content
-		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode );
+		$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $blocks, $page_mode, $metadata );
 		
 		// Apply header/footer templates
 		$settings = $this->get_settings();
