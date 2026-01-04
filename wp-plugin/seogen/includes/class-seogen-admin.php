@@ -5744,17 +5744,67 @@ class SEOgen_Admin {
 		if ( isset( $_REQUEST['seogen_select_all'] ) && '1' === $_REQUEST['seogen_select_all'] ) {
 			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] Select All detected, fetching all posts' . PHP_EOL, FILE_APPEND );
 			
-			// Get all service_page post IDs (not in trash)
+			// Build query args respecting current filters
 			$args = array(
 				'post_type'      => 'service_page',
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
-				'post_status'    => array( 'publish', 'draft', 'pending', 'private', 'future' ),
+				'post_status'    => isset( $_REQUEST['post_status'] ) ? sanitize_text_field( $_REQUEST['post_status'] ) : array( 'publish', 'draft', 'pending', 'private', 'future' ),
 			);
-			$all_post_ids = get_posts( $args );
-			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] Found ' . count( $all_post_ids ) . ' posts to process' . PHP_EOL, FILE_APPEND );
 			
-			// Perform the bulk action on all posts
+			// Respect search query
+			if ( ! empty( $_REQUEST['s'] ) ) {
+				$args['s'] = sanitize_text_field( $_REQUEST['s'] );
+			}
+			
+			// Respect date filters
+			if ( ! empty( $_REQUEST['m'] ) ) {
+				$args['m'] = sanitize_text_field( $_REQUEST['m'] );
+			}
+			
+			// Respect meta query filters (SEO score, readability, etc.)
+			$meta_query = array();
+			
+			if ( ! empty( $_REQUEST['seo_score'] ) ) {
+				$seo_score = sanitize_text_field( $_REQUEST['seo_score'] );
+				if ( 'none' === $seo_score ) {
+					$meta_query[] = array(
+						'key'     => '_seogen_seo_score',
+						'compare' => 'NOT EXISTS',
+					);
+				} else {
+					$meta_query[] = array(
+						'key'     => '_seogen_seo_score',
+						'value'   => $seo_score,
+						'compare' => '=',
+					);
+				}
+			}
+			
+			if ( ! empty( $_REQUEST['readability_score'] ) ) {
+				$readability_score = sanitize_text_field( $_REQUEST['readability_score'] );
+				if ( 'none' === $readability_score ) {
+					$meta_query[] = array(
+						'key'     => '_seogen_readability_score',
+						'compare' => 'NOT EXISTS',
+					);
+				} else {
+					$meta_query[] = array(
+						'key'     => '_seogen_readability_score',
+						'value'   => $readability_score,
+						'compare' => '=',
+					);
+				}
+			}
+			
+			if ( ! empty( $meta_query ) ) {
+				$args['meta_query'] = $meta_query;
+			}
+			
+			$all_post_ids = get_posts( $args );
+			file_put_contents( $log_file, '[' . date('Y-m-d H:i:s') . '] [SELECT ALL] Found ' . count( $all_post_ids ) . ' posts to process (with filters applied)' . PHP_EOL, FILE_APPEND );
+			
+			// Perform the bulk action on all filtered posts
 			if ( 'trash' === $doaction && ! empty( $all_post_ids ) ) {
 				$trashed = 0;
 				foreach ( $all_post_ids as $post_id ) {
