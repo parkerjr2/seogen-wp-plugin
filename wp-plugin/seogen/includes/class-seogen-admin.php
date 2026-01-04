@@ -20,6 +20,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-hub-explainer-templates.
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-scope-boundary-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-audience-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-localized-faq-templates.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-breadcrumbs.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
