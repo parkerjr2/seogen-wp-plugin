@@ -19,6 +19,7 @@ require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-content-validator.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-hub-explainer-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-scope-boundary-templates.php';
 require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-audience-templates.php';
+require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-localized-faq-templates.php';
 
 class SEOgen_Admin {
 	use SEOgen_Admin_Extensions;
@@ -780,8 +781,38 @@ class SEOgen_Admin {
 				$output[] = '<h2>' . esc_html__( 'FAQ', 'seogen' ) . '</h2>';
 				$output[] = '<!-- /wp:heading -->';
 				$faq_heading_added = true;
-			}
-
+				
+				// Insert localized FAQ as first item (service+city pages only)
+				if ( 'service_city' === $page_mode && '' !== $intent_group && '' !== $service_slug && '' !== $city_name ) {
+					$localized_faq = SEOgen_Localized_FAQ_Templates::get_localized_faq( $intent_group, $service_slug, $city_name, $city_slug );
+					
+					if ( ! empty( $localized_faq ) && isset( $localized_faq['question'], $localized_faq['answer'] ) ) {
+						$local_question = esc_html( $localized_faq['question'] );
+						$local_answer = esc_html( $localized_faq['answer'] );
+						
+						if ( $details_available ) {
+							$output[] = '<!-- wp:details {"className":"seogen-localized-faq"} -->';
+							$output[] = '<details class="wp-block-details seogen-localized-faq"><summary>' . $local_question . '</summary>';
+							$output[] = '<!-- wp:paragraph -->';
+							$output[] = '<p>' . $local_answer . '</p>';
+							$output[] = '<!-- /wp:paragraph -->';
+							$output[] = '</details>';
+							$output[] = '<!-- /wp:details -->';
+						} else {
+							$output[] = '<!-- wp:heading {"level":3,"className":"seogen-localized-faq"} -->';
+							$output[] = '<h3 class="seogen-localized-faq">' . $local_question . '</h3>';
+							$output[] = '<!-- /wp:heading -->';
+							$output[] = '<!-- wp:paragraph -->';
+							$output[] = '<p>' . $local_answer . '</p>';
+							$output[] = '<!-- /wp:paragraph -->';
+						}
+						
+						if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+							$output[] = '<!-- seogen_debug: inserted localized FAQ (intent=' . esc_attr( $intent_group ) . ') -->';
+						}
+					}
+				}
+				
 				$question = isset( $block['question'] ) ? esc_html( (string) $block['question'] ) : '';
 				$answer   = isset( $block['answer'] ) ? esc_html( (string) $block['answer'] ) : '';
 
