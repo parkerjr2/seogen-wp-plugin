@@ -93,6 +93,7 @@ class SEOgen_Plugin {
 		add_shortcode( 'seogen_service_hub_city_links', array( $this, 'render_service_hub_city_links_shortcode' ) );
 		add_shortcode( 'seogen_parent_hub_link', array( $this, 'render_parent_hub_link_shortcode' ) );
 		add_shortcode( 'seogen_city_hub_link', array( $this, 'render_city_hub_link_shortcode' ) );
+		add_shortcode( 'CITY_HUB_LINK', array( $this, 'render_city_hub_link_shortcode' ) ); // New uppercase shortcode
 		
 		// Auto-invalidate city hub link transients when posts are saved/published
 		add_action( 'save_post_service_page', array( 'SEOgen_City_Hub_Link', 'purge_city_hub_transient_for_post' ), 10, 1 );
