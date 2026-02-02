@@ -191,7 +191,21 @@ trait SEOgen_Import_Coordinator {
 	private function dispatch_import( $page_mode, $result_json, $item_metadata, $job_id, $item_index, $canonical_key ) {
 		// Get business config
 		$config = get_option( 'hyper_local_business_config', array() );
-		
+
+		// Get auto_publish setting from job to determine post_status
+		$job = $this->load_bulk_job( $job_id );
+		$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
+		$post_status = $auto_publish ? 'publish' : 'draft';
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( sprintf(
+				'[SEOgen Import] Job %s auto_publish=%s, post_status=%s',
+				$job_id,
+				$auto_publish ? 'true' : 'false',
+				$post_status
+			) );
+		}
+
 		// Build item data for import functions
 		$item = array(
 			'service' => isset( $item_metadata['service'] ) ? $item_metadata['service'] : '',
@@ -200,7 +214,7 @@ trait SEOgen_Import_Coordinator {
 			'hub_key' => isset( $item_metadata['hub_key'] ) ? $item_metadata['hub_key'] : '',
 			'hub_label' => isset( $item_metadata['hub_label'] ) ? $item_metadata['hub_label'] : '',
 		);
-		
+
 		// Log dispatch for debugging
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( sprintf(
@@ -211,7 +225,7 @@ trait SEOgen_Import_Coordinator {
 				$item['hub_key']
 			) );
 		}
-		
+
 		// Dispatch based on page_mode
 		if ( 'city_hub' === $page_mode ) {
 			// Calculate city_slug if not provided
@@ -220,14 +234,14 @@ trait SEOgen_Import_Coordinator {
 				$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
 			}
 			$item['city_slug'] = $city_slug;
-			
-			// Import city hub using existing function
-			$result = $this->import_city_hub_from_result( $result_json, $config, $item, 'publish' );
-			
+
+			// Import city hub with correct post_status (respects auto_publish setting)
+			$result = $this->import_city_hub_from_result( $result_json, $config, $item, $post_status );
+
 		} elseif ( 'service_hub' === $page_mode ) {
 			// Import service hub (if we have this function)
 			if ( method_exists( $this, 'import_service_hub_from_result' ) ) {
-				$result = $this->import_service_hub_from_result( $result_json, $config, $item );
+				$result = $this->import_service_hub_from_result( $result_json, $config, $item, $post_status );
 			} else {
 				return array(
 					'success' => false,
@@ -236,11 +250,11 @@ trait SEOgen_Import_Coordinator {
 					'error' => 'Service hub import not implemented'
 				);
 			}
-			
+
 		} else {
 			// Default: service_city page
-			// Import using existing function from SEOgen_Admin_Import trait
-			$result = $this->import_service_city_from_result( $result_json, $config, $item );
+			// Import using existing function from SEOgen_Admin_Import trait with correct post_status
+			$result = $this->import_service_city_from_result( $result_json, $config, $item, $post_status );
 		}
 		
 		// Store canonical key and metadata on successful import

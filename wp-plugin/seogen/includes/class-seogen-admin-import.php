@@ -19,7 +19,7 @@ trait SEOgen_Admin_Import {
 	 * @param string $post_status - Post status ('draft' or 'publish'), defaults to 'publish'
 	 * @return array - ['success' => bool, 'post_id' => int, 'title' => string, 'error' => string]
 	 */
-	public function import_service_hub_from_result( $result_json, $config, $item, $post_status = 'publish' ) {
+	public function import_service_hub_from_result( $result_json, $config, $item, $post_status = 'draft' ) {
 		$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
 		$hub_label = isset( $item['hub_label'] ) ? $item['hub_label'] : '';
 		
@@ -170,7 +170,13 @@ trait SEOgen_Admin_Import {
 		}
 		
 		error_log( '[IMPORT] Service Hub import complete - post_id: ' . $post_id . ', title: ' . $title );
-		
+
+		// Schedule for publishing if status is draft
+		if ( 'draft' === $post_status ) {
+			$scheduler = new SEOgen_Publishing_Scheduler();
+			$scheduler->schedule_post_for_publishing( $post_id );
+		}
+
 		return array(
 			'success' => true,
 			'post_id' => $post_id,
@@ -303,7 +309,13 @@ trait SEOgen_Admin_Import {
 				'post_name' => $unique_slug,
 			) );
 		}
-		
+
+		// Schedule for publishing if status is draft
+		if ( 'draft' === $post_status ) {
+			$scheduler = new SEOgen_Publishing_Scheduler();
+			$scheduler->schedule_post_for_publishing( $post_id );
+		}
+
 		return array(
 			'success' => true,
 			'post_id' => $post_id,
@@ -320,7 +332,7 @@ trait SEOgen_Admin_Import {
 	 * @param string $post_status - Post status ('draft' or 'publish'), defaults to 'publish'
 	 * @return array - ['success' => bool, 'post_id' => int, 'title' => string, 'error' => string]
 	 */
-	public function import_service_city_from_result( $result_json, $config, $item, $post_status = 'publish' ) {
+	public function import_service_city_from_result( $result_json, $config, $item, $post_status = 'draft' ) {
 		// Validate that this is actually a service+city page (must have service name)
 		if ( empty( $item['service'] ) || ! isset( $item['service'] ) ) {
 			return array(
@@ -562,7 +574,13 @@ trait SEOgen_Admin_Import {
 				'post_name' => $unique_slug,
 			) );
 		}
-		
+
+		// Schedule for publishing if status is draft
+		if ( 'draft' === $post_status ) {
+			$scheduler = new SEOgen_Publishing_Scheduler();
+			$scheduler->schedule_post_for_publishing( $post_id );
+		}
+
 		// Release lock before returning
 		$this->release_import_lock( $lock_key );
 		

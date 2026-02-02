@@ -942,9 +942,9 @@ class SEOgen_Admin {
 			
 				// Add city hub link shortcode before FAQ section (service+city pages only)
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted ) {
-					$output[] = '<!-- wp:shortcode -->';
+					$output[] = '<!-- wp:html -->';
 					$output[] = '[seogen_city_hub_link]';
-					$output[] = '<!-- /wp:shortcode -->';
+					$output[] = '<!-- /wp:html -->';
 					$output[] = '';
 					$city_hub_link_inserted = true;
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1156,9 +1156,9 @@ class SEOgen_Admin {
 				
 				// Fallback: Insert city hub link before CTA if no FAQ exists
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted && ! $has_faq_blocks ) {
-					$output[] = '<!-- wp:shortcode -->';
+					$output[] = '<!-- wp:html -->';
 					$output[] = '[seogen_city_hub_link]';
-					$output[] = '<!-- /wp:shortcode -->';
+					$output[] = '<!-- /wp:html -->';
 					$output[] = '';
 					$city_hub_link_inserted = true;
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -2422,11 +2422,16 @@ class SEOgen_Admin {
 			return 0;
 		}
 
+		// Only consider posts that are published or scheduled
+		// Draft posts are ignored - they're not visible on the website and shouldn't block imports
+		// If a draft exists, we'll either update it or create a new post
+		$valid_statuses = array( 'publish', 'pending', 'future', 'private' );
+
 		// FAST: Check new canonical key first (most likely to match)
 		$query = new WP_Query(
 			array(
 				'post_type'      => 'service_page',
-				'post_status'    => 'any',
+				'post_status'    => $valid_statuses,
 				'fields'         => 'ids',
 				'posts_per_page' => 1,
 				'no_found_rows'  => true,
@@ -2438,16 +2443,20 @@ class SEOgen_Admin {
 				),
 			)
 		);
-		
+
 		if ( ! empty( $query->posts ) ) {
-			return (int) $query->posts[0];
+			$found_id = (int) $query->posts[0];
+			// Log post status for debugging
+			$post_status = get_post_status( $found_id );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found existing post: id=' . $found_id . ' status=' . $post_status . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+			return $found_id;
 		}
-		
+
 		// Fallback: Check legacy key
 		$query = new WP_Query(
 			array(
 				'post_type'      => 'service_page',
-				'post_status'    => 'any',
+				'post_status'    => $valid_statuses,
 				'fields'         => 'ids',
 				'posts_per_page' => 1,
 				'no_found_rows'  => true,
@@ -2459,8 +2468,16 @@ class SEOgen_Admin {
 				),
 			)
 		);
-		
-		return ! empty( $query->posts ) ? (int) $query->posts[0] : 0;
+
+		if ( ! empty( $query->posts ) ) {
+			$found_id = (int) $query->posts[0];
+			// Log post status for debugging
+			$post_status = get_post_status( $found_id );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Found existing post (legacy): id=' . $found_id . ' status=' . $post_status . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+			return $found_id;
+		}
+
+		return 0;
 	}
 
 	/**
@@ -5217,11 +5234,30 @@ class SEOgen_Admin {
 					$post_id = 0;
 					$existing_id = ( '' !== $canonical_key ) ? $this->find_existing_post_id_by_key( $canonical_key ) : 0;
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Existing post check: canonical_key=' . $canonical_key . ' existing_id=' . $existing_id . ' update_existing=' . ( $update_existing ? 'true' : 'false' ) . PHP_EOL, FILE_APPEND );
+
+					// Check if existing post is an empty placeholder
+					$is_placeholder = false;
+					if ( $existing_id > 0 ) {
+						$existing_post = get_post( $existing_id );
+						if ( $existing_post ) {
+							$is_placeholder = (
+								$existing_post->post_status === 'draft' &&
+								( empty( $existing_post->post_content ) || strlen( $existing_post->post_content ) < 500 )
+							);
+							if ( $is_placeholder ) {
+								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] PLACEHOLDER DETECTED: Post ' . $existing_id . ' is empty placeholder (content_length=' . strlen( $existing_post->post_content ) . ') - will UPDATE with content' . PHP_EOL, FILE_APPEND );
+							}
+						}
+					}
+
 					// Enhanced duplicate detection logging
 					if ( $existing_id > 0 ) {
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] DUPLICATE DETECTED: Post ' . $existing_id . ' already exists for key=' . $canonical_key . ' - will ' . ( $update_existing ? 'UPDATE' : 'SKIP' ) . PHP_EOL, FILE_APPEND );
+						$action = $is_placeholder ? 'UPDATE (placeholder)' : ( $update_existing ? 'UPDATE' : 'SKIP' );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] DUPLICATE DETECTED: Post ' . $existing_id . ' already exists for key=' . $canonical_key . ' - will ' . $action . PHP_EOL, FILE_APPEND );
 					}
-					if ( $existing_id > 0 && ! $update_existing ) {
+
+					// Skip existing posts ONLY if they're not placeholders
+					if ( $existing_id > 0 && ! $update_existing && ! $is_placeholder ) {
 						$post_id = $existing_id;
 						if ( isset( $job['rows'][ $idx ] ) ) {
 							$job['rows'][ $idx ]['status'] = 'skipped';
@@ -5238,8 +5274,9 @@ class SEOgen_Admin {
 					$meta_description = isset( $result_json['meta_description'] ) ? (string) $result_json['meta_description'] : '';
 					$blocks = ( isset( $result_json['blocks'] ) && is_array( $result_json['blocks'] ) ) ? $result_json['blocks'] : array();
 					$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : '';
-					// Skip city_hub and service_hub pages - they're handled by import coordinator
-					if ( in_array( $page_mode, array( 'city_hub', 'service_hub' ), true ) ) {
+					// Skip ONLY service_hub pages - they're handled by import coordinator
+					// City hub pages are now imported directly from backend like service pages
+					if ( $page_mode === 'service_hub' ) {
 						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Skipping ' . $page_mode . ' page (handled by import coordinator): canonical_key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 						$acked_ids[] = $item_id;
 						continue;
@@ -5269,25 +5306,51 @@ class SEOgen_Admin {
 						}
 					}
 
+					// Apply city hub quality improvements for city_hub pages
+					// This replaces {{CITY_SERVICE_LINKS}} placeholder with shortcode and applies other improvements
+					if ( $page_mode === 'city_hub' ) {
+						$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+						$city_data = array(
+							'name' => isset( $item['city'] ) ? $item['city'] : '',
+							'state' => isset( $item['state'] ) ? $item['state'] : '',
+							'slug' => isset( $item['city_slug'] ) ? $item['city_slug'] : sanitize_title( ( isset( $item['city'] ) ? $item['city'] : '' ) . '-' . strtolower( isset( $item['state'] ) ? $item['state'] : '' ) ),
+						);
+						$vertical = isset( $settings['vertical'] ) ? $settings['vertical'] : '';
+						$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city_data, $vertical );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Applied city hub quality improvements for hub_key=' . $hub_key . PHP_EOL, FILE_APPEND );
+					}
+
 					$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
 					$post_status = $auto_publish ? 'publish' : 'draft';
 
-					// Assign parent city hub ID for service pages
-					$city_hub_parent_id = 0;
-					if ( isset( $job['city_hub_map'], $item['city'], $item['state'], $item['hub_key'] ) && ! empty( $item['hub_key'] ) ) {
-						$city_name = $item['city'];
-						$state_code = $item['state'];
-						$hub_key = $item['hub_key'];
-						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
-						
-						// Build hub_city_key to look up the correct city hub
-						$hub_city_key = $hub_key . '|' . $city_slug;
-						if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
-							$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Assigning city hub parent: ' . $hub_city_key . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
-						} else {
-							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] WARNING: City hub not found for: ' . $hub_city_key . PHP_EOL, FILE_APPEND );
+					// Assign appropriate parent based on page type
+					$post_parent_id = 0;
+					if ( $page_mode === 'city_hub' ) {
+						// City hubs need service hub as parent
+						$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
+						if ( '' !== $hub_key ) {
+							$post_parent_id = $this->find_service_hub_post_id( $hub_key );
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Assigning service hub parent for city hub: hub_key=' . $hub_key . ' parent_id=' . $post_parent_id . PHP_EOL, FILE_APPEND );
 						}
+					} else {
+						// Service pages need city hub as parent
+						$city_hub_parent_id = 0;
+						if ( isset( $job['city_hub_map'], $item['city'], $item['state'], $item['hub_key'] ) && ! empty( $item['hub_key'] ) ) {
+							$city_name = $item['city'];
+							$state_code = $item['state'];
+							$hub_key = $item['hub_key'];
+							$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
+
+							// Build hub_city_key to look up the correct city hub
+							$hub_city_key = $hub_key . '|' . $city_slug;
+							if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
+								$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
+								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Assigning city hub parent for service page: ' . $hub_city_key . ' (ID: ' . $city_hub_parent_id . ')' . PHP_EOL, FILE_APPEND );
+							} else {
+								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND WARNING: City hub not found for: ' . $hub_city_key . PHP_EOL, FILE_APPEND );
+							}
+						}
+						$post_parent_id = $city_hub_parent_id;
 					}
 
 					$postarr = array(
@@ -5296,7 +5359,7 @@ class SEOgen_Admin {
 						'post_title'   => $title,
 						'post_name'    => sanitize_title( $slug ),
 						'post_content' => $gutenberg_markup,
-						'post_parent'  => $city_hub_parent_id,
+						'post_parent'  => $post_parent_id,
 					);
 
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Creating/updating post: title=' . $title . ' slug=' . $slug . ' status=' . $post_status . PHP_EOL, FILE_APPEND );
@@ -5319,14 +5382,39 @@ class SEOgen_Admin {
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FINAL DUPLICATE CHECK: Searching for key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					$final_existing_id = $this->find_existing_post_id_by_key( $canonical_key );
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FINAL DUPLICATE CHECK RESULT: existing_id=' . $final_existing_id . PHP_EOL, FILE_APPEND );
+
+					// Check for existing published/visible post
 					if ( $final_existing_id > 0 ) {
-						// Update existing page instead of creating duplicate
+						// Update existing visible page
 						$postarr['ID'] = $final_existing_id;
 						$post_id = wp_update_post( $postarr, true );
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Updating existing post instead of creating duplicate: post_id=' . $final_existing_id . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Updating existing visible post: post_id=' . $final_existing_id . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
 					} else {
-						$post_id = wp_insert_post( $postarr, true );
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Creating new post: key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+						// No published post found - check for draft to reuse
+						$draft_query = new WP_Query( array(
+							'post_type'      => 'service_page',
+							'post_status'    => 'draft',
+							'fields'         => 'ids',
+							'posts_per_page' => 1,
+							'meta_query'     => array(
+								array(
+									'key'   => '_seogen_canonical_key',
+									'value' => $canonical_key,
+								),
+							),
+						) );
+
+						if ( ! empty( $draft_query->posts ) ) {
+							// Reuse existing draft instead of creating new post
+							$draft_id = (int) $draft_query->posts[0];
+							$postarr['ID'] = $draft_id;
+							$post_id = wp_update_post( $postarr, true );
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Reusing existing draft: post_id=' . $draft_id . ' key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+						} else {
+							// No existing post found - create new
+							$post_id = wp_insert_post( $postarr, true );
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Creating new post: key=' . $canonical_key . PHP_EOL, FILE_APPEND );
+						}
 					}
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Post created/updated: post_id=' . ( is_wp_error( $post_id ) ? 'ERROR' : $post_id ) . PHP_EOL, FILE_APPEND );
 				} finally {
@@ -5871,8 +5959,9 @@ class SEOgen_Admin {
 				$meta_description = isset( $full_data['meta_description'] ) ? (string) $full_data['meta_description'] : '';
 				$page_mode = isset( $full_data['page_mode'] ) ? $full_data['page_mode'] : '';
 
-				// Skip city_hub and service_hub pages - they're handled by import coordinator
-				if ( in_array( $page_mode, array( 'city_hub', 'service_hub' ), true ) ) {
+				// Skip ONLY service_hub pages - they're handled by import coordinator
+				// City hub pages are now imported directly from backend like service pages
+				if ( $page_mode === 'service_hub' ) {
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Skipping ' . $page_mode . ' page (handled by import coordinator): key=' . $key . PHP_EOL, FILE_APPEND );
 					$job['rows'][ $i ]['status'] = 'pending';
 					$job['rows'][ $i ]['message'] = __( 'Handled by import coordinator', 'seogen' );
@@ -5881,38 +5970,65 @@ class SEOgen_Admin {
 
 				$gutenberg_markup = $this->build_gutenberg_content_from_blocks( $full_data['blocks'], $page_mode );
 
+				// Apply city hub quality improvements for city_hub pages
+				// This replaces {{CITY_SERVICE_LINKS}} placeholder with shortcode and applies other improvements
+				if ( $page_mode === 'city_hub' ) {
+					$settings = $this->get_settings();
+					$hub_key = isset( $row['hub_key'] ) ? $row['hub_key'] : '';
+					$city_data = array(
+						'name' => isset( $row['city'] ) ? $row['city'] : '',
+						'state' => isset( $row['state'] ) ? $row['state'] : '',
+						'slug' => isset( $row['city_slug'] ) ? $row['city_slug'] : sanitize_title( ( isset( $row['city'] ) ? $row['city'] : '' ) . '-' . strtolower( isset( $row['state'] ) ? $row['state'] : '' ) ),
+					);
+					$vertical = isset( $settings['vertical'] ) ? $settings['vertical'] : '';
+					$gutenberg_markup = $this->apply_city_hub_quality_improvements( $gutenberg_markup, $hub_key, $city_data, $vertical );
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Applied city hub quality improvements for hub_key=' . $hub_key . PHP_EOL, FILE_APPEND );
+				}
+
 				$auto_publish = isset( $job['auto_publish'] ) && '1' === (string) $job['auto_publish'];
 				$post_status = $auto_publish ? 'publish' : 'draft';
 
-				// Get parent city hub ID from job mapping
-				$city_hub_parent_id = 0;
-				if ( isset( $job['city_hub_map'] ) && is_array( $job['city_hub_map'] ) ) {
-					$city_name = isset( $result_json['city'] ) ? (string) $result_json['city'] : '';
-					$state_code = isset( $result_json['state'] ) ? (string) $result_json['state'] : '';
-					$service_name = isset( $row['service'] ) ? (string) $row['service'] : '';
-					
-					if ( '' !== $city_name && '' !== $state_code && '' !== $service_name ) {
-						$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
-						$service_slug = sanitize_title( $service_name );
-						
-						// Look up which hub this service belongs to
-						$services = $this->get_services();
-						$hub_key = '';
-						foreach ( $services as $service ) {
-							if ( isset( $service['slug'] ) && $service['slug'] === $service_slug && isset( $service['hub_key'] ) ) {
-								$hub_key = $service['hub_key'];
-								break;
+				// Assign appropriate parent based on page type
+				$post_parent_id = 0;
+				if ( $page_mode === 'city_hub' ) {
+					// City hubs need service hub as parent
+					$hub_key = isset( $row['hub_key'] ) ? $row['hub_key'] : '';
+					if ( '' !== $hub_key ) {
+						$post_parent_id = $this->find_service_hub_post_id( $hub_key );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Assigning service hub parent for city hub: hub_key=' . $hub_key . ' parent_id=' . $post_parent_id . PHP_EOL, FILE_APPEND );
+					}
+				} else {
+					// Service pages need city hub as parent
+					$city_hub_parent_id = 0;
+					if ( isset( $job['city_hub_map'] ) && is_array( $job['city_hub_map'] ) ) {
+						$city_name = isset( $result_json['city'] ) ? (string) $result_json['city'] : '';
+						$state_code = isset( $result_json['state'] ) ? (string) $result_json['state'] : '';
+						$service_name = isset( $row['service'] ) ? (string) $row['service'] : '';
+
+						if ( '' !== $city_name && '' !== $state_code && '' !== $service_name ) {
+							$city_slug = sanitize_title( $city_name . '-' . strtolower( $state_code ) );
+							$service_slug = sanitize_title( $service_name );
+
+							// Look up which hub this service belongs to
+							$services = $this->get_services();
+							$hub_key = '';
+							foreach ( $services as $service ) {
+								if ( isset( $service['slug'] ) && $service['slug'] === $service_slug && isset( $service['hub_key'] ) ) {
+									$hub_key = $service['hub_key'];
+									break;
+								}
 							}
-						}
-						
-						if ( '' !== $hub_key ) {
-							$hub_city_key = $hub_key . '|' . $city_slug;
-							if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
-								$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
-								file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Using city hub parent: hub_city_key=' . $hub_city_key . ' parent_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+
+							if ( '' !== $hub_key ) {
+								$hub_city_key = $hub_key . '|' . $city_slug;
+								if ( isset( $job['city_hub_map'][ $hub_city_key ] ) ) {
+									$city_hub_parent_id = (int) $job['city_hub_map'][ $hub_city_key ];
+									file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Assigning city hub parent for service page: hub_city_key=' . $hub_city_key . ' parent_id=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+								}
 							}
 						}
 					}
+					$post_parent_id = $city_hub_parent_id;
 				}
 
 				$postarr = array(
@@ -5921,7 +6037,7 @@ class SEOgen_Admin {
 					'post_title'   => $title,
 					'post_name'    => sanitize_title( $slug ),
 					'post_content' => $gutenberg_markup,
-					'post_parent'  => $city_hub_parent_id,
+					'post_parent'  => $post_parent_id,
 				);
 
 				// Apply template setting to postarr if header/footer should be disabled
@@ -5943,14 +6059,39 @@ class SEOgen_Admin {
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK: Searching for key=' . $key . PHP_EOL, FILE_APPEND );
 					$final_existing_id = $this->find_existing_post_id_by_key( $key );
 					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND FINAL DUPLICATE CHECK RESULT: existing_id=' . $final_existing_id . PHP_EOL, FILE_APPEND );
+
+					// Check for existing published/visible post
 					if ( $final_existing_id > 0 ) {
-						// Update existing page instead of creating duplicate
+						// Update existing visible page
 						$postarr['ID'] = $final_existing_id;
 						$post_id = wp_update_post( $postarr, true );
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Updating existing post instead of creating duplicate: post_id=' . $final_existing_id . ' key=' . $key . PHP_EOL, FILE_APPEND );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Updating existing visible post: post_id=' . $final_existing_id . ' key=' . $key . PHP_EOL, FILE_APPEND );
 					} else {
-						$post_id = wp_insert_post( $postarr, true );
-						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Creating new post: key=' . $key . PHP_EOL, FILE_APPEND );
+						// No published post found - check for draft to reuse
+						$draft_query = new WP_Query( array(
+							'post_type'      => 'service_page',
+							'post_status'    => 'draft',
+							'fields'         => 'ids',
+							'posts_per_page' => 1,
+							'meta_query'     => array(
+								array(
+									'key'   => '_seogen_canonical_key',
+									'value' => $key,
+								),
+							),
+						) );
+
+						if ( ! empty( $draft_query->posts ) ) {
+							// Reuse existing draft instead of creating new post
+							$draft_id = (int) $draft_query->posts[0];
+							$postarr['ID'] = $draft_id;
+							$post_id = wp_update_post( $postarr, true );
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Reusing existing draft: post_id=' . $draft_id . ' key=' . $key . PHP_EOL, FILE_APPEND );
+						} else {
+							// No existing post found - create new
+							$post_id = wp_insert_post( $postarr, true );
+							file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] BACKGROUND: Creating new post: key=' . $key . PHP_EOL, FILE_APPEND );
+						}
 					}
 				} finally {
 					// Always release mutex lock

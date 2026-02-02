@@ -12,7 +12,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Load the trait for city hub helper methods
+require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin-helpers.php';
+
 class SEOgen_City_Service_Links {
+	use SEOgen_Admin_City_Hub_Helpers;
 
 	/**
 	 * Initialize shortcode and hooks

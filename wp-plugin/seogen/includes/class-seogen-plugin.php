@@ -61,9 +61,22 @@ class SEOgen_Plugin {
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-service-links.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-link.php';
 		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-rest-api.php';
-		
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-cron-api.php';
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-publishing-scheduler.php';
+
 		// Initialize license management
 		SEOgen_License::init();
+
+		// Initialize scheduled publishing
+		$scheduler = new SEOgen_Publishing_Scheduler();
+		$scheduler->register_hooks();
+
+		// Register City Hub Updater (updates hubs when service pages publish)
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-city-hub-updater.php';
+		$this->city_hub_updater = new SEOgen_City_Hub_Updater();
+
+		// Initialize Action Scheduler if needed (deferred from activation)
+		add_action( 'admin_init', array( $this, 'maybe_init_action_scheduler' ) );
 		
 		// Register REST API routes for backend callbacks
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
@@ -107,6 +120,9 @@ class SEOgen_Plugin {
 	public function register_rest_routes() {
 		$rest_api = new SEOgen_REST_API();
 		$rest_api->register_routes();
+
+		// Register cron API routes for Railway backend
+		SEOgen_Cron_API::register_routes();
 	}
 
 	public function filter_body_class( $classes ) {
@@ -629,10 +645,38 @@ class SEOgen_Plugin {
 		return isset( $labels[ $hub_key ] ) ? $labels[ $hub_key ] : ucwords( str_replace( '-', ' ', $hub_key ) );
 	}
 
+	/**
+	 * Initialize Action Scheduler if needed
+	 * Called on admin_init to ensure Action Scheduler is fully loaded
+	 */
+	public function maybe_init_action_scheduler() {
+		// Check if we need to initialize Action Scheduler
+		if ( get_transient( 'seogen_needs_scheduler_init' ) ) {
+			delete_transient( 'seogen_needs_scheduler_init' );
+
+			// Ensure Action Scheduler functions are available
+			if ( function_exists( 'as_schedule_recurring_action' ) ) {
+				$scheduler = new SEOgen_Publishing_Scheduler();
+				$scheduler->ensure_action_scheduled();
+
+				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+					error_log( '[SEOgen] Action Scheduler initialized after plugin activation' );
+				}
+			}
+		}
+	}
+
 	public function activate() {
 		$this->register_post_type();
 		flush_rewrite_rules();
-		
+
+		// Create database index for scheduled publishing performance
+		SEOgen_Publishing_Scheduler::create_database_index();
+
+		// Set flag to initialize Action Scheduler on next page load
+		// (can't call Action Scheduler functions during activation hook)
+		set_transient( 'seogen_needs_scheduler_init', 1, 60 );
+
 		// Check if pages were unpublished and set notice
 		$unpublished_count = get_option( 'seogen_unpublished_count', 0 );
 		if ( $unpublished_count > 0 ) {
@@ -642,7 +686,12 @@ class SEOgen_Plugin {
 
 	public function deactivate() {
 		flush_rewrite_rules();
-		
+
+		// Unschedule all Action Scheduler actions (if Action Scheduler is available)
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			SEOgen_Publishing_Scheduler::unschedule_all();
+		}
+
 		// Unpublish all generated pages to prevent subscription bypass
 		$this->unpublish_generated_pages();
 	}

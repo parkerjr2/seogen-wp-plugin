@@ -227,9 +227,12 @@ class SEOgen_License {
 		
 		$log_data['action'] = 'registering';
 		self::log_to_console( 'SEOgen License Key Update', $log_data );
-		
+
 		// Register site with Railway backend
 		self::register_site_with_backend( $new_license_key, $webhook_secret );
+
+		// Register WordPress URL for cron publishing
+		self::register_for_cron( $new_license_key );
 	}
 	
 	/**
@@ -296,10 +299,53 @@ class SEOgen_License {
 			'site_url' => $site_url,
 		);
 		self::log_to_console( 'SEOgen Registration Failed', $log_data );
-		
+
 		return false;
 	}
-	
+
+	/**
+	 * Register WordPress URL for cron publishing system
+	 *
+	 * @param string $api_key The API key
+	 * @return bool Success
+	 */
+	private static function register_for_cron( $api_key ) {
+		$wordpress_url = home_url();
+
+		$request_data = array(
+			'api_key'       => $api_key,
+			'wordpress_url' => $wordpress_url,
+		);
+
+		$response = wp_remote_post( self::BACKEND_URL . '/api/register-wordpress', array(
+			'timeout' => 15,
+			'headers' => array(
+				'Content-Type' => 'application/json',
+			),
+			'body' => wp_json_encode( $request_data ),
+		) );
+
+		if ( is_wp_error( $response ) ) {
+			self::log_to_console( 'SEOgen Cron Registration Failed', array(
+				'error'         => $response->get_error_message(),
+				'wordpress_url' => $wordpress_url,
+			) );
+			return false;
+		}
+
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		if ( isset( $data['status'] ) && $data['status'] === 'registered' ) {
+			self::log_to_console( 'SEOgen Cron Registration Success', array(
+				'wordpress_url' => $wordpress_url,
+			) );
+			return true;
+		}
+
+		return false;
+	}
+
 	/**
 	 * Log data to browser console for debugging
 	 */
