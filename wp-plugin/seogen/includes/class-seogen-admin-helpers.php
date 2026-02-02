@@ -1622,10 +1622,11 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		
 		// 4) Reduce city name repetition
 		$markup = $this->cleanup_city_repetition( $markup, $city );
-		
+
 		// 5) Fix locality replacement artifacts ("In the area, OK")
-		$markup = $this->fix_locality_artifacts( $markup );
-		
+		// DISABLED: AI prompt now bans "In the area" - no longer needed and was creating "Locally" typo
+		// $markup = $this->fix_locality_artifacts( $markup );
+
 		// 6) Reduce generic "any-city" repetition patterns
 		$markup = $this->reduce_generic_city_repetition( $markup, $city );
 		
@@ -1643,8 +1644,9 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 1: HARD KILL "In the area, OK" bug (ZERO TOLERANCE - SCALE SAFETY GUARD)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-		$markup = $this->kill_in_the_area_ok_bug( $markup );
-		
+		// DISABLED: AI prompt now bans "In the area" - no longer needed and was creating "Locally" typo
+		// $markup = $this->kill_in_the_area_ok_bug( $markup );
+
 		return $markup;
 	}
 }
