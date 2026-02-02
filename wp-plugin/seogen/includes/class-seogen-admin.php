@@ -92,7 +92,11 @@ class SEOgen_Admin {
 		// Phase 5: AJAX handler for batch import
 		add_action( 'wp_ajax_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
 		add_action( 'wp_ajax_nopriv_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
-		
+
+		// Post list column for scheduled publishing status
+		add_filter( 'manage_service_page_posts_columns', array( $this, 'add_schedule_status_column' ) );
+		add_action( 'manage_service_page_posts_custom_column', array( $this, 'render_schedule_status_column' ), 10, 2 );
+
 		// Phase 2: AJAX handler for loopback health check
 		add_action( 'wp_ajax_seogen_loopback_health_check', array( $this, 'ajax_loopback_health_check' ) );
 		add_action( 'wp_ajax_nopriv_seogen_loopback_health_check', array( $this, 'ajax_loopback_health_check' ) );
@@ -342,6 +346,99 @@ class SEOgen_Admin {
 			esc_html__( 'Remove default theme header and footer from generated pages (uses your Header/Footer templates only).', 'seogen' )
 		);
 		echo '<p class="description">' . esc_html__( 'Works with Elementor, Gutenberg, Divi, and other page builders. Automatically detects your page builder and applies the appropriate settings.', 'seogen' ) . '</p>';
+	}
+
+	public function render_publishing_section_description() {
+		echo '<p>' . esc_html__( 'Configure automatic scheduled publishing for bulk-imported pages. When enabled, pages will be created as drafts and published gradually at a specified rate.', 'seogen' ) . '</p>';
+
+		// Show current queue status
+		if ( class_exists( 'SEOgen_Publishing_Scheduler' ) ) {
+			$scheduler = new SEOgen_Publishing_Scheduler();
+			$pending_count = $scheduler->get_pending_count();
+			if ( $pending_count > 0 ) {
+				echo '<p><strong>' . sprintf(
+					esc_html__( 'Current queue: %d pages waiting to be published', 'seogen' ),
+					$pending_count
+				) . '</strong></p>';
+			}
+		}
+	}
+
+	public function render_field_publishing_enabled() {
+		$settings = get_option( 'seogen_publishing_settings', array() );
+		$enabled = isset( $settings['enabled'] ) ? $settings['enabled'] : true;
+		printf(
+			'<label><input type="checkbox" name="seogen_publishing_settings[enabled]" value="1" %s /> %s</label>',
+			checked( $enabled, true, false ),
+			esc_html__( 'Enable scheduled publishing for bulk imports', 'seogen' )
+		);
+		echo '<p class="description">' . esc_html__( 'When enabled, bulk-imported pages will be created as drafts and published automatically at the rate specified below.', 'seogen' ) . '</p>';
+	}
+
+	public function render_field_pages_per_day() {
+		$settings = get_option( 'seogen_publishing_settings', array() );
+		$pages_per_day = isset( $settings['pages_per_day'] ) ? (int) $settings['pages_per_day'] : 10;
+		printf(
+			'<input type="number" name="seogen_publishing_settings[pages_per_day]" value="%d" min="1" max="100" class="small-text" />',
+			esc_attr( $pages_per_day )
+		);
+		echo ' <span class="description">' . esc_html__( 'Number of pages to publish each day (1-100)', 'seogen' ) . '</span>';
+	}
+
+	public function render_field_publish_time() {
+		$settings = get_option( 'seogen_publishing_settings', array() );
+		$publish_time = isset( $settings['publish_time'] ) ? $settings['publish_time'] : '09:00';
+		printf(
+			'<input type="time" name="seogen_publishing_settings[publish_time]" value="%s" />',
+			esc_attr( $publish_time )
+		);
+		echo ' <span class="description">' . esc_html__( 'Time of day to publish pages (24-hour format)', 'seogen' ) . '</span>';
+	}
+
+	public function add_schedule_status_column( $columns ) {
+		// Add the column after the title column
+		$new_columns = array();
+		foreach ( $columns as $key => $value ) {
+			$new_columns[ $key ] = $value;
+			if ( 'title' === $key ) {
+				$new_columns['schedule_status'] = __( 'Schedule Status', 'seogen' );
+			}
+		}
+		return $new_columns;
+	}
+
+	public function render_schedule_status_column( $column, $post_id ) {
+		if ( 'schedule_status' !== $column ) {
+			return;
+		}
+
+		$post_status = get_post_status( $post_id );
+
+		// Only show schedule info for drafts with scheduling meta
+		if ( 'draft' === $post_status ) {
+			$scheduled_timestamp = get_post_meta( $post_id, '_seogen_scheduled_publish_timestamp', true );
+
+			if ( $scheduled_timestamp ) {
+				$scheduled_date = get_post_meta( $post_id, '_seogen_publish_scheduled_at', true );
+				if ( $scheduled_date ) {
+					$formatted_date = gmdate( 'M j, Y g:i A', strtotime( $scheduled_date ) );
+					echo '<span style="color: #d63638;">' . esc_html( sprintf( __( 'Scheduled for %s', 'seogen' ), $formatted_date ) ) . '</span>';
+				} else {
+					echo '<span style="color: #d63638;">' . esc_html__( 'Scheduled', 'seogen' ) . '</span>';
+				}
+			} else {
+				echo '<span style="color: #999;">' . esc_html__( 'Draft', 'seogen' ) . '</span>';
+			}
+		} elseif ( 'publish' === $post_status ) {
+			$published_via = get_post_meta( $post_id, '_seogen_published_via', true );
+			if ( 'scheduled' === $published_via ) {
+				echo '<span style="color: #2271b1;">' . esc_html__( 'Published (Scheduled)', 'seogen' ) . '</span>';
+			} else {
+				echo '<span style="color: #2271b1;">' . esc_html__( 'Published', 'seogen' ) . '</span>';
+			}
+		} else {
+			echo '<span style="color: #999;">' . esc_html( ucfirst( $post_status ) ) . '</span>';
+		}
 	}
 
 	private function get_available_templates() {
@@ -2873,6 +2970,44 @@ class SEOgen_Admin {
 			'seogen-settings',
 			'seogen_settings_section_main'
 		);
+
+		// Scheduled Publishing Settings
+		register_setting(
+			'seogen_publishing_settings_group',
+			'seogen_publishing_settings',
+			array( $this, 'sanitize_publishing_settings' )
+		);
+
+		add_settings_section(
+			'seogen_settings_section_publishing',
+			__( 'Scheduled Publishing', 'seogen' ),
+			array( $this, 'render_publishing_section_description' ),
+			'seogen-settings'
+		);
+
+		add_settings_field(
+			'seogen_publishing_enabled',
+			__( 'Enable Scheduled Publishing', 'seogen' ),
+			array( $this, 'render_field_publishing_enabled' ),
+			'seogen-settings',
+			'seogen_settings_section_publishing'
+		);
+
+		add_settings_field(
+			'seogen_pages_per_day',
+			__( 'Pages Per Day', 'seogen' ),
+			array( $this, 'render_field_pages_per_day' ),
+			'seogen-settings',
+			'seogen_settings_section_publishing'
+		);
+
+		add_settings_field(
+			'seogen_publish_time',
+			__( 'Publishing Time', 'seogen' ),
+			array( $this, 'render_field_publish_time' ),
+			'seogen-settings',
+			'seogen_settings_section_publishing'
+		);
 	}
 
 	public function sanitize_settings( $input ) {
@@ -2958,6 +3093,32 @@ class SEOgen_Admin {
 				), 60 );
 			}
 		}
+
+		return $sanitized;
+	}
+
+	public function sanitize_publishing_settings( $input ) {
+		$sanitized = array();
+
+		// Enabled toggle (default: true)
+		$sanitized['enabled'] = isset( $input['enabled'] ) && '1' === (string) $input['enabled'];
+
+		// Pages per day (default: 10, range: 1-100)
+		$pages_per_day = isset( $input['pages_per_day'] ) ? (int) $input['pages_per_day'] : 10;
+		if ( $pages_per_day < 1 ) {
+			$pages_per_day = 1;
+		} elseif ( $pages_per_day > 100 ) {
+			$pages_per_day = 100;
+		}
+		$sanitized['pages_per_day'] = $pages_per_day;
+
+		// Publish time (default: 09:00, format: HH:MM)
+		$publish_time = isset( $input['publish_time'] ) ? sanitize_text_field( $input['publish_time'] ) : '09:00';
+		// Validate time format
+		if ( ! preg_match( '/^([01][0-9]|2[0-3]):[0-5][0-9]$/', $publish_time ) ) {
+			$publish_time = '09:00';
+		}
+		$sanitized['publish_time'] = $publish_time;
 
 		return $sanitized;
 	}
@@ -4281,9 +4442,11 @@ class SEOgen_Admin {
 							</td>
 						</tr>
 						<tr>
-							<th scope="row"><?php echo esc_html__( 'Auto-publish pages', 'seogen' ); ?></th>
+							<th scope="row"><?php echo esc_html__( 'Publish immediately', 'seogen' ); ?></th>
 							<td>
-								<label><input type="checkbox" name="auto_publish" value="1" <?php checked( (string) $defaults['auto_publish'], '1' ); ?> /> <?php echo esc_html__( 'Automatically publish pages instead of saving as drafts', 'seogen' ); ?></label>
+								<label><input type="checkbox" name="auto_publish" value="1" <?php checked( (string) $defaults['auto_publish'], '1' ); ?> /> <?php echo esc_html__( 'Publish pages immediately (bypass scheduled publishing)', 'seogen' ); ?></label>
+								<p class="description"><?php echo esc_html__( 'When unchecked, pages will be created as drafts and published according to your scheduled publishing settings.', 'seogen' ); ?></p>
+								<p class="description" style="color: #d63638; font-weight: 500;"><strong><?php echo esc_html__( '⚠️ Warning:', 'seogen' ); ?></strong> <?php echo esc_html__( 'For bulk imports (10+ pages), it is highly recommended to use scheduled publishing rather than publishing immediately. Publishing many pages at once may trigger search engine spam filters.', 'seogen' ); ?></p>
 							</td>
 						</tr>
 					</tbody>
@@ -5263,6 +5426,14 @@ class SEOgen_Admin {
 						$service_for_meta = sanitize_text_field( (string) $job['rows'][ $idx ]['service'] );
 					}
 					$this->apply_seo_plugin_meta( $post_id, $service_for_meta, $title, $meta_description, true );
+
+					// Schedule for publishing if status is draft
+					if ( 'draft' === $post_status ) {
+						require_once plugin_dir_path( __FILE__ ) . 'class-seogen-publishing-scheduler.php';
+						$scheduler = new SEOgen_Publishing_Scheduler();
+						$scheduler->schedule_post_for_publishing( $post_id );
+						file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] FOREGROUND: Scheduled post for publishing: post_id=' . $post_id . PHP_EOL, FILE_APPEND );
+					}
 
 					if ( isset( $job['rows'][ $idx ] ) ) {
 						$this->seogen_lock_row( $job, $idx, $post_id );

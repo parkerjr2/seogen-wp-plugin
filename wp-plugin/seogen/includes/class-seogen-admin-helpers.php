@@ -390,25 +390,27 @@ trait SEOgen_Admin_City_Hub_Helpers {
 		);
 		
 		// STEP 2: PRIMARY - Replace {{CITY_SERVICE_LINKS}} token if present
-		$service_links_html = $this->build_city_service_links_natural_html( $hub_key, $city_slug, $city_name, $state );
-		
+		// Use shortcode instead of static HTML - queries service pages dynamically on each page load
+		// This matches how service hubs work with [seogen_service_hub_city_links]
+		$service_links_shortcode = '[seogen_city_service_links hub_key="' . esc_attr( $hub_key ) . '" city_slug="' . esc_attr( $city_slug ) . '"]';
+
 		// Look for token in paragraph blocks
 		if ( preg_match( '/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>{{CITY_SERVICE_LINKS}}<\/p>\s*<!-- \/wp:paragraph -->/i', $markup ) ) {
-			// Replace Gutenberg paragraph block containing token
+			// Replace Gutenberg paragraph block containing token with shortcode
 			$markup = preg_replace(
 				'/<!-- wp:paragraph[^>]*-->\s*<p[^>]*>{{CITY_SERVICE_LINKS}}<\/p>\s*<!-- \/wp:paragraph -->/i',
-				"<!-- wp:html -->\n" . $service_links_html . "\n<!-- /wp:html -->",
+				"<!-- wp:shortcode -->\n" . $service_links_shortcode . "\n<!-- /wp:shortcode -->",
 				$markup
 			);
 			$markup = $this->ensure_why_choose_us_populated( $markup, $city_name );
 			return $markup;
 		}
-		
+
 		// Also check for plain paragraph token (no Gutenberg wrapper)
 		if ( preg_match( '/<p[^>]*>{{CITY_SERVICE_LINKS}}<\/p>/i', $markup ) ) {
 			$markup = preg_replace(
 				'/<p[^>]*>{{CITY_SERVICE_LINKS}}<\/p>/i',
-				$service_links_html,
+				"<!-- wp:shortcode -->\n" . $service_links_shortcode . "\n<!-- /wp:shortcode -->",
 				$markup
 			);
 			$markup = $this->ensure_why_choose_us_populated( $markup, $city_name );
@@ -1585,13 +1587,17 @@ trait SEOgen_Admin_City_Hub_Helpers {
 				break;
 			}
 		}
-		$markup = $this->insert_city_hub_audience_framing( $markup, $hub_key, $hub_label, $city_name, $city_slug );
-		
+		// DISABLED 2026-02-01: AI now generates sufficient context, no need for boilerplate injection
+		// Boilerplate injection creates duplicate, generic content that undermines AI's unique output
+		// See: City Hub Content Quality Fixes plan
+		// $markup = $this->insert_city_hub_audience_framing( $markup, $hub_key, $hub_label, $city_name, $city_slug );
+
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 1.65: Insert city hub connective explainer (TOPICAL HIERARCHY)
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+		// DISABLED 2026-02-01: AI now generates sufficient context, no need for boilerplate injection
 		// Explain why local services are organized into separate pages
-		$markup = $this->insert_city_hub_connective_explainer( $markup, $hub_key, $city_slug );
+		// $markup = $this->insert_city_hub_connective_explainer( $markup, $hub_key, $city_slug );
 		
 		// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 		// PRIORITY 1.7: Integrate service links section naturally (CONTENT COMPOSITION)
