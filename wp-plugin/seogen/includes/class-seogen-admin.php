@@ -900,6 +900,22 @@ class SEOgen_Admin {
 				continue;
 			}
 
+
+		if ( 'shortcode' === $type ) {
+			$shortcode_text = isset( $block['text'] ) ? (string) $block['text'] : '';
+
+			$emit_hero_if_ready( true );
+			$insert_why_block();
+			$open_body_group_if_needed();
+
+			// Output shortcode block - do not HTML-escape the shortcode
+			$output[] = '<!-- wp:shortcode -->';
+			$output[] = $shortcode_text;
+			$output[] = '<!-- /wp:shortcode -->';
+			$output[] = '';
+			continue;
+		}
+
 			if ( 'faq' === $type ) {
 				// RULE: city_hub pages must have ZERO FAQs
 				if ( 'city_hub' === $page_mode ) {
