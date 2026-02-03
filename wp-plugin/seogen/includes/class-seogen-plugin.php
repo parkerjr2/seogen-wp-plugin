@@ -1550,13 +1550,18 @@ class SEOgen_Plugin {
 		if ( $city_data && 'residential' === $hub_key ) {
 			// Use rich, city-specific sentences with trade-specific terminology
 			// $link = clickable city name, $service = trade-specific action verb
+			// NOTE: Patterns avoid grammar traps like "X and Y creates" or "from older"
+			$year_phrase = ( 'older' === $city_data['year'] || 'various eras' === $city_data['year'] )
+				? $city_data['year'] . ' homes'
+				: 'homes built around ' . $city_data['year'];
+
 			$patterns = array(
-				'In ' . $link . ', we ' . $service . ' in homes built around ' . $city_data['year'] . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $issue . '.',
-				'For ' . $link . ' homeowners, we ' . $service . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' creates added strain on ' . $systems . '.',
-				'In ' . $link . ', we ' . $service . ' for homes from ' . $city_data['year'] . ' in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' stress aging ' . $systems . '.',
-				'Throughout ' . $link . ', we ' . $service . ' in ' . $city_data['neighborhoods'] . ' where homes from ' . $city_data['year'] . ' often have ' . $issue . '.',
+				'In ' . $link . ', we ' . $service . ' in ' . $year_phrase . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $issue . '.',
+				'For ' . $link . ' homeowners, we ' . $service . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' due to ' . $city_data['climate'] . '.',
+				'In ' . $link . ', we ' . $service . ' in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' can stress aging ' . $systems . '.',
+				'Throughout ' . $link . ', we ' . $service . ' in ' . $city_data['neighborhoods'] . ' where ' . $issue . '.',
 			);
-			return $patterns[ $index % count( $patterns ) ];
+			return $this->validate_grammar( $patterns[ $index % count( $patterns ) ] );
 		}
 
 		// Fallback for unknown cities - still use trade-specific terms

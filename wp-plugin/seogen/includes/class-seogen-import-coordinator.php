@@ -49,19 +49,28 @@ trait SEOgen_Import_Coordinator {
 		try {
 			// Check if already imported (idempotency)
 			$existing_post_id = $this->find_post_by_canonical_key( $canonical_key );
-			
+
 			if ( $existing_post_id > 0 ) {
-				// Already exists, release lock and return
-				$this->release_import_lock( $lock_key );
-				
-				return array(
-					'success' => true,
-					'post_id' => $existing_post_id,
-					'already_existed' => true,
-					'error' => ''
-				);
+				// Check if existing post is a draft - if so, update it instead of skipping
+				$existing_status = get_post_status( $existing_post_id );
+
+				if ( 'publish' === $existing_status ) {
+					// Already published, skip to avoid overwriting
+					$this->release_import_lock( $lock_key );
+
+					return array(
+						'success' => true,
+						'post_id' => $existing_post_id,
+						'already_existed' => true,
+						'error' => ''
+					);
+				}
+
+				// Draft exists - delete it so we can import fresh content
+				wp_delete_post( $existing_post_id, true );
+				error_log( "[SEOgen Import] Deleted existing draft post {$existing_post_id} for {$canonical_key} to allow fresh import" );
 			}
-			
+
 			// Dispatch to correct import function based on page_mode
 			$page_mode = isset( $result_json['page_mode'] ) ? $result_json['page_mode'] : 'service_city';
 			$result = $this->dispatch_import( $page_mode, $result_json, $item_metadata, $job_id, $item_index, $canonical_key );
