@@ -88,6 +88,9 @@ class SEOgen_Admin {
 		// AJAX handler for duplicate cleanup
 		add_action( 'wp_ajax_seogen_cleanup_duplicates', array( $this, 'ajax_cleanup_duplicates' ) );
 		add_action( 'admin_menu', array( $this, 'add_duplicate_cleanup_menu' ), 104 );
+
+		// AJAX handler for repairing orphaned page hierarchies
+		add_action( 'wp_ajax_seogen_repair_orphaned_pages', array( $this, 'ajax_repair_orphaned_pages' ) );
 		
 		// Phase 5: AJAX handler for batch import
 		add_action( 'wp_ajax_seogen_run_import_batch', array( $this, 'ajax_run_import_batch' ) );
@@ -7771,7 +7774,74 @@ class SEOgen_Admin {
 		
 		wp_send_json_success( array( 'message' => __( 'Secret regenerated successfully', 'seogen' ) ) );
 	}
-	
+
+	/**
+	 * AJAX handler for repairing orphaned page hierarchies
+	 *
+	 * Finds all service_city pages with post_parent=0 and attempts to find
+	 * and set their correct city_hub parent.
+	 */
+	public function ajax_repair_orphaned_pages() {
+		check_ajax_referer( 'seogen_repair_orphaned', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized', 'seogen' ) ) );
+		}
+
+		// Find all orphaned service_city pages (post_parent = 0)
+		$args = array(
+			'post_type'      => 'service_page',
+			'post_status'    => 'any',
+			'posts_per_page' => -1,
+			'post_parent'    => 0,
+			'meta_query'     => array(
+				array(
+					'key'   => '_seogen_page_mode',
+					'value' => 'service_city',
+				),
+			),
+		);
+
+		$orphaned_posts = get_posts( $args );
+		$repaired_count = 0;
+		$failed_count   = 0;
+
+		foreach ( $orphaned_posts as $post ) {
+			$hub_key   = get_post_meta( $post->ID, '_seogen_hub_key', true );
+			$city_slug = get_post_meta( $post->ID, '_seogen_city_slug', true );
+
+			if ( empty( $hub_key ) || empty( $city_slug ) ) {
+				$failed_count++;
+				continue;
+			}
+
+			// Find the city_hub parent
+			$city_hub_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
+
+			if ( $city_hub_id > 0 ) {
+				wp_update_post( array(
+					'ID'          => $post->ID,
+					'post_parent' => $city_hub_id,
+				) );
+				$repaired_count++;
+			} else {
+				$failed_count++;
+			}
+		}
+
+		$message = sprintf(
+			__( 'Repaired %d orphaned pages. %d pages could not be repaired (missing city_hub parent).', 'seogen' ),
+			$repaired_count,
+			$failed_count
+		);
+
+		wp_send_json_success( array(
+			'message'  => $message,
+			'repaired' => $repaired_count,
+			'failed'   => $failed_count,
+		) );
+	}
+
 	/**
 	 * Render license expired notice
 	 */

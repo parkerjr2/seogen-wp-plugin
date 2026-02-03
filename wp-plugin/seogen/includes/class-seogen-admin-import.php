@@ -316,13 +316,84 @@ trait SEOgen_Admin_Import {
 			$scheduler->schedule_post_for_publishing( $post_id );
 		}
 
+		// Repair any orphaned service_city pages that should be children of this city_hub
+		$this->repair_orphaned_service_city_pages( $post_id, $hub_key, $city_slug );
+
 		return array(
 			'success' => true,
 			'post_id' => $post_id,
 			'title' => $title,
 		);
 	}
-	
+
+	/**
+	 * Repair orphaned service_city pages after city_hub import
+	 *
+	 * When a city_hub draft is deleted and re-imported, any service_city pages
+	 * that were imported before the city_hub will have post_parent=0.
+	 * This function finds and updates them to point to the new city_hub.
+	 *
+	 * @param int    $city_hub_post_id The newly created/updated city_hub post ID
+	 * @param string $hub_key          The service hub key (e.g., 'residential-electrical-services')
+	 * @param string $city_slug        The city slug (e.g., 'tulsa-ok')
+	 */
+	private function repair_orphaned_service_city_pages( $city_hub_post_id, $hub_key, $city_slug ) {
+		if ( $city_hub_post_id <= 0 || empty( $hub_key ) || empty( $city_slug ) ) {
+			return;
+		}
+
+		// Find all service_city pages that:
+		// 1. Have matching hub_key
+		// 2. Have matching city_slug
+		// 3. Have post_parent = 0 (orphaned)
+		$args = array(
+			'post_type'      => 'service_page',
+			'post_status'    => 'any',
+			'posts_per_page' => -1,
+			'post_parent'    => 0, // Only find orphaned pages
+			'fields'         => 'ids',
+			'meta_query'     => array(
+				'relation' => 'AND',
+				array(
+					'key'   => '_seogen_page_mode',
+					'value' => 'service_city',
+				),
+				array(
+					'key'   => '_seogen_hub_key',
+					'value' => $hub_key,
+				),
+				array(
+					'key'   => '_seogen_city_slug',
+					'value' => $city_slug,
+				),
+			),
+		);
+
+		$orphaned_posts = get_posts( $args );
+
+		if ( empty( $orphaned_posts ) ) {
+			return;
+		}
+
+		// Update each orphaned post to point to the new city_hub
+		foreach ( $orphaned_posts as $orphan_id ) {
+			wp_update_post( array(
+				'ID'          => $orphan_id,
+				'post_parent' => $city_hub_post_id,
+			) );
+
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( sprintf(
+					'[SEOgen] Repaired orphaned service_city page %d - set parent to city_hub %d (hub_key=%s, city_slug=%s)',
+					$orphan_id,
+					$city_hub_post_id,
+					$hub_key,
+					$city_slug
+				) );
+			}
+		}
+	}
+
 	/**
 	 * Import Service+City page from pre-generated result
 	 * 
