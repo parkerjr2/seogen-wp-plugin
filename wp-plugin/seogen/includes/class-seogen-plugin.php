@@ -1335,8 +1335,10 @@ class SEOgen_Plugin {
 	 * Each sentence uses different pattern and includes electrical keyword naturally
 	 */
 	private function generate_improved_city_sentence( $city_name, $state, $anchor_text, $permalink, $hub_key, $trade_keyword, $index ) {
-		$link = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $anchor_text ) . '</a>';
-		
+		// Link wraps the CITY NAME (not vocabulary objects like "panels" or "safety items")
+		// This produces: <a href="/residential-electrical-berryhill">Berryhill</a>
+		$link = '<a href="' . esc_url( $permalink ) . '">' . esc_html( $city_name ) . '</a>';
+
 		// Get natural sentence with varied structure
 		return $this->get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index );
 	}
@@ -1547,48 +1549,84 @@ class SEOgen_Plugin {
 
 		if ( $city_data && 'residential' === $hub_key ) {
 			// Use rich, city-specific sentences with trade-specific terminology
+			// $link = clickable city name, $service = trade-specific action verb
 			$patterns = array(
-				'In ' . $city_name . ', we ' . $service . ' in homes built around ' . $city_data['year'] . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $issue . '.',
-				'For ' . $city_name . ' homeowners, we ' . $service . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' creates added strain on ' . $systems . '.',
-				'In ' . $city_name . ', we ' . $service . ' for homes from ' . $city_data['year'] . ', especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' stress aging ' . $systems . '.',
-				'Throughout ' . $city_name . ', we service ' . $link . ' in ' . $city_data['neighborhoods'] . ' where homes from ' . $city_data['year'] . ' often have ' . $issue . '.',
+				'In ' . $link . ', we ' . $service . ' in homes built around ' . $city_data['year'] . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $issue . '.',
+				'For ' . $link . ' homeowners, we ' . $service . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' creates added strain on ' . $systems . '.',
+				'In ' . $link . ', we ' . $service . ' for homes from ' . $city_data['year'] . ' in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' stress aging ' . $systems . '.',
+				'Throughout ' . $link . ', we ' . $service . ' in ' . $city_data['neighborhoods'] . ' where homes from ' . $city_data['year'] . ' often have ' . $issue . '.',
 			);
 			return $patterns[ $index % count( $patterns ) ];
 		}
 
 		// Fallback for unknown cities - still use trade-specific terms
+		// $link = clickable city name, $service = trade-specific action verb
 		if ( 'residential' === $hub_key ) {
 			$patterns = array(
-				'In ' . $city_name . ', we ' . $service . ' to keep ' . $systems . ' reliable and up to date.',
-				'For ' . $city_name . ' properties, we ' . $service . ' when ' . $issue . '.',
-				'Throughout ' . $city_name . ', we help homeowners with ' . $link . ' to maintain safe, reliable ' . $systems . '.',
-				'In ' . $city_name . ', our team handles ' . $link . ' for homes where ' . $issue . '.',
+				'In ' . $link . ', we ' . $service . ' to keep ' . $systems . ' reliable and up to date.',
+				'For ' . $link . ' properties, we ' . $service . ' when ' . $issue . '.',
+				'Throughout ' . $link . ', we help homeowners ' . $service . ' to maintain safe, reliable ' . $systems . '.',
+				'In ' . $link . ', our team can ' . $service . ' for homes where ' . $issue . '.',
 			);
 		} elseif ( 'commercial' === $hub_key ) {
 			$patterns = array(
-				'Businesses in ' . $city_name . ' rely on us to ' . $service . ' and minimize downtime.',
-				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to maintain reliable ' . $systems . '.',
-				'Commercial facilities in ' . $city_name . ' trust us for ' . $link . ' and professional ' . $systems . ' maintenance.',
+				'Businesses in ' . $link . ' rely on us to ' . $service . ' and minimize downtime.',
+				'In ' . $link . ', we help commercial properties ' . $service . ' to maintain reliable ' . $systems . '.',
+				'Commercial facilities in ' . $link . ' trust us to ' . $service . ' and provide professional ' . $systems . ' maintenance.',
 			);
 		} elseif ( 'emergency' === $hub_key ) {
 			$patterns = array(
-				'When emergencies happen in ' . $city_name . ', we respond quickly to ' . $service . '.',
-				'In ' . $city_name . ', we provide urgent ' . $link . ' to restore ' . $systems . ' around the clock.',
-				'Property owners in ' . $city_name . ' call us for emergency ' . $link . ' when ' . $issue . '.',
+				'When emergencies happen in ' . $link . ', we respond quickly to ' . $service . '.',
+				'In ' . $link . ', we provide urgent service to ' . $service . ' and restore ' . $systems . ' around the clock.',
+				'Property owners in ' . $link . ' call us for emergency service when ' . $issue . '.',
 			);
 		} else {
 			$patterns = array(
-				'In ' . $city_name . ', we help property owners with ' . $link . ' and professional ' . $systems . ' service.',
-				'For ' . $city_name . ' properties, we ' . $service . '.',
+				'In ' . $link . ', we help property owners ' . $service . ' and maintain ' . $systems . '.',
+				'For ' . $link . ' properties, we can ' . $service . '.',
 			);
 		}
 
-		return $patterns[ $index % count( $patterns ) ];
+		return $this->validate_grammar( $patterns[ $index % count( $patterns ) ] );
+	}
+
+	/**
+	 * Validate and fix grammar in generated city descriptions
+	 * Generic rules that work across all trades and cities
+	 */
+	private function validate_grammar( $text ) {
+		// Rule 1: Subject-Verb Agreement for compound subjects
+		// "X and Y creates" → "X and Y create"
+		$compound_verbs = array( 'creates', 'causes', 'damages', 'leads', 'results', 'affects' );
+		foreach ( $compound_verbs as $verb ) {
+			$plural = rtrim( $verb, 's' );
+			$pattern = '/(\w+)\s+and\s+(\w+(?:\s+\w+)?)\s+' . $verb . '\b/i';
+			$text = preg_replace( $pattern, '$1 and $2 ' . $plural, $text );
+		}
+
+		// Rule 2: Incomplete comparatives
+		$text = preg_replace( '/\bfrom older in\b/i', 'in older', $text );
+		$text = preg_replace( '/\bfor homes from older\b/i', 'in older homes', $text );
+		$text = preg_replace( '/\bfrom older,/i', 'from an older era,', $text );
+		$text = preg_replace( '/\bfrom older\./i', 'from an older era.', $text );
+
+		// Rule 3: Missing relative pronouns
+		$verbs = array( 'creates', 'causes', 'leads', 'results', 'affects' );
+		foreach ( $verbs as $verb ) {
+			$pattern = '/\b(have|has)\s+(\w+(?:\s+\w+)?)\s+(' . $verb . ')\b/i';
+			$text = preg_replace( $pattern, '$1 $2 that $3', $text );
+		}
+
+		// Rule 4: Article agreement
+		$text = preg_replace( '/\ba\s+(older|aging|electrical|original|outdated)\b/i', 'an $1', $text );
+		$text = preg_replace( '/\ban\s+(system|service|property|home|panel|circuit)\b/i', 'a $1', $text );
+
+		return $text;
 	}
 
 	/**
 	 * Render parent hub link shortcode
-	 * 
+	 *
 	 * INTERNAL LINKING: City Hub → Service Hub (parent)
 	 * 
 	 * Purpose:
