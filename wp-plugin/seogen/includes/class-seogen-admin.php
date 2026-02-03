@@ -5478,7 +5478,7 @@ class SEOgen_Admin {
 					update_post_meta( $post_id, '_hyper_local_generated_at', current_time( 'mysql' ) );
 
 					// Store _seogen meta keys for City Hub service links query compatibility
-					update_post_meta( $post_id, '_seogen_page_mode', 'service_city' );
+					update_post_meta( $post_id, '_seogen_page_mode', $page_mode ?: 'service_city' );
 					
 					// Extract service, city, state from job row data
 					if ( isset( $job['rows'][ $idx ] ) ) {
@@ -6126,7 +6126,17 @@ class SEOgen_Admin {
 				update_post_meta( $post_id, '_hyper_local_key', $key );
 				update_post_meta( $post_id, '_seogen_canonical_key', $key );
 				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $meta_description );
-				
+				update_post_meta( $post_id, '_seogen_page_mode', $page_mode ?: 'service_city' );
+
+				// Store hub_key and city_slug for shortcode queries
+				if ( isset( $row['hub_key'] ) && ! empty( $row['hub_key'] ) ) {
+					update_post_meta( $post_id, '_seogen_hub_key', $row['hub_key'] );
+				}
+				if ( isset( $row['city'], $row['state'] ) && ! empty( $row['city'] ) ) {
+					update_post_meta( $post_id, '_seogen_city', $row['city'] . ', ' . $row['state'] );
+					update_post_meta( $post_id, '_seogen_city_slug', sanitize_title( $row['city'] . '-' . $row['state'] ) );
+				}
+
 				// Apply page builder settings to disable theme header/footer if configured
 				if ( ! empty( $settings['disable_theme_header_footer'] ) ) {
 					$this->apply_page_builder_settings( $post_id );
