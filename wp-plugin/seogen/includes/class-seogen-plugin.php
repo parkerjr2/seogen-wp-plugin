@@ -1342,54 +1342,146 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Generate sentence using vertical vocabulary
+	 * Get city-specific data for richer descriptions
+	 * Returns construction period, neighborhoods, climate factors, and common issues
+	 */
+	private function get_city_specific_data( $city_name ) {
+		// Normalize city name for lookup
+		$city_key = strtolower( trim( $city_name ) );
+
+		// City-specific data - pull from research/city hub content
+		$city_data = array(
+			'berryhill' => array(
+				'year' => '1979',
+				'neighborhoods' => 'Oakwood and Woodland Hills',
+				'climate' => 'high humidity and summer heat',
+				'issue' => 'aging circuit breakers struggle to handle modern appliance loads',
+			),
+			'broken arrow' => array(
+				'year' => '1985',
+				'neighborhoods' => 'Elm Creek and the Rose District',
+				'climate' => 'severe thunderstorms and the urban heat island effect',
+				'issue' => 'aging electrical systems need upgrades to handle modern demands',
+			),
+			'lotsee' => array(
+				'year' => 'older',
+				'neighborhoods' => 'Main Street and Elm Avenue',
+				'climate' => 'peak summer cooling loads',
+				'issue' => 'original wiring that cannot support modern electrical demands',
+			),
+			'oakhurst' => array(
+				'year' => '1985-1990',
+				'neighborhoods' => 'East Oakhurst and Oakhurst Heights',
+				'climate' => 'frequent thunderstorms and localized flooding',
+				'issue' => 'unique challenges for electrical panels and wiring',
+			),
+			'tulsa' => array(
+				'year' => 'various eras',
+				'neighborhoods' => 'Midtown and Brookside',
+				'climate' => 'Oklahoma severe weather patterns',
+				'issue' => 'outdated panels and insufficient circuits',
+			),
+			'jenks' => array(
+				'year' => '1990s suburban expansion',
+				'neighborhoods' => 'Downtown Jenks and Aquarium District',
+				'climate' => 'summer storms and temperature extremes',
+				'issue' => 'growing electrical demands from modern appliances',
+			),
+			'sand springs' => array(
+				'year' => 'early 1980s',
+				'neighborhoods' => 'Downtown and Prattville',
+				'climate' => 'Keystone Lake humidity and storm patterns',
+				'issue' => 'aging infrastructure needing modernization',
+			),
+			'bixby' => array(
+				'year' => '2000s growth period',
+				'neighborhoods' => 'Downtown Bixby and along Memorial',
+				'climate' => 'rapid temperature swings',
+				'issue' => 'keeping pace with expanding electrical needs',
+			),
+			'owasso' => array(
+				'year' => '1990s-2000s development',
+				'neighborhoods' => 'Downtown and Bailey Ranch',
+				'climate' => 'North Tulsa weather patterns',
+				'issue' => 'electrical systems in newer subdivisions',
+			),
+			'sapulpa' => array(
+				'year' => 'historic downtown to 1970s homes',
+				'neighborhoods' => 'Downtown and along Route 66',
+				'climate' => 'Creek County storm corridors',
+				'issue' => 'vintage wiring requiring careful updates',
+			),
+			'glenpool' => array(
+				'year' => 'oil boom era to modern',
+				'neighborhoods' => 'historic areas and newer developments',
+				'climate' => 'South Tulsa weather patterns',
+				'issue' => 'mixed-era electrical systems',
+			),
+			'catoosa' => array(
+				'year' => '1970s-1980s',
+				'neighborhoods' => 'near the Blue Whale landmark',
+				'climate' => 'Verdigris River corridor humidity',
+				'issue' => 'residential electrical upgrades',
+			),
+		);
+
+		return isset( $city_data[ $city_key ] ) ? $city_data[ $city_key ] : null;
+	}
+
+	/**
+	 * Generate sentence using city-specific data when available
+	 * Falls back to generic patterns for unknown cities
 	 * CITY MENTION BUDGET: City appears EXACTLY ONCE (in sentence, not anchor)
-	 * Structure: ACTION + OBJECT + CITY + BENEFIT
 	 */
 	private function get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index ) {
+		// Try to get city-specific data first
+		$city_data = $this->get_city_specific_data( $city_name );
+
+		if ( $city_data && 'residential' === $hub_key ) {
+			// Use rich, city-specific sentences
+			$patterns = array(
+				'In ' . $city_name . ', we frequently upgrade ' . $link . ' in homes built around ' . $city_data['year'] . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $city_data['issue'] . '.',
+				'For ' . $city_name . ' homeowners, we address ' . $link . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' creates added strain on electrical systems.',
+				'In ' . $city_name . ', we handle ' . $link . ' in homes from ' . $city_data['year'] . ', especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' stress aging electrical systems.',
+				'Throughout ' . $city_name . ', we service ' . $link . ' in ' . $city_data['neighborhoods'] . ' and surrounding areas where homes from ' . $city_data['year'] . ' often have ' . $city_data['issue'] . '.',
+			);
+			return $patterns[ $index % count( $patterns ) ];
+		}
+
+		// Fallback to generic patterns for unknown cities
 		$vocab = $this->get_vertical_vocabulary();
 		$actions = $vocab['actions'];
 		$benefits = $vocab['benefits'];
-		
-		// Select action and benefit for variety
+
 		$action = $actions[ $index % count( $actions ) ];
 		$benefit = $benefits[ $index % count( $benefits ) ];
-		
-		// Sentence templates - city appears in plain text, NOT in link
+
 		if ( 'residential' === $hub_key ) {
 			$patterns = array(
-				'Homeowners in ' . $city_name . ' often call us to ' . $action . ' ' . $link . ' to improve ' . $benefit . '.',
-				'In ' . $city_name . ', we regularly help with ' . $link . ' when it\'s time to ' . $action . ' and restore ' . $benefit . '.',
-				'If you live in ' . $city_name . ', our team can ' . $action . ' ' . $link . ' before small issues affect ' . $benefit . '.',
-				'We frequently assist homeowners in ' . $city_name . ' with ' . $link . ', including ' . $action . ' work that supports ' . $benefit . '.',
-				'Many homes in ' . $city_name . ' benefit from ' . $link . ' to improve ' . $benefit . '.',
-				'Property owners in ' . $city_name . ' reach out when they need to ' . $action . ' ' . $link . '.',
-				'We help families in ' . $city_name . ' with ' . $link . ' to maintain ' . $benefit . '.',
-				'Older homes in ' . $city_name . ' often need ' . $link . ' to restore ' . $benefit . '.',
+				'In ' . $city_name . ', we help homeowners with ' . $link . ' to maintain ' . $benefit . ' and reliable electrical systems.',
+				'For ' . $city_name . ' properties, we provide ' . $link . ' to address aging electrical infrastructure.',
+				'Throughout ' . $city_name . ', we ' . $action . ' ' . $link . ' to improve ' . $benefit . ' for local homeowners.',
+				'In ' . $city_name . ', our team handles ' . $link . ' for homes with electrical systems that need professional attention.',
 			);
 		} elseif ( 'commercial' === $hub_key ) {
 			$patterns = array(
-				'Businesses in ' . $city_name . ' rely on our team to ' . $action . ' ' . $link . '.',
-				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to maintain ' . $benefit . '.',
-				'Facility managers in ' . $city_name . ' choose us to ' . $action . ' ' . $link . '.',
-				'Commercial properties in ' . $city_name . ' need ' . $link . ' for ' . $benefit . '.',
-				'We work with businesses in ' . $city_name . ' on ' . $link . ' and ' . $benefit . '.',
+				'Businesses in ' . $city_name . ' rely on us for ' . $link . ' to maintain operations.',
+				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to ensure ' . $benefit . '.',
+				'Commercial facilities in ' . $city_name . ' trust us for ' . $link . '.',
 			);
 		} elseif ( 'emergency' === $hub_key ) {
 			$patterns = array(
-				'When emergencies happen in ' . $city_name . ', we respond quickly to ' . $action . ' ' . $link . '.',
-				'Property owners in ' . $city_name . ' call us to ' . $action . ' ' . $link . '.',
-				'In ' . $city_name . ', our team provides ' . $link . ' to restore ' . $benefit . '.',
-				'For urgent issues in ' . $city_name . ', we offer ' . $link . ' around the clock.',
+				'When emergencies happen in ' . $city_name . ', we respond quickly for ' . $link . '.',
+				'In ' . $city_name . ', we provide urgent ' . $link . ' around the clock.',
+				'Property owners in ' . $city_name . ' call us for emergency ' . $link . '.',
 			);
 		} else {
 			$patterns = array(
 				'In ' . $city_name . ', we help property owners with ' . $link . '.',
-				'Property owners in ' . $city_name . ' choose our team to ' . $action . ' ' . $link . '.',
-				'We work with clients in ' . $city_name . ' on ' . $link . ' for ' . $benefit . '.',
+				'For ' . $city_name . ' properties, we provide professional ' . $link . '.',
 			);
 		}
-		
+
 		return $patterns[ $index % count( $patterns ) ];
 	}
 
