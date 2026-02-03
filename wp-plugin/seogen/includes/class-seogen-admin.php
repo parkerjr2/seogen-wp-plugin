@@ -864,9 +864,9 @@ class SEOgen_Admin {
 						
 						// Output shortcode as separate HTML block (not wrapped in <p>)
 						// This prevents invalid <p><div>...</div></p> nesting
-						$output[] = '<!-- wp:html -->';
+						$output[] = '<!-- wp:shortcode -->';
 						$output[] = $shortcode;
-						$output[] = '<!-- /wp:html -->';
+						$output[] = '<!-- /wp:shortcode -->';
 						continue;
 					}
 				}
@@ -942,9 +942,9 @@ class SEOgen_Admin {
 			
 				// Add city hub link shortcode before FAQ section (service+city pages only)
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted ) {
-					$output[] = '<!-- wp:html -->';
+					$output[] = '<!-- wp:shortcode -->';
 					$output[] = '[seogen_city_hub_link]';
-					$output[] = '<!-- /wp:html -->';
+					$output[] = '<!-- /wp:shortcode -->';
 					$output[] = '';
 					$city_hub_link_inserted = true;
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1156,9 +1156,9 @@ class SEOgen_Admin {
 				
 				// Fallback: Insert city hub link before CTA if no FAQ exists
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted && ! $has_faq_blocks ) {
-					$output[] = '<!-- wp:html -->';
+					$output[] = '<!-- wp:shortcode -->';
 					$output[] = '[seogen_city_hub_link]';
-					$output[] = '<!-- /wp:html -->';
+					$output[] = '<!-- /wp:shortcode -->';
 					$output[] = '';
 					$city_hub_link_inserted = true;
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -1692,7 +1692,7 @@ class SEOgen_Admin {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
 				// Add CSS to remove top spacing from content area
-				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+				$css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:shortcode -->';
 				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 			}
 		}
@@ -1703,7 +1703,7 @@ class SEOgen_Admin {
 			$footer_content = $this->get_template_content( $footer_template_id );
 			if ( '' !== $footer_content ) {
 				// Add CSS to remove bottom spacing from content area
-				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$footer_css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:shortcode -->';
 				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 			}
 		}
@@ -2658,7 +2658,7 @@ class SEOgen_Admin {
 			if ( $header_template_id > 0 ) {
 				$header_content = $this->get_template_content( $header_template_id );
 				if ( '' !== $header_content ) {
-					$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+					$css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:shortcode -->';
 					$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 				}
 			}
@@ -2667,7 +2667,7 @@ class SEOgen_Admin {
 			if ( $footer_template_id > 0 ) {
 				$footer_content = $this->get_template_content( $footer_template_id );
 				if ( '' !== $footer_content ) {
-					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+					$footer_css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:shortcode -->';
 					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 				}
 			}
@@ -5290,7 +5290,7 @@ class SEOgen_Admin {
 						$header_content = $this->get_template_content( $header_template_id );
 						if ( '' !== $header_content ) {
 							// Add CSS to remove top spacing from content area
-							$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+							$css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:shortcode -->';
 							$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 						}
 					}
@@ -5301,7 +5301,7 @@ class SEOgen_Admin {
 						$footer_content = $this->get_template_content( $footer_template_id );
 						if ( '' !== $footer_content ) {
 							// Add CSS to remove bottom spacing from content area
-							$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+							$footer_css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:shortcode -->';
 							$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 						}
 					}
@@ -7046,7 +7046,7 @@ class SEOgen_Admin {
 			if ( $header_template_id > 0 ) {
 				$header_content = $this->get_template_content( $header_template_id );
 				if ( '' !== $header_content ) {
-					$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+					$css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:shortcode -->';
 					$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 				}
 			}
@@ -7055,7 +7055,7 @@ class SEOgen_Admin {
 			if ( $footer_template_id > 0 ) {
 				$footer_content = $this->get_template_content( $footer_template_id );
 				if ( '' !== $footer_content ) {
-					$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+					$footer_css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:shortcode -->';
 					$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 				}
 			}
@@ -7449,7 +7449,7 @@ class SEOgen_Admin {
 		if ( $header_template_id > 0 ) {
 			$header_content = $this->get_template_content( $header_template_id );
 			if ( '' !== $header_content ) {
-				$css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:html -->';
+				$css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-top: 0 !important; margin-top: 0 !important; }</style><!-- /wp:shortcode -->';
 				$gutenberg_markup = $css_block . $header_content . $gutenberg_markup;
 			}
 		}
@@ -7458,7 +7458,7 @@ class SEOgen_Admin {
 		if ( $footer_template_id > 0 ) {
 			$footer_content = $this->get_template_content( $footer_template_id );
 			if ( '' !== $footer_content ) {
-				$footer_css_block = '<!-- wp:html --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:html -->';
+				$footer_css_block = '<!-- wp:shortcode --><style>.entry-content, .site-content, article, .elementor, .content-area { padding-bottom: 0 !important; margin-bottom: 0 !important; }</style><!-- /wp:shortcode -->';
 				$gutenberg_markup = $gutenberg_markup . $footer_css_block . $footer_content;
 			}
 		}
