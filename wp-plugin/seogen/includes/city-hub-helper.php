@@ -213,12 +213,13 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 			continue;
 		}
 		
-		// Build canonical key for city hub: "city_hub|{city}|{state}|{hub_key}"
+		// Build canonical key for city hub: "city_hub|{hub_key}|{city}|{state}"
+		// Format MUST match backend main.py _canonical_key() function
 		$canonical_key = sprintf(
 			'city_hub|%s|%s|%s',
+			strtolower( $hub_key ),
 			strtolower( $city_data['city'] ),
-			strtolower( $city_data['state'] ),
-			$hub_key
+			strtolower( $city_data['state'] )
 		);
 		
 		// Add meta fields to identify this as a city hub placeholder
