@@ -943,7 +943,7 @@ class SEOgen_Admin {
 				// Add city hub link shortcode before FAQ section (service+city pages only)
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted ) {
 					$output[] = '<!-- wp:shortcode -->';
-					$output[] = '[seogen_city_hub_link]';
+					$output[] = '[CITY_HUB_LINK]';
 					$output[] = '<!-- /wp:shortcode -->';
 					$output[] = '';
 					$city_hub_link_inserted = true;
@@ -1157,7 +1157,7 @@ class SEOgen_Admin {
 				// Fallback: Insert city hub link before CTA if no FAQ exists
 				if ( 'service_city' === $page_mode && ! $city_hub_link_inserted && ! $has_faq_blocks ) {
 					$output[] = '<!-- wp:shortcode -->';
-					$output[] = '[seogen_city_hub_link]';
+					$output[] = '[CITY_HUB_LINK]';
 					$output[] = '<!-- /wp:shortcode -->';
 					$output[] = '';
 					$city_hub_link_inserted = true;

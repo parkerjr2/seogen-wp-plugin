@@ -26,12 +26,19 @@ class SEOgen_City_Hub_Link {
 	 * @return string HTML output or empty string
 	 */
 	public static function render() {
+		global $post;
+
+		// Try get_the_ID() first, then fall back to global $post
 		$post_id = get_the_ID();
+		if ( ! $post_id && isset( $post->ID ) ) {
+			$post_id = $post->ID;
+		}
+
 		$debug_info = array();
-		
+
 		if ( ! $post_id ) {
 			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-				return '<!-- seogen_city_hub_link: no post_id -->';
+				return '<!-- seogen_city_hub_link: no post_id (get_the_ID failed and global $post not available) -->';
 			}
 			return '';
 		}
