@@ -4942,12 +4942,38 @@ class SEOgen_Admin {
 		}
 	
 		// Add city hub items to API request for content generation
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Identified ' . count( $city_hubs_needed ) . ' unique city hub combinations (will send to API for generation)' . PHP_EOL, FILE_APPEND );
+		// Filter out city hubs that already exist (unless update_existing is true)
+		$city_hubs_filtered = 0;
+		$city_hubs_added = 0;
 
-		// Add city hub items to API request
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Identified ' . count( $city_hubs_needed ) . ' unique city hub combinations, checking for existing pages...' . PHP_EOL, FILE_APPEND );
+
+		// Add city hub items to API request (with deduplication)
 		foreach ( $city_hubs_needed as $city_hub ) {
+			// Build canonical key for city hub: city_hub|{hub_key}|{city}|{state}
+			// Format MUST match backend main.py _canonical_key() function
+			$city_hub_canonical_key = sprintf(
+				'city_hub|%s|%s|%s',
+				strtolower( $city_hub['hub_key'] ),
+				strtolower( $city_hub['city'] ),
+				strtolower( $city_hub['state'] )
+			);
+
+			// Check if this city hub already exists (unless update_existing is true)
+			if ( ! $update_existing ) {
+				$existing_city_hub_id = $this->find_existing_post_id_by_key( $city_hub_canonical_key );
+				if ( $existing_city_hub_id > 0 ) {
+					$city_hubs_filtered++;
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Skipping existing city hub: key=' . $city_hub_canonical_key . ' post_id=' . $existing_city_hub_id . PHP_EOL, FILE_APPEND );
+					continue;
+				}
+			}
+
+			$city_hubs_added++;
 			$api_items[] = $city_hub;
 		}
+
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] City hubs: ' . $city_hubs_added . ' to generate, ' . $city_hubs_filtered . ' skipped (already exist)' . PHP_EOL, FILE_APPEND );
 
 		// Create placeholder city hub pages before starting bulk job
 		$city_hub_map = $this->create_city_hub_placeholders( $job_rows, $form );
@@ -4987,7 +5013,8 @@ class SEOgen_Admin {
 		$job_name = ( isset( $form['job_name'] ) ? sanitize_text_field( (string) $form['job_name'] ) : '' );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Job inputs: ' . wp_json_encode( $job['inputs'] ) . PHP_EOL, FILE_APPEND );
 		
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $filtered_count . ' existing pages. Sending ' . count( $api_items ) . ' items to API.' . PHP_EOL, FILE_APPEND );
+		$total_filtered = $filtered_count + $city_hubs_filtered;
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Filtered out ' . $total_filtered . ' existing pages (' . $filtered_count . ' service pages + ' . $city_hubs_filtered . ' city hubs). Sending ' . count( $api_items ) . ' items to API.' . PHP_EOL, FILE_APPEND );
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] API items being sent: ' . wp_json_encode( $api_items ) . PHP_EOL, FILE_APPEND );
 
 		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Calling API with ' . count( $api_items ) . ' items' . PHP_EOL, FILE_APPEND );
