@@ -1342,86 +1342,180 @@ class SEOgen_Plugin {
 	}
 
 	/**
+	 * Get trade-specific service phrases
+	 * Returns array of specific services for each trade (not vague terms)
+	 */
+	private function get_trade_services( $vertical ) {
+		$trade_services = array(
+			'electrician' => array(
+				'services' => array(
+					'upgrade electrical panels and rewire circuits',
+					'replace circuit breakers and add dedicated circuits',
+					'install whole-home surge protection and upgrade outlets',
+					'rewire homes and modernize outdated panels',
+				),
+				'issues' => array(
+					'aging circuit breakers struggle to handle modern appliance loads',
+					'outdated wiring cannot support today\'s electrical demands',
+					'original panels lack capacity for modern households',
+					'old wiring creates safety concerns and efficiency issues',
+				),
+				'systems' => 'electrical systems',
+			),
+			'plumber' => array(
+				'services' => array(
+					'replace aging water lines and upgrade fixtures',
+					'install new water heaters and repair sewer lines',
+					'upgrade bathroom fixtures and address pipe corrosion',
+					'repair leaking pipes and modernize plumbing systems',
+				),
+				'issues' => array(
+					'galvanized pipes corrode and restrict water flow',
+					'old fixtures leak and hard water damages pipes',
+					'original plumbing struggles with modern demands',
+					'aging sewer lines cause backups and drainage issues',
+				),
+				'systems' => 'plumbing systems',
+			),
+			'hvac' => array(
+				'services' => array(
+					'replace aging AC units and upgrade ductwork',
+					'install high-efficiency systems and repair furnaces',
+					'upgrade thermostats and improve indoor air quality',
+					'service heating systems and optimize cooling efficiency',
+				),
+				'issues' => array(
+					'old AC units struggle during extreme summer heat',
+					'aging ductwork reduces efficiency and airflow',
+					'outdated systems cannot maintain comfortable temperatures',
+					'original HVAC equipment needs modernization',
+				),
+				'systems' => 'HVAC systems',
+			),
+			'roofer' => array(
+				'services' => array(
+					'replace aging shingles and repair storm damage',
+					'install new roofing systems and upgrade ventilation',
+					'repair roof decking and replace damaged flashing',
+					'address wind damage and install impact-resistant materials',
+				),
+				'issues' => array(
+					'aging shingles crack and lose protective granules',
+					'storm damage compromises roof integrity',
+					'old roofing materials deteriorate under harsh weather',
+					'poor ventilation causes premature roof wear',
+				),
+				'systems' => 'roofing systems',
+			),
+			'painter' => array(
+				'services' => array(
+					'repaint exterior siding and refresh interior walls',
+					'address peeling paint and restore trim work',
+					'prepare weathered surfaces and apply protective coatings',
+					'update color schemes and protect wood surfaces',
+				),
+				'issues' => array(
+					'exterior paint peels and fades from sun exposure',
+					'humidity causes paint to blister and crack',
+					'weathered surfaces need proper preparation',
+					'aging finishes no longer protect underlying materials',
+				),
+				'systems' => 'exterior and interior surfaces',
+			),
+			'landscaper' => array(
+				'services' => array(
+					'design custom landscapes and install irrigation systems',
+					'maintain lawns and create outdoor living spaces',
+					'plant trees and shrubs suited to local climate',
+					'grade yards and manage drainage solutions',
+				),
+				'issues' => array(
+					'clay soil creates drainage challenges',
+					'summer heat stresses lawns and plantings',
+					'mature trees require professional care',
+					'erosion affects yard grading and drainage',
+				),
+				'systems' => 'landscape and outdoor areas',
+			),
+		);
+
+		// Return trade-specific data or generic fallback
+		return isset( $trade_services[ $vertical ] ) ? $trade_services[ $vertical ] : array(
+			'services' => array( 'provide professional home services and repairs' ),
+			'issues' => array( 'aging systems need professional attention' ),
+			'systems' => 'home systems',
+		);
+	}
+
+	/**
 	 * Get city-specific data for richer descriptions
-	 * Returns construction period, neighborhoods, climate factors, and common issues
+	 * Returns construction period, neighborhoods, and climate factors (trade-agnostic)
 	 */
 	private function get_city_specific_data( $city_name ) {
 		// Normalize city name for lookup
 		$city_key = strtolower( trim( $city_name ) );
 
-		// City-specific data - pull from research/city hub content
+		// City-specific data - trade-agnostic (no "electrical" references)
 		$city_data = array(
 			'berryhill' => array(
 				'year' => '1979',
 				'neighborhoods' => 'Oakwood and Woodland Hills',
 				'climate' => 'high humidity and summer heat',
-				'issue' => 'aging circuit breakers struggle to handle modern appliance loads',
 			),
 			'broken arrow' => array(
 				'year' => '1985',
 				'neighborhoods' => 'Elm Creek and the Rose District',
-				'climate' => 'severe thunderstorms and the urban heat island effect',
-				'issue' => 'aging electrical systems need upgrades to handle modern demands',
+				'climate' => 'severe thunderstorms and urban heat island effect',
 			),
 			'lotsee' => array(
 				'year' => 'older',
 				'neighborhoods' => 'Main Street and Elm Avenue',
-				'climate' => 'peak summer cooling loads',
-				'issue' => 'original wiring that cannot support modern electrical demands',
+				'climate' => 'extreme summer temperatures',
 			),
 			'oakhurst' => array(
 				'year' => '1985-1990',
 				'neighborhoods' => 'East Oakhurst and Oakhurst Heights',
 				'climate' => 'frequent thunderstorms and localized flooding',
-				'issue' => 'unique challenges for electrical panels and wiring',
 			),
 			'tulsa' => array(
 				'year' => 'various eras',
 				'neighborhoods' => 'Midtown and Brookside',
 				'climate' => 'Oklahoma severe weather patterns',
-				'issue' => 'outdated panels and insufficient circuits',
 			),
 			'jenks' => array(
 				'year' => '1990s suburban expansion',
 				'neighborhoods' => 'Downtown Jenks and Aquarium District',
 				'climate' => 'summer storms and temperature extremes',
-				'issue' => 'growing electrical demands from modern appliances',
 			),
 			'sand springs' => array(
 				'year' => 'early 1980s',
 				'neighborhoods' => 'Downtown and Prattville',
 				'climate' => 'Keystone Lake humidity and storm patterns',
-				'issue' => 'aging infrastructure needing modernization',
 			),
 			'bixby' => array(
 				'year' => '2000s growth period',
 				'neighborhoods' => 'Downtown Bixby and along Memorial',
 				'climate' => 'rapid temperature swings',
-				'issue' => 'keeping pace with expanding electrical needs',
 			),
 			'owasso' => array(
 				'year' => '1990s-2000s development',
 				'neighborhoods' => 'Downtown and Bailey Ranch',
 				'climate' => 'North Tulsa weather patterns',
-				'issue' => 'electrical systems in newer subdivisions',
 			),
 			'sapulpa' => array(
 				'year' => 'historic downtown to 1970s homes',
 				'neighborhoods' => 'Downtown and along Route 66',
 				'climate' => 'Creek County storm corridors',
-				'issue' => 'vintage wiring requiring careful updates',
 			),
 			'glenpool' => array(
 				'year' => 'oil boom era to modern',
 				'neighborhoods' => 'historic areas and newer developments',
 				'climate' => 'South Tulsa weather patterns',
-				'issue' => 'mixed-era electrical systems',
 			),
 			'catoosa' => array(
 				'year' => '1970s-1980s',
 				'neighborhoods' => 'near the Blue Whale landmark',
 				'climate' => 'Verdigris River corridor humidity',
-				'issue' => 'residential electrical upgrades',
 			),
 		);
 
@@ -1429,56 +1523,63 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Generate sentence using city-specific data when available
-	 * Falls back to generic patterns for unknown cities
+	 * Generate sentence using city-specific data AND trade-specific terminology
+	 * No vague terms like "safety items" or "key systems"
 	 * CITY MENTION BUDGET: City appears EXACTLY ONCE (in sentence, not anchor)
 	 */
 	private function get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index ) {
-		// Try to get city-specific data first
+		// Get the vertical for trade-specific terminology
+		$config = get_option( 'seogen_business_config', array() );
+		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : 'electrician';
+
+		// Get trade-specific services and issues (NOT vague terms)
+		$trade_data = $this->get_trade_services( $vertical );
+		$services = $trade_data['services'];
+		$issues = $trade_data['issues'];
+		$systems = $trade_data['systems'];
+
+		// Select varied service and issue based on index
+		$service = $services[ $index % count( $services ) ];
+		$issue = $issues[ $index % count( $issues ) ];
+
+		// Try to get city-specific data
 		$city_data = $this->get_city_specific_data( $city_name );
 
 		if ( $city_data && 'residential' === $hub_key ) {
-			// Use rich, city-specific sentences
+			// Use rich, city-specific sentences with trade-specific terminology
 			$patterns = array(
-				'In ' . $city_name . ', we frequently upgrade ' . $link . ' in homes built around ' . $city_data['year'] . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $city_data['issue'] . '.',
-				'For ' . $city_name . ' homeowners, we address ' . $link . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' creates added strain on electrical systems.',
-				'In ' . $city_name . ', we handle ' . $link . ' in homes from ' . $city_data['year'] . ', especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' stress aging electrical systems.',
-				'Throughout ' . $city_name . ', we service ' . $link . ' in ' . $city_data['neighborhoods'] . ' and surrounding areas where homes from ' . $city_data['year'] . ' often have ' . $city_data['issue'] . '.',
+				'In ' . $city_name . ', we ' . $service . ' in homes built around ' . $city_data['year'] . ', particularly in ' . $city_data['neighborhoods'] . ' where ' . $issue . '.',
+				'For ' . $city_name . ' homeowners, we ' . $service . ' in properties from the ' . $city_data['year'] . ' era, especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' creates added strain on ' . $systems . '.',
+				'In ' . $city_name . ', we ' . $service . ' for homes from ' . $city_data['year'] . ', especially in ' . $city_data['neighborhoods'] . ' where ' . $city_data['climate'] . ' stress aging ' . $systems . '.',
+				'Throughout ' . $city_name . ', we service ' . $link . ' in ' . $city_data['neighborhoods'] . ' where homes from ' . $city_data['year'] . ' often have ' . $issue . '.',
 			);
 			return $patterns[ $index % count( $patterns ) ];
 		}
 
-		// Fallback to generic patterns for unknown cities
-		$vocab = $this->get_vertical_vocabulary();
-		$actions = $vocab['actions'];
-		$benefits = $vocab['benefits'];
-
-		$action = $actions[ $index % count( $actions ) ];
-		$benefit = $benefits[ $index % count( $benefits ) ];
-
+		// Fallback for unknown cities - still use trade-specific terms
 		if ( 'residential' === $hub_key ) {
 			$patterns = array(
-				'In ' . $city_name . ', we help homeowners with ' . $link . ' to maintain ' . $benefit . ' and reliable electrical systems.',
-				'For ' . $city_name . ' properties, we provide ' . $link . ' to address aging electrical infrastructure.',
-				'Throughout ' . $city_name . ', we ' . $action . ' ' . $link . ' to improve ' . $benefit . ' for local homeowners.',
-				'In ' . $city_name . ', our team handles ' . $link . ' for homes with electrical systems that need professional attention.',
+				'In ' . $city_name . ', we ' . $service . ' to keep ' . $systems . ' reliable and up to date.',
+				'For ' . $city_name . ' properties, we ' . $service . ' when ' . $issue . '.',
+				'Throughout ' . $city_name . ', we help homeowners with ' . $link . ' to maintain safe, reliable ' . $systems . '.',
+				'In ' . $city_name . ', our team handles ' . $link . ' for homes where ' . $issue . '.',
 			);
 		} elseif ( 'commercial' === $hub_key ) {
 			$patterns = array(
-				'Businesses in ' . $city_name . ' rely on us for ' . $link . ' to maintain operations.',
-				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to ensure ' . $benefit . '.',
-				'Commercial facilities in ' . $city_name . ' trust us for ' . $link . '.',
+				'Businesses in ' . $city_name . ' rely on us to ' . $service . ' and minimize downtime.',
+				'In ' . $city_name . ', we help commercial properties with ' . $link . ' to maintain reliable ' . $systems . '.',
+				'Commercial facilities in ' . $city_name . ' trust us for ' . $link . ' and professional ' . $systems . ' maintenance.',
 			);
 		} elseif ( 'emergency' === $hub_key ) {
 			$patterns = array(
-				'When emergencies happen in ' . $city_name . ', we respond quickly for ' . $link . '.',
-				'In ' . $city_name . ', we provide urgent ' . $link . ' around the clock.',
-				'Property owners in ' . $city_name . ' call us for emergency ' . $link . '.',
+				'When emergencies happen in ' . $city_name . ', we respond quickly to ' . $service . '.',
+				'In ' . $city_name . ', we provide urgent ' . $link . ' to restore ' . $systems . ' around the clock.',
+				'Property owners in ' . $city_name . ' call us for emergency ' . $link . ' when ' . $issue . '.',
 			);
 		} else {
 			$patterns = array(
-				'In ' . $city_name . ', we help property owners with ' . $link . '.',
-				'For ' . $city_name . ' properties, we provide professional ' . $link . '.',
+				'In ' . $city_name . ', we help property owners with ' . $link . ' and professional ' . $systems . ' service.',
+				'For ' . $city_name . ' properties, we ' . $service . '.',
 			);
 		}
 
