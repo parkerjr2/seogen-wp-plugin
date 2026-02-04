@@ -240,7 +240,7 @@ class SEOgen_Plugin {
 		$sticky_enabled = ! empty( $settings['enable_mobile_sticky_cta'] );
 		
 		// Get CTA text from Business Setup config instead of Settings
-		$config = get_option( 'seogen_business_config', array() );
+		$config = get_option( 'hyper_local_business_config', array() );
 		$cta_label = isset( $config['cta_text'] ) ? (string) $config['cta_text'] : 'Request a Free Estimate';
 		$cta_label = trim( $cta_label );
 		if ( '' === $cta_label ) {
@@ -1050,7 +1050,7 @@ class SEOgen_Plugin {
 	}
 
 	private function get_trade_name_from_hub_key( $hub_key ) {
-		$config = get_option( 'seogen_business_config', array() );
+		$config = get_option( 'hyper_local_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
 		
 		$trade_names = array(
@@ -1113,7 +1113,7 @@ class SEOgen_Plugin {
 	 * Returns vertical-specific vocabulary or generic fallback
 	 */
 	private function get_vertical_vocabulary() {
-		$config = get_option( 'seogen_business_config', array() );
+		$config = get_option( 'hyper_local_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
 		
 		$vocab_map = array(
@@ -1258,7 +1258,7 @@ class SEOgen_Plugin {
 	 * Get vertical-specific intro sentence - exactly one, no marketing fluff
 	 */
 	private function get_city_links_intro( $hub_key, $trade_name ) {
-		$config = get_option( 'seogen_business_config', array() );
+		$config = get_option( 'hyper_local_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
 		
 		$intro_map = array(
@@ -1531,7 +1531,7 @@ class SEOgen_Plugin {
 	 */
 	private function get_natural_city_sentence( $city_name, $link, $hub_key, $trade_keyword, $index ) {
 		// Get the vertical for trade-specific terminology
-		$config = get_option( 'seogen_business_config', array() );
+		$config = get_option( 'hyper_local_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : 'electrician';
 
 		// Get trade-specific services and issues (NOT vague terms)
