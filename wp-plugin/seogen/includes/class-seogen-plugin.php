@@ -1256,12 +1256,20 @@ class SEOgen_Plugin {
 
 	/**
 	 * Get vertical-specific intro sentence - exactly one, no marketing fluff
+	 * Now hub-aware: uses appropriate audience (homeowners vs businesses)
 	 */
 	private function get_city_links_intro( $hub_key, $trade_name ) {
 		$config = get_option( 'hyper_local_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
-		
-		$intro_map = array(
+
+		// Determine audience based on hub_key
+		$is_commercial = ( 'commercial' === $hub_key );
+		$audience = $is_commercial ? 'businesses' : 'homeowners';
+		$property = $is_commercial ? 'commercial properties' : 'homes';
+		$property_alt = $is_commercial ? 'facilities' : 'properties';
+
+		// Residential intro templates (original)
+		$residential_map = array(
 			'electrician' => "We help homeowners across the Tulsa area keep residential electrical systems safe and up to date.",
 			'plumber' => "We help homeowners across the Tulsa area resolve plumbing issues quickly and keep water systems reliable.",
 			'hvac' => "We help homeowners across the Tulsa area maintain comfortable indoor temperatures and reliable HVAC systems.",
@@ -1277,11 +1285,36 @@ class SEOgen_Plugin {
 			'windows' => "We help homeowners across the Tulsa area improve comfort and efficiency with quality window solutions.",
 			'pest-control' => "We help homeowners across the Tulsa area protect their properties from pests and prevent future issues.",
 		);
-		
+
+		// Commercial intro templates
+		$commercial_map = array(
+			'electrician' => "We help businesses across the Tulsa area keep commercial electrical systems safe and code-compliant.",
+			'plumber' => "We help businesses across the Tulsa area resolve plumbing issues quickly and minimize operational disruptions.",
+			'hvac' => "We help businesses across the Tulsa area maintain comfortable environments and reliable climate control systems.",
+			'roofer' => "We help businesses across the Tulsa area protect their facilities with dependable commercial roofing solutions.",
+			'landscaper' => "We help businesses across the Tulsa area maintain professional outdoor spaces and commercial landscapes.",
+			'handyman' => "We help businesses across the Tulsa area with reliable repairs and facility maintenance projects.",
+			'painter' => "We help businesses across the Tulsa area maintain professional appearances with quality commercial painting.",
+			'concrete' => "We help businesses across the Tulsa area with durable concrete work for parking lots, walkways, and facilities.",
+			'siding' => "We help businesses across the Tulsa area protect their facilities with quality commercial siding solutions.",
+			'locksmith' => "We help businesses across the Tulsa area secure their commercial properties with reliable lock solutions.",
+			'cleaning' => "We help businesses across the Tulsa area maintain clean, professional workspaces.",
+			'garage-door' => "We help businesses across the Tulsa area keep commercial doors operating safely and efficiently.",
+			'windows' => "We help businesses across the Tulsa area improve efficiency with quality commercial window solutions.",
+			'pest-control' => "We help businesses across the Tulsa area protect their facilities from pests and maintain compliance.",
+		);
+
+		// Select appropriate map based on hub_key
+		$intro_map = $is_commercial ? $commercial_map : $residential_map;
+
 		if ( isset( $intro_map[ $vertical ] ) ) {
 			return $intro_map[ $vertical ];
 		}
-		
+
+		// Default fallback - hub-aware
+		if ( $is_commercial ) {
+			return "We help businesses across the Tulsa area maintain safe, reliable commercial systems.";
+		}
 		return "We help homeowners across the Tulsa area maintain safe, reliable home systems.";
 	}
 
