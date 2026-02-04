@@ -71,7 +71,7 @@ trait SEOgen_Admin_City_Hub_Helpers {
 	 */
 	private function get_intro_enhancement_templates() {
 		return array(
-			'Many homes in the area were built decades ago, making safe electrical capacity, system updates, and code compliance especially important.',
+			'Many homes were built decades ago, making safe electrical capacity, system updates, and code compliance especially important.',
 			'As energy usage increases with modern appliances and technology, electrical system upgrades help ensure safety and reliability.',
 			'Older properties often benefit from electrical assessments to identify potential safety concerns and capacity limitations.',
 			'Keeping electrical systems current with building codes and safety standards helps protect property and occupants.',
@@ -1055,33 +1055,12 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			$markup
 		);
 		
-		// 2) Body repetition cap: Replace "In {City}," with "In the area," after first paragraph
-		// Find first paragraph closing tag
-		$first_p_close = strpos( $markup, '</p>' );
-		
-		if ( false !== $first_p_close ) {
-			// Only apply replacements after first paragraph
-			$before_first_p = substr( $markup, 0, $first_p_close + 4 );
-			$after_first_p = substr( $markup, $first_p_close + 4 );
-			
-			// Replace leading "In {City}," patterns with "In the area,"
-			$after_first_p = preg_replace(
-				'/\bIn\s+' . preg_quote( $city_name, '/' ) . ',\s+/i',
-				'In the area, ',
-				$after_first_p
-			);
-			
-			// Also replace "in {City}, {State}" in later sections
-			if ( ! empty( $state ) ) {
-				$after_first_p = preg_replace(
-					'/\bin\s+' . preg_quote( $city_name, '/' ) . ',\s*' . preg_quote( $state, '/' ) . '\b/i',
-					'in the area',
-					$after_first_p
-				);
-			}
-			
-			$markup = $before_first_p . $after_first_p;
-		}
+		// 2) Body repetition cap: DISABLED - "In the area" is a banned phrase
+		// Previously replaced "In {City}," with "In the area," but this creates
+		// banned content that fails content quality checks. City name repetition
+		// is acceptable and better than generic "In the area" phrasing.
+		//
+		// See: text_utils.py fix_banned_phrases() - we ban "In the area" everywhere
 		
 		return $markup;
 	}
