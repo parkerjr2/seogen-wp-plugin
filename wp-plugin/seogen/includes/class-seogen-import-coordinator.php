@@ -532,11 +532,20 @@ trait SEOgen_Import_Coordinator {
 				$job['rows'][ $i ]['import_status'] = $status;
 				$job['rows'][ $i ]['imported_post_id'] = $post_id;
 				$job['rows'][ $i ]['last_attempt_at'] = time();
-				
+
 				if ( ! empty( $error ) ) {
 					$job['rows'][ $i ]['last_import_error'] = $error;
 				}
-				
+
+				// SYNC: Also update the primary status field for UI display
+				if ( 'imported' === $status ) {
+					$job['rows'][ $i ]['status'] = 'success';
+					$job['rows'][ $i ]['message'] = __( 'Imported.', 'seogen' );
+				} elseif ( 'failed' === $status ) {
+					$job['rows'][ $i ]['status'] = 'failed';
+					$job['rows'][ $i ]['message'] = ! empty( $error ) ? $error : __( 'Import failed.', 'seogen' );
+				}
+
 				break;
 			}
 		}
