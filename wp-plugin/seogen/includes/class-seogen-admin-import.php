@@ -195,7 +195,10 @@ trait SEOgen_Admin_Import {
 	public function import_city_hub_from_result( $result_json, $config, $item, $post_status = 'draft' ) {
 		$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
 		$city_slug = isset( $item['city_slug'] ) ? $item['city_slug'] : '';
-		
+
+		// DEBUG: Log city_hub import input
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [CITY HUB IMPORT] import_city_hub_from_result called: hub_key="' . $hub_key . '", city_slug="' . $city_slug . '", item=' . wp_json_encode( $item ) . PHP_EOL, FILE_APPEND );
+
 		if ( empty( $hub_key ) || empty( $city_slug ) ) {
 			return array(
 				'success' => false,
@@ -252,9 +255,17 @@ trait SEOgen_Admin_Import {
 			}
 		}
 		
-		// Check for existing City Hub
-		$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
-		
+		// Check for existing City Hub - prefer existing_post_id from import coordinator (placeholder)
+		// This preserves parent relationships that service pages may already have to the placeholder
+		$existing_post_id = 0;
+		if ( isset( $item['existing_post_id'] ) && $item['existing_post_id'] > 0 ) {
+			$existing_post_id = (int) $item['existing_post_id'];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [CITY HUB IMPORT] Using existing_post_id from import coordinator: ' . $existing_post_id . PHP_EOL, FILE_APPEND );
+		} else {
+			$existing_post_id = $this->find_city_hub_post_id( $hub_key, $city_slug );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [CITY HUB IMPORT] find_city_hub_post_id returned: existing_post_id=' . $existing_post_id . ' for hub_key="' . $hub_key . '", city_slug="' . $city_slug . '"' . PHP_EOL, FILE_APPEND );
+		}
+
 		// Create/update post with parent relationship
 		$post_data = array(
 			'post_type' => 'service_page',
@@ -489,23 +500,34 @@ trait SEOgen_Admin_Import {
 		
 		// Find City Hub parent if hub_key and city info available
 		$city_hub_parent_id = 0;
+
+		// DEBUG: Log item data for parent lookup
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] import_service_city_from_result - item data: hub_key="' . ( isset( $item['hub_key'] ) ? $item['hub_key'] : 'NOT SET' ) . '" (isset=' . ( isset( $item['hub_key'] ) ? 'true' : 'false' ) . ', empty=' . ( empty( $item['hub_key'] ) ? 'true' : 'false' ) . '), city="' . ( isset( $item['city'] ) ? $item['city'] : 'NOT SET' ) . '" (isset=' . ( isset( $item['city'] ) ? 'true' : 'false' ) . '), state="' . ( isset( $item['state'] ) ? $item['state'] : 'NOT SET' ) . '" (isset=' . ( isset( $item['state'] ) ? 'true' : 'false' ) . ')' . PHP_EOL, FILE_APPEND );
+
 		if ( isset( $item['hub_key'] ) && ! empty( $item['hub_key'] ) && isset( $item['city'], $item['state'] ) ) {
 			$city_slug = sanitize_title( $item['city'] . '-' . $item['state'] );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] Computed city_slug="' . $city_slug . '", calling find_city_hub_post_id()' . PHP_EOL, FILE_APPEND );
 			$city_hub_parent_id = $this->find_city_hub_post_id( $item['hub_key'], $city_slug );
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] find_city_hub_post_id returned: ' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
+		} else {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] SKIPPING parent lookup - condition failed (missing hub_key, city, or state)' . PHP_EOL, FILE_APPEND );
 		}
 		
-		// Check for existing post by canonical key (uses optimized find_existing_post_id_by_key)
+		// Check for existing post - prefer existing_post_id from import coordinator
 		$existing_post_id = 0;
-		if ( isset( $item['service'], $item['city'], $item['state'] ) ) {
+		if ( isset( $item['existing_post_id'] ) && $item['existing_post_id'] > 0 ) {
+			$existing_post_id = (int) $item['existing_post_id'];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [SERVICE CITY IMPORT] Using existing_post_id from import coordinator: ' . $existing_post_id . PHP_EOL, FILE_APPEND );
+		} elseif ( isset( $item['service'], $item['city'], $item['state'] ) ) {
 			$hub_key = isset( $item['hub_key'] ) ? $item['hub_key'] : '';
 			$canonical_key = strtolower( trim( $item['service'] ) ) . '|' . strtolower( trim( $item['city'] ) ) . '|' . strtolower( trim( $item['state'] ) );
 			if ( ! empty( $hub_key ) ) {
 				$canonical_key .= '|' . strtolower( trim( $hub_key ) );
 			}
-			
+
 			// Use existing optimized function that checks multiple meta keys
 			$existing_post_id = $this->find_existing_post_id_by_key( $canonical_key );
-			
+
 			if ( $existing_post_id > 0 && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 				error_log( sprintf( '[SEOgen Duplicate Check] FOUND existing post: ID=%d, key=%s', $existing_post_id, $canonical_key ) );
 			} elseif ( 0 === $existing_post_id && defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -513,6 +535,9 @@ trait SEOgen_Admin_Import {
 			}
 		}
 		
+		// DEBUG: Log the parent ID that will be used
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] About to create/update post: city_hub_parent_id=' . $city_hub_parent_id . ', existing_post_id=' . $existing_post_id . PHP_EOL, FILE_APPEND );
+
 		if ( $existing_post_id > 0 ) {
 			// Update existing post
 			$post_data = array(
@@ -521,7 +546,8 @@ trait SEOgen_Admin_Import {
 				'post_status' => $post_status,
 				'post_parent' => $city_hub_parent_id,
 			);
-			
+
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] UPDATING existing post ' . $existing_post_id . ' with post_parent=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
 			$post_id = wp_update_post( $post_data, true );
 		} else {
 			// CRITICAL: Final duplicate check right before creating post
@@ -551,7 +577,8 @@ trait SEOgen_Admin_Import {
 						'post_content' => $gutenberg_markup,
 						'post_parent' => $city_hub_parent_id,
 					);
-					
+
+					file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] INSERTING new post "' . $title . '" with post_parent=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
 					$post_id = wp_insert_post( $post_data, true );
 				}
 			} else {
@@ -564,11 +591,12 @@ trait SEOgen_Admin_Import {
 					'post_content' => $gutenberg_markup,
 					'post_parent' => $city_hub_parent_id,
 				);
-				
+
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] INSERTING new post (no canonical_key) "' . $title . '" with post_parent=' . $city_hub_parent_id . PHP_EOL, FILE_APPEND );
 				$post_id = wp_insert_post( $post_data, true );
 			}
 		}
-		
+
 		if ( is_wp_error( $post_id ) ) {
 			$this->release_import_lock( $lock_key );
 			return array(
@@ -576,7 +604,14 @@ trait SEOgen_Admin_Import {
 				'error' => $post_id->get_error_message(),
 			);
 		}
-		
+
+		// DEBUG: Verify post_parent was actually set
+		$actual_parent = wp_get_post_parent_id( $post_id );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] Post ' . $post_id . ' created/updated - expected parent=' . $city_hub_parent_id . ', actual parent=' . $actual_parent . PHP_EOL, FILE_APPEND );
+		if ( $city_hub_parent_id > 0 && $actual_parent !== $city_hub_parent_id ) {
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] WARNING: Parent mismatch! Expected ' . $city_hub_parent_id . ' but got ' . $actual_parent . PHP_EOL, FILE_APPEND );
+		}
+
 		// Save metadata
 		update_post_meta( $post_id, '_hyper_local_source_json', wp_json_encode( $result_json ) );
 		update_post_meta( $post_id, '_seogen_page_mode', 'service_city' );

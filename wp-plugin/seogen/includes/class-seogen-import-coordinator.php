@@ -23,6 +23,9 @@ trait SEOgen_Import_Coordinator {
 	public function import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index ) {
 		// Extract canonical key (exact from backend, no normalization)
 		$canonical_key = isset( $item_metadata['canonical_key'] ) ? trim( $item_metadata['canonical_key'] ) : '';
+
+		// DEBUG: Log incoming item_metadata
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [IMPORT COORDINATOR] import_item_with_lock called: canonical_key="' . $canonical_key . '", item_metadata=' . wp_json_encode( $item_metadata ) . PHP_EOL, FILE_APPEND );
 		
 		if ( empty( $canonical_key ) ) {
 			return array(
@@ -66,9 +69,10 @@ trait SEOgen_Import_Coordinator {
 					);
 				}
 
-				// Draft exists - delete it so we can import fresh content
-				wp_delete_post( $existing_post_id, true );
-				error_log( "[SEOgen Import] Deleted existing draft post {$existing_post_id} for {$canonical_key} to allow fresh import" );
+				// Draft exists (placeholder) - pass the post_id to import function so it updates instead of creating new
+				// This preserves parent relationships that service pages may already have to this placeholder
+				file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [IMPORT COORDINATOR] Found existing draft placeholder post_id=' . $existing_post_id . ' for canonical_key="' . $canonical_key . '", will update instead of delete' . PHP_EOL, FILE_APPEND );
+				$item_metadata['existing_post_id'] = $existing_post_id;
 			}
 
 			// Dispatch to correct import function based on page_mode
@@ -142,11 +146,13 @@ trait SEOgen_Import_Coordinator {
 	
 	/**
 	 * Find existing post by canonical key
-	 * 
+	 *
 	 * @param string $canonical_key Exact canonical key from backend
 	 * @return int Post ID if found, 0 if not found
 	 */
 	private function find_post_by_canonical_key( $canonical_key ) {
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [LOOKUP] find_post_by_canonical_key searching for: "' . $canonical_key . '"' . PHP_EOL, FILE_APPEND );
+
 		// Check new meta key first (most likely to match)
 		$posts = get_posts( array(
 			'post_type' => 'service_page',
@@ -162,11 +168,13 @@ trait SEOgen_Import_Coordinator {
 			'fields' => 'ids',
 			'no_found_rows' => true
 		) );
-		
+
 		if ( ! empty( $posts ) ) {
-			return (int) $posts[0];
+			$found_id = (int) $posts[0];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [LOOKUP] FOUND existing post via _seogen_canonical_key: post_id=' . $found_id . PHP_EOL, FILE_APPEND );
+			return $found_id;
 		}
-		
+
 		// Fallback: Check legacy meta key
 		$posts = get_posts( array(
 			'post_type' => 'service_page',
@@ -182,8 +190,15 @@ trait SEOgen_Import_Coordinator {
 			'fields' => 'ids',
 			'no_found_rows' => true
 		) );
-		
-		return ! empty( $posts ) ? (int) $posts[0] : 0;
+
+		if ( ! empty( $posts ) ) {
+			$found_id = (int) $posts[0];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [LOOKUP] FOUND existing post via _hyper_local_key: post_id=' . $found_id . PHP_EOL, FILE_APPEND );
+			return $found_id;
+		}
+
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [LOOKUP] NO existing post found for canonical_key="' . $canonical_key . '"' . PHP_EOL, FILE_APPEND );
+		return 0;
 	}
 	
 	/**

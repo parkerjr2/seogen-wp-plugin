@@ -235,8 +235,12 @@ function seogen_create_city_hub_placeholders( $job_rows, $form ) {
 		update_post_meta( $post_id, '_hyper_local_managed', '1' );
 		
 		$city_hub_map[ $hub_city_key ] = $post_id;
-		
-		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Created city hub placeholder: ' . $hub_key . '|' . $city_slug . ' (ID: ' . $post_id . ') - ' . $title . PHP_EOL, FILE_APPEND );
+
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PLACEHOLDER] Created city hub placeholder: canonical_key="' . $canonical_key . '" (ID: ' . $post_id . ') - ' . $title . PHP_EOL, FILE_APPEND );
+
+		// Verify the canonical_key was stored correctly
+		$stored_key = get_post_meta( $post_id, '_seogen_canonical_key', true );
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PLACEHOLDER] Verified stored canonical_key="' . $stored_key . '" for post_id=' . $post_id . PHP_EOL, FILE_APPEND );
 	}
 	
 	return $city_hub_map;

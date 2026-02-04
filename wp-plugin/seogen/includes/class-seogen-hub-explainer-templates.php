@@ -23,10 +23,10 @@ class SEOgen_Hub_Explainer_Templates {
 	 */
 	const SERVICE_HUB_VARIANTS = array(
 		// Variant 1: Situation-focused
-		"Each service listed below addresses a different situation or project scope. We've organized them into dedicated pages so you can quickly find information relevant to your specific needs, whether you're dealing with an urgent issue, planning a major project, or scheduling routine care. This structure helps you compare options and understand what each service involves before making a decision.",
-		
+		"Each service addresses a different situation or project scope. We've organized them into dedicated pages so you can quickly find information relevant to your specific needs, whether you're dealing with an urgent issue, planning a major project, or scheduling routine care. This structure helps you compare options and understand what each service involves before making a decision.",
+
 		// Variant 2: Decision-focused
-		"The services below are separated into individual pages because each one involves different considerations, timelines, and decision factors. This organization allows you to explore the specific details, process, and requirements for the type of work you need without sorting through unrelated information. Whether you need immediate assistance or are planning ahead, you'll find focused guidance for your situation.",
+		"Our services are separated into individual pages because each one involves different considerations, timelines, and decision factors. This organization allows you to explore the specific details, process, and requirements for the type of work you need without sorting through unrelated information. Whether you need immediate assistance or are planning ahead, you'll find focused guidance for your situation.",
 	);
 	
 	/**
@@ -35,8 +35,8 @@ class SEOgen_Hub_Explainer_Templates {
 	 */
 	const CITY_HUB_VARIANTS = array(
 		// Variant 1: Local need-focused
-		"Local service needs vary widely depending on urgency, project scope, and the type of work required. Each service page below focuses on a specific situation you might face, from emergency responses to planned installations. This organization helps you find providers who specialize in your particular need rather than sorting through general information that may not apply to your circumstances.",
-		
+		"Local service needs vary widely depending on urgency, project scope, and the type of work required. Each service page focuses on a specific situation you might face, from emergency responses to planned installations. This organization helps you find providers who specialize in your particular need rather than sorting through general information that may not apply to your circumstances.",
+
 		// Variant 2: User decision-focused
 		"We've organized local services into separate pages because different situations require different information and decision-making approaches. Whether you're dealing with an emergency, planning a replacement, or scheduling preventative care, each page provides details specific to that type of service. This structure ensures you can quickly access the guidance most relevant to your current needs without navigating through unrelated content.",
 	);

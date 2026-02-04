@@ -7218,6 +7218,9 @@ class SEOgen_Admin {
 	}
 
 	private function find_city_hub_post_id( $hub_key, $city_slug ) {
+		// DEBUG: Log input parameters
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] find_city_hub_post_id called: hub_key="' . $hub_key . '", city_slug="' . $city_slug . '"' . PHP_EOL, FILE_APPEND );
+
 		$args = array(
 			'post_type' => 'service_page',
 			'post_status' => 'any',
@@ -7240,9 +7243,17 @@ class SEOgen_Admin {
 		);
 
 		$query = new WP_Query( $args );
+
+		// DEBUG: Log query results
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] find_city_hub_post_id query found ' . count( $query->posts ) . ' posts' . PHP_EOL, FILE_APPEND );
+
 		if ( ! empty( $query->posts ) ) {
-			return (int) $query->posts[0];
+			$result = (int) $query->posts[0];
+			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] find_city_hub_post_id returning post_id=' . $result . PHP_EOL, FILE_APPEND );
+			return $result;
 		}
+
+		file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] [PARENT DEBUG] find_city_hub_post_id returning 0 (NOT FOUND)' . PHP_EOL, FILE_APPEND );
 		return 0;
 	}
 

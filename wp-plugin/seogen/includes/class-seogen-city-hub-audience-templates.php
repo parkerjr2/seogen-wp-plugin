@@ -34,8 +34,8 @@ class SEOgen_City_Hub_Audience_Templates {
 	 */
 	const BUSINESS_VARIANTS = array(
 		// Variant 1: Documentation and downtime focus
-		"This hub is for {city} businesses and property managers who need to coordinate service work for commercial or rental properties. Different situations require different approaches—emergency response, scheduled maintenance, or compliance work each involve distinct planning and documentation needs. The service pages below are organized by work type to help you find the specific information relevant to your facility or tenant requirements.",
-		
+		"This hub is for {city} businesses and property managers who need to coordinate service work for commercial or rental properties. Different situations require different approaches—emergency response, scheduled maintenance, or compliance work each involve distinct planning and documentation needs. Our service pages are organized by work type to help you find the specific information relevant to your facility or tenant requirements.",
+
 		// Variant 2: Operational continuity focus
 		"Businesses and property managers in {city} must balance service needs with operational continuity and tenant obligations. This hub organizes our local services by the nature of the work—urgent repairs, preventative maintenance, or planned installations each require different scheduling and coordination. Each linked page focuses on a specific service scenario to help you plan effectively and minimize disruption to your operations or tenants.",
 	);
@@ -46,8 +46,8 @@ class SEOgen_City_Hub_Audience_Templates {
 	 */
 	const GENERAL_VARIANTS = array(
 		// Variant 1: Situation-based organization
-		"This hub organizes our local services in {city} by the type of situation you're facing. Service needs vary widely—from urgent issues requiring immediate response to planned projects that allow for scheduling flexibility. Each service page below focuses on a specific type of work, helping you find information relevant to your particular circumstances and decision-making timeline.",
-		
+		"This hub organizes our local services in {city} by the type of situation you're facing. Service needs vary widely—from urgent issues requiring immediate response to planned projects that allow for scheduling flexibility. Each service page focuses on a specific type of work, helping you find information relevant to your particular circumstances and decision-making timeline.",
+
 		// Variant 2: Need differentiation focus
 		"Local service needs in {city} differ based on urgency, scope, and the nature of the work required. This hub groups our services by situation type rather than listing everything together. Whether you need emergency assistance, routine maintenance, or a planned upgrade, each linked page addresses a distinct scenario with its own considerations and process details.",
 	);
