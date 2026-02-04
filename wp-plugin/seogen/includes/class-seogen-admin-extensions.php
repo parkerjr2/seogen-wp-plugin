@@ -374,6 +374,7 @@ trait SEOgen_Admin_Extensions {
 					background: #fff;
 					border: 1px solid #c3c4c7;
 					box-shadow: 0 1px 1px rgba(0,0,0,.04);
+					overflow-x: auto;
 				}
 				.hl-section h2 {
 					margin-top: 0;
@@ -390,6 +391,7 @@ trait SEOgen_Admin_Extensions {
 				.hl-section .wp-list-table {
 					table-layout: fixed;
 					width: 100%;
+					max-width: 100%;
 				}
 				.hl-section .wp-list-table th,
 				.hl-section .wp-list-table td {
@@ -404,13 +406,15 @@ trait SEOgen_Admin_Extensions {
 					box-sizing: border-box;
 				}
 				.hl-services-table th:nth-child(1),
-				.hl-services-table td:nth-child(1) { width: 30%; }
+				.hl-services-table td:nth-child(1) { width: 24%; }
 				.hl-services-table th:nth-child(2),
-				.hl-services-table td:nth-child(2) { width: 30%; }
+				.hl-services-table td:nth-child(2) { width: 24%; }
 				.hl-services-table th:nth-child(3),
-				.hl-services-table td:nth-child(3) { width: 25%; }
+				.hl-services-table td:nth-child(3) { width: 18%; }
 				.hl-services-table th:nth-child(4),
-				.hl-services-table td:nth-child(4) { width: 15%; text-align: center; }
+				.hl-services-table td:nth-child(4) { width: 18%; text-align: center; }
+				.hl-services-table th:nth-child(5),
+				.hl-services-table td:nth-child(5) { width: 10%; text-align: center; }
 				.hl-cities-table th:nth-child(1),
 				.hl-cities-table td:nth-child(1) { width: 45%; }
 				.hl-cities-table th:nth-child(2),
