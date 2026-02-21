@@ -80,6 +80,10 @@ class SEOgen_Plugin {
 		
 		// Register REST API routes for backend callbacks
 		add_action( 'rest_api_init', array( $this, 'register_rest_routes' ) );
+
+		// Register async import hook globally (Action Scheduler fires outside REST context)
+		$rest_api = new SEOgen_REST_API();
+		$rest_api->register_async_hooks();
 		
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
@@ -677,6 +681,9 @@ class SEOgen_Plugin {
 		// Create database index for scheduled publishing performance
 		SEOgen_Publishing_Scheduler::create_database_index();
 
+		// Create postmeta index for fast canonical key lookups (prevents 504 timeouts)
+		$this->create_postmeta_index();
+
 		// Set flag to initialize Action Scheduler on next page load
 		// (can't call Action Scheduler functions during activation hook)
 		set_transient( 'seogen_needs_scheduler_init', 1, 60 );
@@ -703,6 +710,26 @@ class SEOgen_Plugin {
 		$this->unpublish_generated_pages();
 	}
 	
+	/**
+	 * Create postmeta index for fast canonical key lookups.
+	 * WordPress does not index meta_value by default, making meta_query lookups
+	 * on _seogen_canonical_key very slow on sites with many posts.
+	 */
+	private function create_postmeta_index() {
+		global $wpdb;
+
+		// Check if index already exists
+		$index_exists = $wpdb->get_var(
+			"SHOW INDEX FROM {$wpdb->postmeta} WHERE Key_name = 'idx_seogen_canonical_key'"
+		);
+
+		if ( ! $index_exists ) {
+			$wpdb->query(
+				"CREATE INDEX idx_seogen_canonical_key ON {$wpdb->postmeta} (meta_key(50), meta_value(191))"
+			);
+		}
+	}
+
 	/**
 	 * Unpublish all generated pages when plugin is deactivated
 	 */

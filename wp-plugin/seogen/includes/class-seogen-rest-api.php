@@ -9,11 +9,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 class SEOgen_REST_API {
-	
+
 	const NAMESPACE = 'seogen/v1';
 	const SIGNATURE_VERSION = '1';
 	const MAX_TIMESTAMP_AGE = 300; // 5 minutes
-	
+	const ASYNC_IMPORT_HOOK = 'seogen_async_import_item';
+
 	/**
 	 * Register REST API routes
 	 */
@@ -23,19 +24,29 @@ class SEOgen_REST_API {
 			'callback' => array( $this, 'import_page' ),
 			'permission_callback' => array( $this, 'verify_hmac_signature' ),
 		) );
-		
+
 		register_rest_route( self::NAMESPACE, '/ping', array(
 			'methods' => 'POST',
 			'callback' => array( $this, 'ping' ),
 			'permission_callback' => array( $this, 'verify_hmac_signature' )
 		) );
-		
+
 		// Debug endpoint - remove after testing
 		register_rest_route( self::NAMESPACE, '/debug-license', array(
 			'methods' => 'GET',
 			'callback' => array( $this, 'debug_license' ),
 			'permission_callback' => '__return_true'
 		) );
+
+	}
+
+	/**
+	 * Register the Action Scheduler callback for async imports.
+	 * Must be called on every page load (not just rest_api_init)
+	 * so Action Scheduler can fire the hook.
+	 */
+	public function register_async_hooks() {
+		add_action( self::ASYNC_IMPORT_HOOK, array( $this, 'process_async_import' ), 10, 1 );
 	}
 	
 	/**
@@ -163,57 +174,89 @@ class SEOgen_REST_API {
 			);
 		}
 		
-		// Check for concurrent import (lock)
-		$lock_key = 'seogen_import_lock_' . md5( $canonical_key );
-		if ( get_transient( $lock_key ) ) {
-			return new WP_Error(
-				'import_in_progress',
-				'Import already in progress for this item',
-				array( 'status' => 409 )
+		// Add canonical_key to item_metadata
+		$item_metadata['canonical_key'] = $canonical_key;
+
+		// Store payload for async processing
+		$payload_key = 'seogen_import_payload_' . md5( $canonical_key );
+		$payload = array(
+			'result_json'   => $result_json,
+			'item_metadata' => $item_metadata,
+			'job_id'        => $job_id,
+			'item_index'    => $item_index,
+			'queued_at'     => time(),
+		);
+
+		update_option( $payload_key, $payload, false );
+
+		// Schedule async import via Action Scheduler
+		if ( function_exists( 'as_enqueue_async_action' ) ) {
+			as_enqueue_async_action(
+				self::ASYNC_IMPORT_HOOK,
+				array( 'canonical_key' => $canonical_key ),
+				'seogen-import'
 			);
+		} else {
+			// Fallback: schedule via wp_cron single event
+			wp_schedule_single_event( time(), self::ASYNC_IMPORT_HOOK, array( $canonical_key ) );
 		}
-		
-		// Set lock
-		set_transient( $lock_key, 1, 60 );
-		
+
+		// Return 202 immediately — import will happen async
+		return new WP_REST_Response( array(
+			'success'       => true,
+			'queued'        => true,
+			'canonical_key' => $canonical_key,
+		), 202 );
+	}
+
+	/**
+	 * Process a queued async import (called by Action Scheduler)
+	 *
+	 * @param string $canonical_key Canonical key identifying the payload
+	 */
+	public function process_async_import( $canonical_key ) {
+		$payload_key = 'seogen_import_payload_' . md5( $canonical_key );
+		$payload = get_option( $payload_key );
+
+		if ( empty( $payload ) || ! is_array( $payload ) ) {
+			error_log( '[SEOgen Async Import] No payload found for canonical_key=' . $canonical_key );
+			return;
+		}
+
+		$result_json   = isset( $payload['result_json'] ) ? $payload['result_json'] : array();
+		$item_metadata = isset( $payload['item_metadata'] ) ? $payload['item_metadata'] : array();
+		$job_id        = isset( $payload['job_id'] ) ? $payload['job_id'] : '';
+		$item_index    = isset( $payload['item_index'] ) ? (int) $payload['item_index'] : 0;
+
+		// Load admin class with import coordinator
+		if ( ! class_exists( 'SEOgen_Admin' ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
+		}
+
 		try {
-			// Load admin class with import coordinator
-			if ( ! class_exists( 'SEOgen_Admin' ) ) {
-				require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
-			}
-			
 			$importer = new SEOgen_Admin();
-			
-			// Add canonical_key to item_metadata
-			$item_metadata['canonical_key'] = $canonical_key;
-			
-			// Use centralized import with lock and idempotency
 			$result = $importer->import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index );
-			
-			delete_transient( $lock_key );
-			
+
 			if ( $result['success'] ) {
-				return new WP_REST_Response( array(
-					'success' => true,
-					'post_id' => $result['post_id'],
-					'already_imported' => $result['already_existed']
-				), 200 );
+				error_log( sprintf(
+					'[SEOgen Async Import] Success: canonical_key=%s post_id=%d already_existed=%s',
+					$canonical_key,
+					$result['post_id'],
+					$result['already_existed'] ? 'yes' : 'no'
+				) );
 			} else {
-				return new WP_Error(
-					'import_failed',
-					$result['error'],
-					array( 'status' => 500 )
-				);
+				error_log( sprintf(
+					'[SEOgen Async Import] Failed: canonical_key=%s error=%s',
+					$canonical_key,
+					$result['error']
+				) );
 			}
-			
 		} catch ( Exception $e ) {
-			delete_transient( $lock_key );
-			return new WP_Error(
-				'import_exception',
-				$e->getMessage(),
-				array( 'status' => 500 )
-			);
+			error_log( '[SEOgen Async Import] Exception: canonical_key=' . $canonical_key . ' error=' . $e->getMessage() );
 		}
+
+		// Clean up stored payload
+		delete_option( $payload_key );
 	}
 	
 	
