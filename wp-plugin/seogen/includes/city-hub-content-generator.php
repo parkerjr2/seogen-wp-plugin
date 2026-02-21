@@ -252,24 +252,58 @@ function seogen_build_gutenberg_blocks( $blocks, $page_mode ) {
 	if ( ! is_array( $blocks ) ) {
 		return '';
 	}
-	
+
 	$output = '';
-	
+
+	// Yoast readability: track words since last heading for auto-H3 injection
+	$words_since_last_heading = 0;
+	$paragraphs_in_current_section = 0;
+	$last_heading_text = '';
+
 	foreach ( $blocks as $block ) {
 		if ( ! is_array( $block ) || ! isset( $block['type'] ) ) {
 			continue;
 		}
-		
+
 		$type = $block['type'];
-		
+
 		if ( 'heading' === $type ) {
 			$level = isset( $block['level'] ) ? (int) $block['level'] : 2;
 			$text = isset( $block['text'] ) ? $block['text'] : '';
 			$output .= '<!-- wp:heading {"level":' . $level . '} -->' . "\n";
 			$output .= '<h' . $level . ' class="wp-block-heading">' . esc_html( $text ) . '</h' . $level . '>' . "\n";
 			$output .= '<!-- /wp:heading -->' . "\n\n";
+			// Reset word counter on any heading
+			$words_since_last_heading = 0;
+			$paragraphs_in_current_section = 0;
+			$last_heading_text = $text;
 		} elseif ( 'paragraph' === $type ) {
 			$text = isset( $block['text'] ) ? $block['text'] : '';
+			$paragraph_word_count = str_word_count( strip_tags( $text ) );
+
+			// Auto-inject H3 subheading if section exceeds 250 words (before hitting 300)
+			if ( $words_since_last_heading > 250 && $paragraphs_in_current_section >= 2 ) {
+				$auto_h3 = 'Additional Considerations';
+				$last_lower = strtolower( $last_heading_text );
+				if ( false !== strpos( $last_lower, 'issue' ) || false !== strpos( $last_lower, 'problem' ) || false !== strpos( $last_lower, 'challenge' ) ) {
+					$auto_h3 = 'Seasonal Factors and Weather Impact';
+				} elseif ( false !== strpos( $last_lower, 'proper' ) || false !== strpos( $last_lower, 'handle' ) || false !== strpos( $last_lower, 'approach' ) ) {
+					$auto_h3 = 'Local Permits and Code Requirements';
+				} elseif ( false !== strpos( $last_lower, 'project' ) || false !== strpos( $last_lower, 'case' ) || false !== strpos( $last_lower, 'recent' ) ) {
+					$auto_h3 = 'Project Details and Outcome';
+				} elseif ( '' === $last_heading_text ) {
+					$auto_h3 = 'Local Climate and Building Conditions';
+				}
+				$output .= '<!-- wp:heading {"level":3} -->' . "\n";
+				$output .= '<h3 class="wp-block-heading">' . esc_html( $auto_h3 ) . '</h3>' . "\n";
+				$output .= '<!-- /wp:heading -->' . "\n\n";
+				$words_since_last_heading = 0;
+				$paragraphs_in_current_section = 0;
+			}
+
+			$words_since_last_heading += $paragraph_word_count;
+			$paragraphs_in_current_section++;
+
 			$output .= '<!-- wp:paragraph -->' . "\n";
 			$output .= '<p>' . wp_kses_post( $text ) . '</p>' . "\n";
 			$output .= '<!-- /wp:paragraph -->' . "\n\n";

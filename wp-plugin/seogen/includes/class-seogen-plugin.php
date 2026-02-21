@@ -671,6 +671,9 @@ class SEOgen_Plugin {
 		$this->register_post_type();
 		flush_rewrite_rules();
 
+		// Ensure the scheduler class is loaded (run() hasn't fired yet during activation)
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-publishing-scheduler.php';
+
 		// Create database index for scheduled publishing performance
 		SEOgen_Publishing_Scheduler::create_database_index();
 
@@ -687,6 +690,9 @@ class SEOgen_Plugin {
 
 	public function deactivate() {
 		flush_rewrite_rules();
+
+		// Ensure the scheduler class is loaded (may not have been loaded if run() didn't fire)
+		require_once SEOGEN_PLUGIN_DIR . 'includes/class-seogen-publishing-scheduler.php';
 
 		// Unschedule all Action Scheduler actions (if Action Scheduler is available)
 		if ( function_exists( 'as_unschedule_all_actions' ) ) {
@@ -1262,46 +1268,52 @@ class SEOgen_Plugin {
 		$config = get_option( 'hyper_local_business_config', array() );
 		$vertical = isset( $config['vertical'] ) ? $config['vertical'] : '';
 
+		// Dynamic area phrase from config — never hardcode a city
+		// "the Columbus Metro area" vs "your area" (no article needed)
+		if ( ! empty( $config['service_area_label'] ) ) {
+			$area_phrase = 'the ' . $config['service_area_label'];
+		} else {
+			$area_phrase = 'your area';
+		}
+
 		// Determine audience based on hub_key
 		$is_commercial = ( 'commercial' === $hub_key );
 		$audience = $is_commercial ? 'businesses' : 'homeowners';
-		$property = $is_commercial ? 'commercial properties' : 'homes';
-		$property_alt = $is_commercial ? 'facilities' : 'properties';
 
-		// Residential intro templates (original)
+		// Residential intro templates
 		$residential_map = array(
-			'electrician' => "We help homeowners across the Tulsa area keep residential electrical systems safe and up to date.",
-			'plumber' => "We help homeowners across the Tulsa area resolve plumbing issues quickly and keep water systems reliable.",
-			'hvac' => "We help homeowners across the Tulsa area maintain comfortable indoor temperatures and reliable HVAC systems.",
-			'roofer' => "We help homeowners across the Tulsa area protect their homes with dependable roofing repairs and replacements.",
-			'landscaper' => "We help homeowners across the Tulsa area maintain beautiful outdoor spaces and healthy landscapes.",
-			'handyman' => "We help homeowners across the Tulsa area with reliable repairs and home improvement projects.",
-			'painter' => "We help homeowners across the Tulsa area refresh their homes with professional painting and surface preparation.",
-			'concrete' => "We help homeowners across the Tulsa area with durable concrete work for driveways, walkways, and patios.",
-			'siding' => "We help homeowners across the Tulsa area protect their homes with quality siding repairs and installations.",
-			'locksmith' => "We help homeowners across the Tulsa area secure their properties with reliable lock solutions.",
-			'cleaning' => "We help homeowners across the Tulsa area maintain clean, healthy living spaces.",
-			'garage-door' => "We help homeowners across the Tulsa area keep garage doors operating safely and smoothly.",
-			'windows' => "We help homeowners across the Tulsa area improve comfort and efficiency with quality window solutions.",
-			'pest-control' => "We help homeowners across the Tulsa area protect their properties from pests and prevent future issues.",
+			'electrician' => "We help homeowners across {$area_phrase} keep residential electrical systems safe and up to date.",
+			'plumber' => "We help homeowners across {$area_phrase} resolve plumbing issues quickly and keep water systems reliable.",
+			'hvac' => "We help homeowners across {$area_phrase} maintain comfortable indoor temperatures and reliable HVAC systems.",
+			'roofer' => "We help homeowners across {$area_phrase} protect their homes with dependable roofing repairs and replacements.",
+			'landscaper' => "We help homeowners across {$area_phrase} maintain beautiful outdoor spaces and healthy landscapes.",
+			'handyman' => "We help homeowners across {$area_phrase} with reliable repairs and home improvement projects.",
+			'painter' => "We help homeowners across {$area_phrase} refresh their homes with professional painting and surface preparation.",
+			'concrete' => "We help homeowners across {$area_phrase} with durable concrete work for driveways, walkways, and patios.",
+			'siding' => "We help homeowners across {$area_phrase} protect their homes with quality siding repairs and installations.",
+			'locksmith' => "We help homeowners across {$area_phrase} secure their properties with reliable lock solutions.",
+			'cleaning' => "We help homeowners across {$area_phrase} maintain clean, healthy living spaces.",
+			'garage-door' => "We help homeowners across {$area_phrase} keep garage doors operating safely and smoothly.",
+			'windows' => "We help homeowners across {$area_phrase} improve comfort and efficiency with quality window solutions.",
+			'pest-control' => "We help homeowners across {$area_phrase} protect their properties from pests and prevent future issues.",
 		);
 
 		// Commercial intro templates
 		$commercial_map = array(
-			'electrician' => "We help businesses across the Tulsa area keep commercial electrical systems safe and code-compliant.",
-			'plumber' => "We help businesses across the Tulsa area resolve plumbing issues quickly and minimize operational disruptions.",
-			'hvac' => "We help businesses across the Tulsa area maintain comfortable environments and reliable climate control systems.",
-			'roofer' => "We help businesses across the Tulsa area protect their facilities with dependable commercial roofing solutions.",
-			'landscaper' => "We help businesses across the Tulsa area maintain professional outdoor spaces and commercial landscapes.",
-			'handyman' => "We help businesses across the Tulsa area with reliable repairs and facility maintenance projects.",
-			'painter' => "We help businesses across the Tulsa area maintain professional appearances with quality commercial painting.",
-			'concrete' => "We help businesses across the Tulsa area with durable concrete work for parking lots, walkways, and facilities.",
-			'siding' => "We help businesses across the Tulsa area protect their facilities with quality commercial siding solutions.",
-			'locksmith' => "We help businesses across the Tulsa area secure their commercial properties with reliable lock solutions.",
-			'cleaning' => "We help businesses across the Tulsa area maintain clean, professional workspaces.",
-			'garage-door' => "We help businesses across the Tulsa area keep commercial doors operating safely and efficiently.",
-			'windows' => "We help businesses across the Tulsa area improve efficiency with quality commercial window solutions.",
-			'pest-control' => "We help businesses across the Tulsa area protect their facilities from pests and maintain compliance.",
+			'electrician' => "We help businesses across {$area_phrase} keep commercial electrical systems safe and code-compliant.",
+			'plumber' => "We help businesses across {$area_phrase} resolve plumbing issues quickly and minimize operational disruptions.",
+			'hvac' => "We help businesses across {$area_phrase} maintain comfortable environments and reliable climate control systems.",
+			'roofer' => "We help businesses across {$area_phrase} protect their facilities with dependable commercial roofing solutions.",
+			'landscaper' => "We help businesses across {$area_phrase} maintain professional outdoor spaces and commercial landscapes.",
+			'handyman' => "We help businesses across {$area_phrase} with reliable repairs and facility maintenance projects.",
+			'painter' => "We help businesses across {$area_phrase} maintain professional appearances with quality commercial painting.",
+			'concrete' => "We help businesses across {$area_phrase} with durable concrete work for parking lots, walkways, and facilities.",
+			'siding' => "We help businesses across {$area_phrase} protect their facilities with quality commercial siding solutions.",
+			'locksmith' => "We help businesses across {$area_phrase} secure their commercial properties with reliable lock solutions.",
+			'cleaning' => "We help businesses across {$area_phrase} maintain clean, professional workspaces.",
+			'garage-door' => "We help businesses across {$area_phrase} keep commercial doors operating safely and efficiently.",
+			'windows' => "We help businesses across {$area_phrase} improve efficiency with quality commercial window solutions.",
+			'pest-control' => "We help businesses across {$area_phrase} protect their facilities from pests and maintain compliance.",
 		);
 
 		// Select appropriate map based on hub_key
@@ -1313,9 +1325,9 @@ class SEOgen_Plugin {
 
 		// Default fallback - hub-aware
 		if ( $is_commercial ) {
-			return "We help businesses across the Tulsa area maintain safe, reliable commercial systems.";
+			return "We help businesses across {$area_phrase} maintain safe, reliable commercial systems.";
 		}
-		return "We help homeowners across the Tulsa area maintain safe, reliable home systems.";
+		return "We help homeowners across {$area_phrase} maintain safe, reliable home systems.";
 	}
 
 	/**
@@ -1535,7 +1547,7 @@ class SEOgen_Plugin {
 			'owasso' => array(
 				'year' => '1990s-2000s development',
 				'neighborhoods' => 'Downtown and Bailey Ranch',
-				'climate' => 'North Tulsa weather patterns',
+				'climate' => 'northern Oklahoma weather patterns',
 			),
 			'sapulpa' => array(
 				'year' => 'historic downtown to 1970s homes',
@@ -1545,7 +1557,7 @@ class SEOgen_Plugin {
 			'glenpool' => array(
 				'year' => 'oil boom era to modern',
 				'neighborhoods' => 'historic areas and newer developments',
-				'climate' => 'South Tulsa weather patterns',
+				'climate' => 'southern Oklahoma weather patterns',
 			),
 			'catoosa' => array(
 				'year' => '1970s-1980s',

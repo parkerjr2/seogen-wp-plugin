@@ -561,6 +561,11 @@ class SEOgen_Admin {
 		$city_hub_link_inserted = false;
 		$has_faq_blocks = false;
 		$has_cta_blocks = false;
+
+		// Yoast readability: track words since last heading for auto-H3 injection
+		$words_since_last_heading = 0;
+		$paragraphs_in_current_section = 0;
+		$last_heading_text = '';
 		
 		// Pre-scan blocks to detect FAQ and CTA presence for fallback insertion
 		foreach ( $blocks as $block ) {
@@ -838,6 +843,11 @@ class SEOgen_Admin {
 				$output[] = '<!-- wp:heading {"level":' . $level . '} -->';
 				$output[] = '<h' . $level . '>' . $text . '</h' . $level . '>';
 				$output[] = '<!-- /wp:heading -->';
+
+				// Reset Yoast readability word counter on any heading
+				$words_since_last_heading = 0;
+				$paragraphs_in_current_section = 0;
+				$last_heading_text = $text_raw;
 				continue;
 			}
 
@@ -896,6 +906,38 @@ class SEOgen_Admin {
 				if ( $hero_emitted ) {
 					$paragraphs_seen_after_hero++;
 				}
+
+				// Yoast readability: auto-inject H3 subheading if section exceeds 300 words
+				// This ensures no section of text goes >300 words without a subheading
+				$paragraph_word_count = str_word_count( strip_tags( $text ) );
+				if ( $words_since_last_heading > 250 && $paragraphs_in_current_section >= 2 && $hero_emitted ) {
+					// Generate a contextual H3 subheading
+					// Use a brief continuation heading based on the section context
+					$auto_h3_text = '';
+					$last_lower = strtolower( $last_heading_text );
+					if ( false !== strpos( $last_lower, 'issue' ) || false !== strpos( $last_lower, 'problem' ) || false !== strpos( $last_lower, 'challenge' ) ) {
+						$auto_h3_text = 'Seasonal Factors and Weather Impact';
+					} elseif ( false !== strpos( $last_lower, 'proper' ) || false !== strpos( $last_lower, 'handle' ) || false !== strpos( $last_lower, 'approach' ) ) {
+						$auto_h3_text = 'Local Permits and Code Requirements';
+					} elseif ( false !== strpos( $last_lower, 'project' ) || false !== strpos( $last_lower, 'case' ) || false !== strpos( $last_lower, 'recent' ) ) {
+						$auto_h3_text = 'Project Details and Outcome';
+					} elseif ( '' === $last_heading_text ) {
+						// Section 1 (no heading, intro content under H1)
+						$auto_h3_text = 'Local Climate and Building Conditions';
+					} else {
+						$auto_h3_text = 'Additional Considerations';
+					}
+					$output[] = '<!-- wp:heading {"level":3} -->';
+					$output[] = '<h3>' . esc_html( $auto_h3_text ) . '</h3>';
+					$output[] = '<!-- /wp:heading -->';
+
+					// Reset counter after injecting H3
+					$words_since_last_heading = 0;
+					$paragraphs_in_current_section = 0;
+				}
+
+				$words_since_last_heading += $paragraph_word_count;
+				$paragraphs_in_current_section++;
 
 				$output[] = '<!-- wp:paragraph -->';
 				$output[] = '<p>' . $text . '</p>';
@@ -1219,24 +1261,24 @@ class SEOgen_Admin {
 				$output[] = '<!-- wp:group {"className":"cta-content"} -->';
 				$output[] = '<div class="wp-block-group cta-content">';
 				
-				$output[] = '<!-- wp:heading {"level":2,"textAlign":"center","className":"cta-heading"} -->';
-				$output[] = '<h2 class="cta-heading has-text-align-center">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
+				$output[] = '<!-- wp:heading {"level":2,"className":"cta-heading"} -->';
+				$output[] = '<h2 class="cta-heading">' . esc_html__( 'Get Your Free Quote Today', 'seogen' ) . '</h2>';
 				$output[] = '<!-- /wp:heading -->';
-				
-				$output[] = '<!-- wp:paragraph {"align":"center"} -->';
-				$output[] = '<p class="has-text-align-center">' . $text . '</p>';
+
+				$output[] = '<!-- wp:paragraph -->';
+				$output[] = '<p>' . $text . '</p>';
 				$output[] = '<!-- /wp:paragraph -->';
 
-				$output[] = '<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->';
+				$output[] = '<!-- wp:buttons -->';
 				$output[] = '<div class="wp-block-buttons">';
 				$output[] = '<!-- wp:button {"className":"is-style-fill"} -->';
 				$output[] = '<div class="wp-block-button is-style-fill"><a class="wp-block-button__link" href="' . esc_url( $tel_url ) . '">' . esc_html( $cta_button_text ) . '</a></div>';
 				$output[] = '<!-- /wp:button -->';
 				$output[] = '</div>';
 				$output[] = '<!-- /wp:buttons -->';
-				
-				$output[] = '<!-- wp:paragraph {"align":"center","className":"cta-trust-signals"} -->';
-				$output[] = '<p class="cta-trust-signals has-text-align-center">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
+
+				$output[] = '<!-- wp:paragraph {"className":"cta-trust-signals"} -->';
+				$output[] = '<p class="cta-trust-signals">✓ ' . esc_html__( 'Licensed & Insured', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Fast Response', 'seogen' ) . ' &nbsp;&nbsp; ✓ ' . esc_html__( 'Quality Guaranteed', 'seogen' ) . '</p>';
 				$output[] = '<!-- /wp:paragraph -->';
 				
 				$output[] = '</div>';

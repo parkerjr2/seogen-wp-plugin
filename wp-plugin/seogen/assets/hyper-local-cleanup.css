@@ -27,3 +27,21 @@
 .hyper-local-page h1.post-title{
 	display:none !important;
 }
+
+/* Hide sidebar and force full-width content on SEOgen pages */
+.hyper-local-page #secondary,
+.hyper-local-page .sidebar,
+.hyper-local-page .widget-area,
+.hyper-local-page aside.sidebar,
+.hyper-local-page aside#secondary,
+.hyper-local-page .site-sidebar{
+	display:none !important;
+}
+.hyper-local-page #primary,
+.hyper-local-page .content-area,
+.hyper-local-page .site-main,
+.hyper-local-page .entry-content{
+	width:100% !important;
+	max-width:100% !important;
+	flex:0 0 100% !important;
+}
