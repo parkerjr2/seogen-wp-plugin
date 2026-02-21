@@ -31,13 +31,6 @@ class SEOgen_REST_API {
 			'permission_callback' => array( $this, 'verify_hmac_signature' )
 		) );
 
-		// Debug endpoint - remove after testing
-		register_rest_route( self::NAMESPACE, '/debug-license', array(
-			'methods' => 'GET',
-			'callback' => array( $this, 'debug_license' ),
-			'permission_callback' => '__return_true'
-		) );
-
 	}
 
 	/**
@@ -126,27 +119,30 @@ class SEOgen_REST_API {
 	
 	/**
 	 * Import page endpoint
-	 * 
+	 *
+	 * Strategy: Try synchronous import first (fast with postmeta index).
+	 * If sync fails or times out, store payload and queue for async retry.
+	 *
 	 * @param WP_REST_Request $request
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function import_page( $request ) {
 		$params = $request->get_json_params();
-		
+
 		$license_key = isset( $params['license_key'] ) ? sanitize_text_field( $params['license_key'] ) : '';
 		$job_id = isset( $params['job_id'] ) ? sanitize_text_field( $params['job_id'] ) : '';
 		$item_index = isset( $params['item_index'] ) ? (int) $params['item_index'] : 0;
 		$result_json = isset( $params['result_json'] ) ? $params['result_json'] : array();
 		$item_metadata = isset( $params['item_metadata'] ) ? $params['item_metadata'] : array();
-		
+
 		// Verify license key matches this site
 		$settings = get_option( 'seogen_settings', array() );
 		$site_license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
-		
+
 		// Normalize both keys for comparison (trim whitespace, case-insensitive)
 		$normalized_request_key = trim( strtolower( $license_key ) );
 		$normalized_site_key = trim( strtolower( $site_license_key ) );
-		
+
 		if ( $normalized_request_key !== $normalized_site_key ) {
 			error_log( sprintf(
 				'[SEOgen REST API] License mismatch - Request: "%s" (len=%d), Site: "%s" (len=%d)',
@@ -155,17 +151,17 @@ class SEOgen_REST_API {
 				$site_license_key,
 				strlen( $site_license_key )
 			) );
-			
+
 			return new WP_Error(
 				'license_mismatch',
 				'License key does not match this site',
 				array( 'status' => 403 )
 			);
 		}
-		
+
 		// Extract canonical key for idempotency
 		$canonical_key = isset( $item_metadata['canonical_key'] ) ? sanitize_text_field( $item_metadata['canonical_key'] ) : '';
-		
+
 		if ( empty( $canonical_key ) ) {
 			return new WP_Error(
 				'missing_canonical_key',
@@ -173,11 +169,52 @@ class SEOgen_REST_API {
 				array( 'status' => 400 )
 			);
 		}
-		
+
 		// Add canonical_key to item_metadata
 		$item_metadata['canonical_key'] = $canonical_key;
 
-		// Store payload for async processing
+		// Try synchronous import first (fast path)
+		if ( ! class_exists( 'SEOgen_Admin' ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
+		}
+
+		try {
+			$importer = new SEOgen_Admin();
+			$result = $importer->import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index );
+
+			if ( $result['success'] ) {
+				error_log( sprintf(
+					'[SEOgen REST API] Sync import success: canonical_key=%s post_id=%d already_existed=%s',
+					$canonical_key,
+					$result['post_id'],
+					$result['already_existed'] ? 'yes' : 'no'
+				) );
+
+				return new WP_REST_Response( array(
+					'success'          => true,
+					'post_id'          => $result['post_id'],
+					'already_imported' => $result['already_existed'],
+					'canonical_key'    => $canonical_key,
+				), 200 );
+			}
+
+			// Sync import returned failure — log and fall through to async
+			error_log( sprintf(
+				'[SEOgen REST API] Sync import failed, queuing async: canonical_key=%s error=%s',
+				$canonical_key,
+				$result['error']
+			) );
+
+		} catch ( Exception $e ) {
+			// Sync import threw exception — log and fall through to async
+			error_log( sprintf(
+				'[SEOgen REST API] Sync import exception, queuing async: canonical_key=%s error=%s',
+				$canonical_key,
+				$e->getMessage()
+			) );
+		}
+
+		// Sync failed — store payload and queue for async retry
 		$payload_key = 'seogen_import_payload_' . md5( $canonical_key );
 		$payload = array(
 			'result_json'   => $result_json,
@@ -197,11 +234,9 @@ class SEOgen_REST_API {
 				'seogen-import'
 			);
 		} else {
-			// Fallback: schedule via wp_cron single event
 			wp_schedule_single_event( time(), self::ASYNC_IMPORT_HOOK, array( $canonical_key ) );
 		}
 
-		// Return 202 immediately — import will happen async
 		return new WP_REST_Response( array(
 			'success'       => true,
 			'queued'        => true,
@@ -233,11 +268,14 @@ class SEOgen_REST_API {
 			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
 		}
 
+		$success = false;
+
 		try {
 			$importer = new SEOgen_Admin();
 			$result = $importer->import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index );
 
 			if ( $result['success'] ) {
+				$success = true;
 				error_log( sprintf(
 					'[SEOgen Async Import] Success: canonical_key=%s post_id=%d already_existed=%s',
 					$canonical_key,
@@ -255,8 +293,10 @@ class SEOgen_REST_API {
 			error_log( '[SEOgen Async Import] Exception: canonical_key=' . $canonical_key . ' error=' . $e->getMessage() );
 		}
 
-		// Clean up stored payload
-		delete_option( $payload_key );
+		// Only clean up payload on success — failed imports keep payload for retry
+		if ( $success ) {
+			delete_option( $payload_key );
+		}
 	}
 	
 	
@@ -286,23 +326,6 @@ class SEOgen_REST_API {
 			'rest_base_url' => rest_url( self::NAMESPACE . '/' ),
 			'license_valid' => $license_valid,
 			'timestamp' => time()
-		), 200 );
-	}
-	
-	/**
-	 * Debug endpoint to check license key configuration
-	 * TEMPORARY - Remove after debugging
-	 */
-	public function debug_license( $request ) {
-		$settings = get_option( 'seogen_settings', array() );
-		$license_key = isset( $settings['license_key'] ) ? $settings['license_key'] : '';
-		
-		return new WP_REST_Response( array(
-			'stored_license_key' => $license_key,
-			'key_length' => strlen( $license_key ),
-			'key_is_empty' => empty( $license_key ),
-			'settings_option_exists' => ! empty( $settings ),
-			'all_settings_keys' => array_keys( $settings )
 		), 200 );
 	}
 	

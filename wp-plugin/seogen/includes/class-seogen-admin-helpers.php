@@ -442,12 +442,12 @@ trait SEOgen_Admin_City_Hub_Helpers {
 			return $this->insert_service_links_fallback( $markup, $hub_key, $city_slug, $city_name, $state );
 		}
 		
-		// Insert service links right after the heading and its paragraphs
+		// Insert service links shortcode right after the heading and its paragraphs
 		$insert_position = $matches[0][1] + strlen( $matches[0][0] );
-		
-		// Wrap in Gutenberg HTML block
-		$service_links_block = "<!-- wp:html -->\n" . $service_links_html . "\n<!-- /wp:html -->";
-		
+
+		// Use shortcode block (matches STEP 2 approach — dynamic on each page load)
+		$service_links_block = "<!-- wp:shortcode -->\n" . $service_links_shortcode . "\n<!-- /wp:shortcode -->";
+
 		// Insert right after "Services We Offer" section
 		$markup = substr_replace( $markup, "\n\n" . $service_links_block . "\n\n", $insert_position, 0 );
 		
