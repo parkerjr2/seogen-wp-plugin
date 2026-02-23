@@ -120,8 +120,10 @@ class SEOgen_REST_API {
 	/**
 	 * Import page endpoint
 	 *
-	 * Strategy: Try synchronous import first (fast with postmeta index).
-	 * If sync fails or times out, store payload and queue for async retry.
+	 * Strategy: ASYNC-FIRST — store payload and queue Action Scheduler immediately
+	 * (< 1s), then attempt sync import as an optimization. If sync succeeds, clean
+	 * up the async entry. If the gateway kills the request mid-sync (WP Engine ~30s),
+	 * the import is already safely queued and will process via Action Scheduler.
 	 *
 	 * @param WP_REST_Request $request
 	 * @return WP_REST_Response|WP_Error
@@ -139,7 +141,6 @@ class SEOgen_REST_API {
 		$settings = get_option( 'seogen_settings', array() );
 		$site_license_key = isset( $settings['license_key'] ) ? trim( $settings['license_key'] ) : '';
 
-		// Normalize both keys for comparison (trim whitespace, case-insensitive)
 		$normalized_request_key = trim( strtolower( $license_key ) );
 		$normalized_site_key = trim( strtolower( $site_license_key ) );
 
@@ -170,51 +171,10 @@ class SEOgen_REST_API {
 			);
 		}
 
-		// Add canonical_key to item_metadata
 		$item_metadata['canonical_key'] = $canonical_key;
 
-		// Try synchronous import first (fast path)
-		if ( ! class_exists( 'SEOgen_Admin' ) ) {
-			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
-		}
-
-		try {
-			$importer = new SEOgen_Admin();
-			$result = $importer->import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index );
-
-			if ( $result['success'] ) {
-				error_log( sprintf(
-					'[SEOgen REST API] Sync import success: canonical_key=%s post_id=%d already_existed=%s',
-					$canonical_key,
-					$result['post_id'],
-					$result['already_existed'] ? 'yes' : 'no'
-				) );
-
-				return new WP_REST_Response( array(
-					'success'          => true,
-					'post_id'          => $result['post_id'],
-					'already_imported' => $result['already_existed'],
-					'canonical_key'    => $canonical_key,
-				), 200 );
-			}
-
-			// Sync import returned failure — log and fall through to async
-			error_log( sprintf(
-				'[SEOgen REST API] Sync import failed, queuing async: canonical_key=%s error=%s',
-				$canonical_key,
-				$result['error']
-			) );
-
-		} catch ( Exception $e ) {
-			// Sync import threw exception — log and fall through to async
-			error_log( sprintf(
-				'[SEOgen REST API] Sync import exception, queuing async: canonical_key=%s error=%s',
-				$canonical_key,
-				$e->getMessage()
-			) );
-		}
-
-		// Sync failed — store payload and queue for async retry
+		// ── STEP 1: Store payload IMMEDIATELY (< 1s) ──
+		// This guarantees the import will happen even if the gateway kills the request.
 		$payload_key = 'seogen_import_payload_' . md5( $canonical_key );
 		$payload = array(
 			'result_json'   => $result_json,
@@ -226,7 +186,7 @@ class SEOgen_REST_API {
 
 		update_option( $payload_key, $payload, false );
 
-		// Schedule async import via Action Scheduler
+		// ── STEP 2: Queue async action IMMEDIATELY ──
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
 			as_enqueue_async_action(
 				self::ASYNC_IMPORT_HOOK,
@@ -237,6 +197,56 @@ class SEOgen_REST_API {
 			wp_schedule_single_event( time(), self::ASYNC_IMPORT_HOOK, array( $canonical_key ) );
 		}
 
+		// ── STEP 3: Try sync import (optimization — skippable by gateway timeout) ──
+		if ( ! class_exists( 'SEOgen_Admin' ) ) {
+			require_once plugin_dir_path( __FILE__ ) . 'class-seogen-admin.php';
+		}
+
+		try {
+			$importer = new SEOgen_Admin();
+			$result = $importer->import_item_with_lock( $result_json, $item_metadata, $job_id, $item_index );
+
+			if ( $result['success'] ) {
+				// Sync succeeded — clean up async entry so it doesn't run twice
+				delete_option( $payload_key );
+				if ( function_exists( 'as_unschedule_action' ) ) {
+					as_unschedule_action(
+						self::ASYNC_IMPORT_HOOK,
+						array( 'canonical_key' => $canonical_key ),
+						'seogen-import'
+					);
+				}
+
+				error_log( sprintf(
+					'[SEOgen REST API] Sync import success: canonical_key=%s post_id=%d',
+					$canonical_key,
+					$result['post_id']
+				) );
+
+				return new WP_REST_Response( array(
+					'success'          => true,
+					'post_id'          => $result['post_id'],
+					'already_imported' => $result['already_existed'],
+					'canonical_key'    => $canonical_key,
+				), 200 );
+			}
+
+			// Sync failed — async is already queued, return 202
+			error_log( sprintf(
+				'[SEOgen REST API] Sync failed, async already queued: canonical_key=%s error=%s',
+				$canonical_key,
+				$result['error']
+			) );
+
+		} catch ( Exception $e ) {
+			error_log( sprintf(
+				'[SEOgen REST API] Sync exception, async already queued: canonical_key=%s error=%s',
+				$canonical_key,
+				$e->getMessage()
+			) );
+		}
+
+		// Sync didn't complete — async is already safely queued
 		return new WP_REST_Response( array(
 			'success'       => true,
 			'queued'        => true,
