@@ -2393,12 +2393,17 @@ class SEOgen_Admin {
 					$row_copy['edit_url'] = admin_url( 'post.php?post=' . (int) $row['post_id'] . '&action=edit' );
 				}
 				
-				// Sanitize HTTP 0 error messages - don't show transient errors in UI
+				// Sanitize HTTP 0 / cURL error messages - these are transient network
+				// blips (e.g. WP Engine → Railway timeout) that resolve automatically
+				// via the backend push flow. Don't alarm the user with raw errors.
 				if ( isset( $row_copy['message'] ) && is_string( $row_copy['message'] ) ) {
 					if ( strpos( $row_copy['message'], 'HTTP 0' ) !== false || strpos( $row_copy['message'], 'cURL error' ) !== false ) {
-						// Replace with generic message based on status
 						$row_status = isset( $row_copy['status'] ) ? $row_copy['status'] : '';
-						if ( 'pending' === $row_status || 'queued' === $row_status ) {
+						if ( 'failed' === $row_status ) {
+							// Downgrade to pending — the backend push will deliver this item
+							$row_copy['status'] = 'pending';
+							$row_copy['message'] = __( 'Waiting for content delivery...', 'seogen' );
+						} elseif ( 'pending' === $row_status || 'queued' === $row_status ) {
 							$row_copy['message'] = __( 'Queued for generation.', 'seogen' );
 						} elseif ( 'processing' === $row_status ) {
 							$row_copy['message'] = __( 'Processing...', 'seogen' );
