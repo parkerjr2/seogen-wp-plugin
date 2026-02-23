@@ -669,6 +669,18 @@ class SEOgen_Plugin {
 				}
 			}
 		}
+
+		// Fix scheduling race condition: reschedule pages that all got the same date
+		if ( get_transient( 'seogen_needs_reschedule' ) ) {
+			delete_transient( 'seogen_needs_reschedule' );
+
+			$scheduler = new SEOgen_Publishing_Scheduler();
+			$count = $scheduler->reschedule_all_pending();
+
+			if ( $count > 0 ) {
+				error_log( sprintf( '[SEOgen] Rescheduled %d pages after plugin update', $count ) );
+			}
+		}
 	}
 
 	public function activate() {
@@ -687,6 +699,9 @@ class SEOgen_Plugin {
 		// Set flag to initialize Action Scheduler on next page load
 		// (can't call Action Scheduler functions during activation hook)
 		set_transient( 'seogen_needs_scheduler_init', 1, 60 );
+
+		// Set flag to fix scheduling race condition on next admin page load
+		set_transient( 'seogen_needs_reschedule', 1, 60 );
 
 		// Check if pages were unpublished and set notice
 		$unpublished_count = get_option( 'seogen_unpublished_count', 0 );

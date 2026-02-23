@@ -543,6 +543,94 @@ class SEOgen_Publishing_Scheduler {
 	}
 
 	/**
+	 * Reschedule all pending draft pages with correct staggered timestamps.
+	 * Fixes pages that were all assigned the same date due to the race condition.
+	 *
+	 * @return int Number of posts rescheduled
+	 */
+	public function reschedule_all_pending() {
+		$settings = get_option( 'seogen_publishing_settings', array() );
+		$enabled = isset( $settings['enabled'] ) ? $settings['enabled'] : true;
+
+		if ( ! $enabled ) {
+			return 0;
+		}
+
+		$pages_per_day = isset( $settings['pages_per_day'] ) ? (int) $settings['pages_per_day'] : 10;
+		$publish_time = isset( $settings['publish_time'] ) ? $settings['publish_time'] : '09:00';
+
+		if ( $pages_per_day < 1 ) {
+			$pages_per_day = 10;
+		}
+
+		// Get ALL draft service_pages with scheduling meta, ordered by ID
+		$posts = get_posts( array(
+			'post_type'      => 'service_page',
+			'post_status'    => 'draft',
+			'posts_per_page' => -1,
+			'meta_query'     => array(
+				array(
+					'key'     => '_seogen_scheduled_publish_timestamp',
+					'compare' => 'EXISTS',
+				),
+			),
+			'orderby' => 'ID',
+			'order'   => 'ASC',
+			'fields'  => 'ids',
+			'no_found_rows' => true,
+		) );
+
+		if ( empty( $posts ) ) {
+			return 0;
+		}
+
+		// Check if all posts share the same timestamp (the race condition symptom)
+		$timestamps = array();
+		foreach ( $posts as $post_id ) {
+			$ts = get_post_meta( $post_id, '_seogen_scheduled_publish_timestamp', true );
+			$timestamps[ $ts ] = true;
+		}
+
+		// Only reschedule if all posts have the same timestamp (race condition)
+		if ( count( $timestamps ) > 1 ) {
+			return 0; // Already staggered, nothing to fix
+		}
+
+		// Reset the counter and reassign staggered timestamps
+		$this->reset_queue_position();
+
+		// Parse publish time
+		$time_parts = explode( ':', $publish_time );
+		$hour = isset( $time_parts[0] ) ? (int) $time_parts[0] : 9;
+		$minute = isset( $time_parts[1] ) ? (int) $time_parts[1] : 0;
+
+		$rescheduled = 0;
+		foreach ( $posts as $position => $post_id ) {
+			$days_to_wait = floor( $position / $pages_per_day );
+
+			$publish_timestamp = strtotime(
+				sprintf( 'tomorrow %02d:%02d:00', $hour, $minute ),
+				current_time( 'timestamp' )
+			);
+			$publish_timestamp += $days_to_wait * DAY_IN_SECONDS;
+
+			update_post_meta( $post_id, '_seogen_scheduled_publish_timestamp', $publish_timestamp );
+			update_post_meta( $post_id, '_seogen_publish_scheduled_at', gmdate( 'Y-m-d H:i:s', $publish_timestamp ) );
+
+			$rescheduled++;
+		}
+
+		error_log( sprintf(
+			'[SEOgen Scheduler] Rescheduled %d posts across %d days (%d per day)',
+			$rescheduled,
+			(int) ceil( $rescheduled / $pages_per_day ),
+			$pages_per_day
+		) );
+
+		return $rescheduled;
+	}
+
+	/**
 	 * Create database index for scheduled publishing performance
 	 * This significantly speeds up the query that finds posts ready to publish
 	 *

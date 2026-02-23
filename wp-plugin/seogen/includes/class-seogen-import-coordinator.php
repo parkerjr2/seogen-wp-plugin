@@ -549,10 +549,29 @@ trait SEOgen_Import_Coordinator {
 				break;
 			}
 		}
-		
+
+		// Recalculate aggregate counters from rows so progress bar stays in sync
+		$success_count = 0;
+		$failed_count = 0;
+		$skipped_count = 0;
+		foreach ( $job['rows'] as $row ) {
+			$row_status = isset( $row['status'] ) ? $row['status'] : '';
+			if ( 'success' === $row_status ) {
+				$success_count++;
+			} elseif ( 'failed' === $row_status ) {
+				$failed_count++;
+			} elseif ( 'skipped' === $row_status ) {
+				$skipped_count++;
+			}
+		}
+		$job['success'] = $success_count;
+		$job['failed'] = $failed_count;
+		$job['skipped'] = $skipped_count;
+		$job['processed'] = $success_count + $failed_count + $skipped_count;
+
 		$this->save_bulk_job( $job_id, $job );
 	}
-	
+
 	/**
 	 * Count pending imports in a job
 	 * 
