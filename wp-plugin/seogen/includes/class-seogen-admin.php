@@ -2415,21 +2415,36 @@ class SEOgen_Admin {
 			}
 		}
 		
+		// Recalculate aggregate counters from sanitized rows so the progress bar
+		// matches what the user sees in the detailed table (e.g., HTTP 0 "failed"
+		// rows that were downgraded to "pending" should not count as failures)
+		$success_count = 0;
+		$failed_count = 0;
+		$skipped_count = 0;
+		foreach ( $rows_with_urls as $row ) {
+			$row_status = isset( $row['status'] ) ? $row['status'] : '';
+			if ( 'success' === $row_status ) {
+				$success_count++;
+			} elseif ( 'failed' === $row_status ) {
+				$failed_count++;
+			} elseif ( 'skipped' === $row_status ) {
+				$skipped_count++;
+			}
+		}
+
 		// Phase 6: Count import progress
 		$imported_count = 0;
 		$import_failed_count = 0;
 		$import_pending_count = 0;
-		
-		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
-			foreach ( $job['rows'] as $row ) {
-				$import_status = isset( $row['import_status'] ) ? $row['import_status'] : 'pending';
-				if ( 'imported' === $import_status ) {
-					$imported_count++;
-				} elseif ( 'failed' === $import_status ) {
-					$import_failed_count++;
-				} else {
-					$import_pending_count++;
-				}
+
+		foreach ( $rows_with_urls as $row ) {
+			$import_status = isset( $row['import_status'] ) ? $row['import_status'] : 'pending';
+			if ( 'imported' === $import_status ) {
+				$imported_count++;
+			} elseif ( 'failed' === $import_status ) {
+				$import_failed_count++;
+			} else {
+				$import_pending_count++;
 			}
 		}
 		
@@ -2443,10 +2458,10 @@ class SEOgen_Admin {
 			'status' => isset( $job['status'] ) ? $job['status'] : 'running',
 			'rows' => $rows_with_urls,
 			'total_rows' => isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0,
-			'processed' => isset( $job['processed'] ) ? (int) $job['processed'] : 0,
-			'success' => isset( $job['success'] ) ? (int) $job['success'] : 0,
-			'failed' => isset( $job['failed'] ) ? (int) $job['failed'] : 0,
-			'skipped' => isset( $job['skipped'] ) ? (int) $job['skipped'] : 0,
+			'processed' => $success_count + $failed_count + $skipped_count,
+			'success' => $success_count,
+			'failed' => $failed_count,
+			'skipped' => $skipped_count,
 			// Phase 6: Import progress
 			'imported' => $imported_count,
 			'import_failed' => $import_failed_count,

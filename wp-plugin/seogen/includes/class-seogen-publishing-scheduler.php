@@ -49,6 +49,13 @@ class SEOgen_Publishing_Scheduler {
 			return false;
 		}
 
+		// Skip if this post is already scheduled (prevents counter inflation from
+		// re-imports, retries, and duplicate async callbacks)
+		$existing_ts = get_post_meta( $post_id, '_seogen_scheduled_publish_timestamp', true );
+		if ( ! empty( $existing_ts ) ) {
+			return true; // Already scheduled, nothing to do
+		}
+
 		// Get settings
 		$settings = get_option( 'seogen_publishing_settings', array() );
 		$enabled = isset( $settings['enabled'] ) ? $settings['enabled'] : true;
@@ -192,17 +199,26 @@ class SEOgen_Publishing_Scheduler {
 	 * Call this after posts are published or when starting a new import batch
 	 */
 	public function reset_queue_position() {
+		$this->set_queue_position( 0 );
+	}
+
+	/**
+	 * Set the queue position counter to a specific value
+	 *
+	 * @param int $value The value to set
+	 */
+	protected function set_queue_position( $value ) {
 		global $wpdb;
 
-		// Reset to 0 instead of deleting — the row is reused by get_and_increment
 		$wpdb->query( $wpdb->prepare(
-			"UPDATE {$wpdb->options} SET option_value = '0' WHERE option_name = %s",
+			"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s",
+			(string) (int) $value,
 			'_seogen_schedule_queue_position'
 		) );
 		wp_cache_delete( '_seogen_schedule_queue_position', 'options' );
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( '[SEOgen Scheduler] Queue position counter reset' );
+			error_log( sprintf( '[SEOgen Scheduler] Queue position counter set to %d', $value ) );
 		}
 	}
 
@@ -615,11 +631,16 @@ class SEOgen_Publishing_Scheduler {
 			$rescheduled++;
 		}
 
+		// Set counter to the number of rescheduled posts so new imports start from the
+		// correct position (N+1) instead of overlapping existing posts at position 0
+		$this->set_queue_position( $rescheduled );
+
 		error_log( sprintf(
-			'[SEOgen Scheduler] Rescheduled %d posts across %d days (%d per day)',
+			'[SEOgen Scheduler] Rescheduled %d posts across %d days (%d per day, counter set to %d)',
 			$rescheduled,
 			(int) ceil( $rescheduled / $pages_per_day ),
-			$pages_per_day
+			$pages_per_day,
+			$rescheduled
 		) );
 
 		return $rescheduled;
