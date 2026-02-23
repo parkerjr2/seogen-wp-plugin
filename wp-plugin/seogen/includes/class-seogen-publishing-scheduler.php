@@ -66,11 +66,9 @@ class SEOgen_Publishing_Scheduler {
 			$pages_per_day = 10;
 		}
 
-		// Auto-reset queue counter if no pending posts exist
-		// This ensures new import batches start from position 0
-		if ( $this->get_pending_count() === 0 ) {
-			$this->reset_queue_position();
-		}
+		// NOTE: Queue counter is NOT reset here — concurrent imports would all see
+		// pending_count=0 and reset to 0, causing all posts to get the same date.
+		// Counter is reset only in publish_scheduled_posts() after all posts are published.
 
 		// Calculate publish timestamp
 		$publish_timestamp = $this->get_next_publish_timestamp( $pages_per_day, $publish_time );
@@ -81,7 +79,7 @@ class SEOgen_Publishing_Scheduler {
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( sprintf(
-				'[SEOgen Scheduler] Post %d scheduled for %s (timestamp: %d)',
+				'[SEOgen Scheduler] Post %d scheduled for %s (timestamp: %d, position: queue)',
 				$post_id,
 				gmdate( 'Y-m-d H:i:s', $publish_timestamp ),
 				$publish_timestamp
@@ -152,31 +150,41 @@ class SEOgen_Publishing_Scheduler {
 
 	/**
 	 * Get and atomically increment the queue position counter
-	 * This prevents race conditions when scheduling multiple posts concurrently
+	 * Uses MySQL LAST_INSERT_ID() for a truly atomic read-and-increment
+	 * that is safe under concurrent requests.
 	 *
 	 * @return int Queue position (0-indexed)
 	 */
 	protected function get_and_increment_queue_position() {
 		global $wpdb;
 
-		// Use WordPress options table for atomic counter
 		$option_name = '_seogen_schedule_queue_position';
 
-		// Try to get current position
-		$current_position = get_option( $option_name, 0 );
-
-		// Increment atomically using database-level operation
-		// This prevents race conditions even with concurrent requests
+		// Ensure the row exists (no-op if already present)
 		$wpdb->query( $wpdb->prepare(
-			"INSERT INTO {$wpdb->options} (option_name, option_value, autoload)
-			VALUES (%s, %d, 'no')
-			ON DUPLICATE KEY UPDATE option_value = option_value + 1",
-			$option_name,
-			1
+			"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload)
+			VALUES (%s, '0', 'no')",
+			$option_name
 		) );
 
-		// Return the position this post got (before increment)
-		return (int) $current_position;
+		// Atomically: capture current value into LAST_INSERT_ID, then increment.
+		// LAST_INSERT_ID(option_value) stores the pre-increment value per-connection,
+		// so concurrent requests each get their own unique position.
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE {$wpdb->options}
+			SET option_value = LAST_INSERT_ID(option_value) + 1
+			WHERE option_name = %s",
+			$option_name
+		) );
+
+		// Retrieve the pre-increment value (unique to this connection)
+		$position = (int) $wpdb->get_var( "SELECT LAST_INSERT_ID()" );
+
+		// Flush the WP object cache for this option so subsequent get_option()
+		// calls in the same request don't return stale data
+		wp_cache_delete( $option_name, 'options' );
+
+		return $position;
 	}
 
 	/**
@@ -184,7 +192,14 @@ class SEOgen_Publishing_Scheduler {
 	 * Call this after posts are published or when starting a new import batch
 	 */
 	public function reset_queue_position() {
-		delete_option( '_seogen_schedule_queue_position' );
+		global $wpdb;
+
+		// Reset to 0 instead of deleting — the row is reused by get_and_increment
+		$wpdb->query( $wpdb->prepare(
+			"UPDATE {$wpdb->options} SET option_value = '0' WHERE option_name = %s",
+			'_seogen_schedule_queue_position'
+		) );
+		wp_cache_delete( '_seogen_schedule_queue_position', 'options' );
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 			error_log( '[SEOgen Scheduler] Queue position counter reset' );

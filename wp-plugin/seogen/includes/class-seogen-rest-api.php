@@ -186,13 +186,19 @@ class SEOgen_REST_API {
 
 		update_option( $payload_key, $payload, false );
 
-		// ── STEP 2: Queue async action IMMEDIATELY ──
+		// ── STEP 2: Queue async action IMMEDIATELY (deduplicated) ──
 		if ( function_exists( 'as_enqueue_async_action' ) ) {
-			as_enqueue_async_action(
-				self::ASYNC_IMPORT_HOOK,
-				array( 'canonical_key' => $canonical_key ),
-				'seogen-import'
-			);
+			// Only enqueue if no pending action for this canonical_key already exists.
+			// Backend retries would otherwise create duplicate async actions.
+			$args = array( 'canonical_key' => $canonical_key );
+			$already_queued = as_next_scheduled_action( self::ASYNC_IMPORT_HOOK, $args, 'seogen-import' );
+			if ( false === $already_queued || 0 === $already_queued ) {
+				as_enqueue_async_action(
+					self::ASYNC_IMPORT_HOOK,
+					$args,
+					'seogen-import'
+				);
+			}
 		} else {
 			wp_schedule_single_event( time(), self::ASYNC_IMPORT_HOOK, array( $canonical_key ) );
 		}
