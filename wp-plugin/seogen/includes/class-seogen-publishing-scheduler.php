@@ -478,8 +478,14 @@ class SEOgen_Publishing_Scheduler {
 		// Reschedule with new settings
 		$this->ensure_action_scheduled();
 
+		// Reschedule all pending drafts with the new settings (pages_per_day, publish_time)
+		$count = $this->reschedule_all_pending();
+
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( '[SEOgen Scheduler] Action Scheduler rescheduled due to settings change' );
+			error_log( sprintf(
+				'[SEOgen Scheduler] Action Scheduler rescheduled due to settings change (%d posts rescheduled)',
+				$count
+			) );
 		}
 	}
 
@@ -544,7 +550,8 @@ class SEOgen_Publishing_Scheduler {
 
 	/**
 	 * Reschedule all pending draft pages with correct staggered timestamps.
-	 * Fixes pages that were all assigned the same date due to the race condition.
+	 * Reassigns all drafts to proper 10/day (or configured rate) batches starting tomorrow.
+	 * Safe to call at any time — always recalculates from scratch.
 	 *
 	 * @return int Number of posts rescheduled
 	 */
@@ -582,18 +589,6 @@ class SEOgen_Publishing_Scheduler {
 
 		if ( empty( $posts ) ) {
 			return 0;
-		}
-
-		// Check if all posts share the same timestamp (the race condition symptom)
-		$timestamps = array();
-		foreach ( $posts as $post_id ) {
-			$ts = get_post_meta( $post_id, '_seogen_scheduled_publish_timestamp', true );
-			$timestamps[ $ts ] = true;
-		}
-
-		// Only reschedule if all posts have the same timestamp (race condition)
-		if ( count( $timestamps ) > 1 ) {
-			return 0; // Already staggered, nothing to fix
 		}
 
 		// Reset the counter and reassign staggered timestamps

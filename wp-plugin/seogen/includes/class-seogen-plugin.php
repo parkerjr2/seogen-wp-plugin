@@ -670,15 +670,20 @@ class SEOgen_Plugin {
 			}
 		}
 
-		// Fix scheduling race condition: reschedule pages that all got the same date
-		if ( get_transient( 'seogen_needs_reschedule' ) ) {
+		// Fix scheduling on plugin update: reschedule all pending pages with correct staggering.
+		// Uses version check because plugin updates don't fire register_activation_hook.
+		$stored_version = get_option( 'seogen_plugin_version', '0' );
+		$needs_reschedule = get_transient( 'seogen_needs_reschedule' );
+
+		if ( $needs_reschedule || version_compare( $stored_version, SEOGEN_VERSION, '<' ) ) {
 			delete_transient( 'seogen_needs_reschedule' );
+			update_option( 'seogen_plugin_version', SEOGEN_VERSION );
 
 			$scheduler = new SEOgen_Publishing_Scheduler();
 			$count = $scheduler->reschedule_all_pending();
 
 			if ( $count > 0 ) {
-				error_log( sprintf( '[SEOgen] Rescheduled %d pages after plugin update', $count ) );
+				error_log( sprintf( '[SEOgen] Rescheduled %d pages after plugin update to v%s', $count, SEOGEN_VERSION ) );
 			}
 		}
 	}
