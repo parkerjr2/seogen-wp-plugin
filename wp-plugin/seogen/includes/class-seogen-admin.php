@@ -2393,14 +2393,20 @@ class SEOgen_Admin {
 					$row_copy['edit_url'] = admin_url( 'post.php?post=' . (int) $row['post_id'] . '&action=edit' );
 				}
 				
-				// Sanitize HTTP 0 / cURL error messages - these are transient network
-				// blips (e.g. WP Engine → Railway timeout) that resolve automatically
-				// via the backend push flow. Don't alarm the user with raw errors.
+				// Reconcile display status: if the page was successfully imported into
+				// WordPress (via push), the generation poll status is irrelevant.
+				$row_import_status = isset( $row_copy['import_status'] ) ? $row_copy['import_status'] : '';
+				if ( 'imported' === $row_import_status && 'success' !== ( isset( $row_copy['status'] ) ? $row_copy['status'] : '' ) ) {
+					$row_copy['status'] = 'success';
+					$row_copy['message'] = __( 'Imported.', 'seogen' );
+				}
+
+				// Sanitize HTTP 0 / cURL error messages for rows NOT yet imported —
+				// these are transient network blips that resolve via the push flow.
 				if ( isset( $row_copy['message'] ) && is_string( $row_copy['message'] ) ) {
 					if ( strpos( $row_copy['message'], 'HTTP 0' ) !== false || strpos( $row_copy['message'], 'cURL error' ) !== false ) {
 						$row_status = isset( $row_copy['status'] ) ? $row_copy['status'] : '';
 						if ( 'failed' === $row_status ) {
-							// Downgrade to pending — the backend push will deliver this item
 							$row_copy['status'] = 'pending';
 							$row_copy['message'] = __( 'Waiting for content delivery...', 'seogen' );
 						} elseif ( 'pending' === $row_status || 'queued' === $row_status ) {
