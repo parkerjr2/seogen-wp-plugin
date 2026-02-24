@@ -671,12 +671,11 @@ class SEOgen_Publishing_Scheduler {
 			return; // Index already exists
 		}
 
-		// Create composite index on meta_key and meta_value for numeric comparison
-		// This dramatically improves the performance of the scheduled post query
+		// Create composite index on meta_key and meta_value for faster scheduled post lookups.
+		// No WHERE clause — MySQL/MariaDB does not support partial indexes.
 		$wpdb->query(
 			"CREATE INDEX seogen_scheduled_timestamp
-			ON {$wpdb->postmeta} (meta_key, meta_value(20))
-			WHERE meta_key = '_seogen_scheduled_publish_timestamp'"
+			ON {$wpdb->postmeta} (meta_key(40), meta_value(20))"
 		);
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {

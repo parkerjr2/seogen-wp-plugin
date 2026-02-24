@@ -86,6 +86,7 @@ class SEOgen_Plugin {
 		$rest_api->register_async_hooks();
 		
 		add_action( 'init', array( $this, 'register_post_type' ) );
+		add_filter( 'post_type_link', array( $this, 'service_page_permalink' ), 10, 2 );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
 		add_action( 'wp_head', array( $this, 'maybe_output_service_schema' ) );
 		add_filter( 'body_class', array( $this, 'filter_body_class' ) );
@@ -818,18 +819,27 @@ class SEOgen_Plugin {
 			'hierarchical'       => true,
 			'capability_type'    => 'page',
 			'map_meta_cap'       => true,
-			'rewrite'            => array(
-				'slug'         => '/',
-				'with_front'   => false,
-				'hierarchical' => true,
-			),
+			'rewrite'            => false, // Custom rewrite rules added below to avoid hijacking existing post URLs
 			'supports'           => array( 'title', 'editor', 'revisions', 'page-attributes', 'custom-fields', 'thumbnail', 'excerpt' ),
 			'menu_position'      => 25,
 			'menu_icon'          => 'dashicons-admin-page',
 		);
 
 		register_post_type( 'service_page', $args );
-		
+
+		// Add root-level rewrite rules at BOTTOM priority so existing posts/pages
+		// always take precedence. Only unmatched URLs fall through to these rules.
+		// Hierarchical: matches parent/child/grandchild paths.
+		add_rewrite_rule(
+			'(.+?)(/[0-9]+)?/?$',
+			'index.php?service_page=$matches[1]&page=$matches[2]',
+			'bottom'
+		);
+
+		// Verify matched slugs belong to actual service_page posts — if not,
+		// clear the query var so WordPress continues normal routing (404 or page).
+		add_filter( 'request', array( $this, 'resolve_service_page_request' ) );
+
 		// Ensure Yoast SEO includes this post type in sitemaps
 		add_filter( 'wpseo_sitemap_exclude_post_type', function( $excluded, $post_type ) {
 			if ( 'service_page' === $post_type ) {
@@ -837,6 +847,60 @@ class SEOgen_Plugin {
 			}
 			return $excluded;
 		}, 10, 2 );
+	}
+
+	/**
+	 * Resolve service_page request — verify the matched slug is an actual service_page.
+	 * If not, remove the query var so WordPress falls through to normal routing.
+	 *
+	 * @param array $query_vars
+	 * @return array
+	 */
+	public function resolve_service_page_request( $query_vars ) {
+		if ( ! isset( $query_vars['service_page'] ) || empty( $query_vars['service_page'] ) ) {
+			return $query_vars;
+		}
+
+		// Look up the path as a service_page
+		$post = get_page_by_path( $query_vars['service_page'], OBJECT, 'service_page' );
+
+		if ( ! $post ) {
+			// Not a service_page — remove our query var so WP handles it normally
+			unset( $query_vars['service_page'] );
+		}
+
+		return $query_vars;
+	}
+
+	/**
+	 * Generate root-level permalinks for service_page posts.
+	 * Since rewrite is disabled on the CPT, we build the URL manually
+	 * using the hierarchical slug path (e.g., /residential-roofing/tulsa-ok/).
+	 *
+	 * @param string  $post_link Default link
+	 * @param WP_Post $post      Post object
+	 * @return string
+	 */
+	public function service_page_permalink( $post_link, $post ) {
+		if ( 'service_page' !== $post->post_type ) {
+			return $post_link;
+		}
+
+		// Build the hierarchical slug path
+		$slug = $post->post_name;
+
+		// Walk up the parent chain to build full path
+		$parent_id = $post->post_parent;
+		while ( $parent_id ) {
+			$parent = get_post( $parent_id );
+			if ( ! $parent ) {
+				break;
+			}
+			$slug = $parent->post_name . '/' . $slug;
+			$parent_id = $parent->post_parent;
+		}
+
+		return home_url( user_trailingslashit( $slug ) );
 	}
 
 	public function render_service_hub_links_shortcode( $atts ) {
