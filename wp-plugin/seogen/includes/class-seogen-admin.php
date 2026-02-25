@@ -5263,7 +5263,11 @@ class SEOgen_Admin {
 			}
 			if ( ! empty( $status['ok'] ) && is_array( $status['data'] ) ) {
 				$job['status'] = isset( $status['data']['status'] ) ? sanitize_text_field( (string) $status['data']['status'] ) : ( isset( $job['status'] ) ? $job['status'] : '' );
-				$job['total_rows'] = isset( $status['data']['total_items'] ) ? (int) $status['data']['total_items'] : ( isset( $job['total_rows'] ) ? (int) $job['total_rows'] : 0 );
+				// Keep total_rows from local row count — API total_items includes city hubs
+				// that are tracked separately and not in $job['rows']
+				if ( ! isset( $job['total_rows'] ) || 0 === (int) $job['total_rows'] ) {
+					$job['total_rows'] = isset( $job['rows'] ) ? count( $job['rows'] ) : 0;
+				}
 				$job['processed'] = isset( $status['data']['processed'] ) ? (int) $status['data']['processed'] : ( isset( $job['processed'] ) ? (int) $job['processed'] : 0 );
 				$job['success'] = isset( $status['data']['completed'] ) ? (int) $status['data']['completed'] : ( isset( $job['success'] ) ? (int) $job['success'] : 0 );
 				$job['failed'] = isset( $status['data']['failed'] ) ? (int) $status['data']['failed'] : ( isset( $job['failed'] ) ? (int) $job['failed'] : 0 );
