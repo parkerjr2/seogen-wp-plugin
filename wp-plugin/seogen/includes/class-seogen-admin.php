@@ -4378,6 +4378,7 @@ class SEOgen_Admin {
 				container.innerHTML = html;
 				}
 				var pollInterval = null;
+				var completePollCount = 0;
 				var connectionErrorCount = 0;
 				function fetchStatus(){
 					console.log('[SEOgen] fetchStatus called for job:', jobId);
@@ -4394,10 +4395,24 @@ class SEOgen_Admin {
 						if(res && res.success){
 							connectionErrorCount = 0; // Reset error count on success
 							render(res.data);
-							// Only stop polling if job is explicitly complete
-							if(res.data && (res.data.status === 'complete' || res.data.status === 'done' || res.data.status === 'canceled')){
-								console.log('[SEOgen] Job finished with status:', res.data.status);
+							// Stop polling only when job is complete AND all rows are finalized
+							if(res.data && res.data.status === 'canceled'){
 								if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+							} else if(res.data && (res.data.status === 'complete' || res.data.status === 'done')){
+								var allDone = (res.data.rows||[]).every(function(r){
+									return r.status === 'success' || r.status === 'skipped' || r.status === 'failed';
+								});
+								if(allDone){
+									console.log('[SEOgen] Job complete and all rows finalized');
+									if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+								} else {
+									completePollCount++;
+									console.log('[SEOgen] Job complete but rows still importing (poll ' + completePollCount + '/60)');
+									if(completePollCount > 60){
+										console.log('[SEOgen] Safety timeout after 60 complete-state polls');
+										if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+									}
+								}
 							}
 							return res.data;
 						}
@@ -4467,12 +4482,48 @@ class SEOgen_Admin {
 						jobIsRunning = true;
 						pollInterval = setInterval(function(){
 							fetchStatus().then(function(updatedJob){
-								if(updatedJob && updatedJob.status !== 'pending' && updatedJob.status !== 'running'){
+								if(updatedJob && updatedJob.status === 'canceled'){
 									jobIsRunning = false;
 									if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+								} else if(updatedJob && updatedJob.status !== 'pending' && updatedJob.status !== 'running'){
+									var allRowsDone = (updatedJob.rows||[]).every(function(r){
+										return r.status === 'success' || r.status === 'skipped' || r.status === 'failed';
+									});
+									if(allRowsDone){
+										jobIsRunning = false;
+										if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+									}
 								}
 							});
 						},5000);
+					} else if(job && (job.status === 'complete' || job.status === 'done')){
+						// Job complete but check if rows still need importing
+						var hasUnfinished = (job.rows||[]).some(function(r){
+							return r.status !== 'success' && r.status !== 'skipped' && r.status !== 'failed';
+						});
+						if(hasUnfinished){
+							console.log('[SEOgen] Job complete but rows still importing, starting polling');
+							jobIsRunning = true;
+							pollInterval = setInterval(function(){
+								fetchStatus().then(function(updatedJob){
+									if(updatedJob && updatedJob.status === 'canceled'){
+										jobIsRunning = false;
+										if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+									} else if(updatedJob){
+										var allRowsDone = (updatedJob.rows||[]).every(function(r){
+											return r.status === 'success' || r.status === 'skipped' || r.status === 'failed';
+										});
+										if(allRowsDone){
+											jobIsRunning = false;
+											if(pollInterval){clearInterval(pollInterval);pollInterval=null;}
+										}
+									}
+								});
+							},5000);
+						} else {
+							console.log('[SEOgen] Job complete and all rows finalized');
+							jobIsRunning = false;
+						}
 					} else {
 						console.log('[SEOgen] Job not active, status:', job ? job.status : 'null');
 						jobIsRunning = false;
@@ -5220,7 +5271,101 @@ class SEOgen_Admin {
 
 			$cursor = isset( $job['api_cursor'] ) ? (string) $job['api_cursor'] : '';
 			$api_status = isset( $status['data']['status'] ) ? (string) $status['data']['status'] : '';
-		
+
+			// Status sync: detect pages imported by background scheduler
+			// Runs BEFORE pending_import_count so early-return optimizations see accurate state
+			$all_rows_imported = true;
+			if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
+				foreach ( $job['rows'] as $chk_row ) {
+					$chk_import = isset( $chk_row['import_status'] ) ? (string) $chk_row['import_status'] : '';
+					$chk_status = isset( $chk_row['status'] ) ? (string) $chk_row['status'] : '';
+					if ( 'imported' !== $chk_import && 'success' !== $chk_status && 'skipped' !== $chk_status ) {
+						$all_rows_imported = false;
+						break;
+					}
+				}
+			}
+
+			if ( isset( $job['rows'] ) && is_array( $job['rows'] ) && ! $all_rows_imported ) {
+				$status_sync_updated = false;
+				foreach ( $job['rows'] as $idx => $row ) {
+					$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
+					$import_status = isset( $row['import_status'] ) ? (string) $row['import_status'] : 'pending';
+
+					if ( 'imported' === $import_status ) {
+						continue;
+					}
+
+					$canonical_key = isset( $row['canonical_key'] ) ? $row['canonical_key'] : '';
+
+					if ( empty( $canonical_key ) && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
+						$hub_key = isset( $row['hub_key'] ) ? $row['hub_key'] : '';
+						$canonical_key = $this->compute_canonical_key( $row['service'], $row['city'], $row['state'], $hub_key );
+					}
+
+					if ( '' !== $canonical_key ) {
+						$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
+
+						if ( $existing_id === 0 && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
+							$alt_key = sanitize_title( $row['service'] . '-' . $row['city'] . '-' . $row['state'] );
+							$existing_id = $this->find_existing_post_id_by_key( $alt_key );
+						}
+
+						if ( $existing_id === 0 && isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
+							$existing_id = (int) $row['post_id'];
+						}
+
+						// Last resort: search by service_page slug pattern
+						if ( $existing_id === 0 && isset( $row['service'] ) && isset( $row['city'] ) ) {
+							$slug_base = sanitize_title( $row['service'] . ' in ' . $row['city'] );
+							$slug_query = new WP_Query( array(
+								'post_type'      => 'service_page',
+								'post_status'    => array( 'publish', 'draft', 'pending', 'future', 'private' ),
+								'fields'         => 'ids',
+								'posts_per_page' => 1,
+								'post_name__in'  => array( $slug_base ),
+								'meta_key'       => '_hyper_local_managed',
+								'meta_value'     => '1',
+							) );
+							if ( ! empty( $slug_query->posts ) ) {
+								$existing_id = (int) $slug_query->posts[0];
+							}
+							if ( $existing_id === 0 && isset( $row['state'] ) && '' !== $row['state'] ) {
+								$slug_with_state = sanitize_title( $row['service'] . ' in ' . $row['city'] . ' ' . $row['state'] );
+								$slug_query2 = new WP_Query( array(
+									'post_type'      => 'service_page',
+									'post_status'    => array( 'publish', 'draft', 'pending', 'future', 'private' ),
+									'fields'         => 'ids',
+									'posts_per_page' => 1,
+									'post_name__in'  => array( $slug_with_state ),
+									'meta_key'       => '_hyper_local_managed',
+									'meta_value'     => '1',
+								) );
+								if ( ! empty( $slug_query2->posts ) ) {
+									$existing_id = (int) $slug_query2->posts[0];
+								}
+							}
+						}
+
+						if ( $existing_id > 0 ) {
+							$is_managed = get_post_meta( $existing_id, '_hyper_local_managed', true );
+							if ( '1' === $is_managed ) {
+								$job['rows'][ $idx ]['status'] = 'success';
+								$job['rows'][ $idx ]['post_id'] = $existing_id;
+								$job['rows'][ $idx ]['locked'] = true;
+								$job['rows'][ $idx ]['import_status'] = 'imported';
+								$job['rows'][ $idx ]['imported_post_id'] = $existing_id;
+								$job['rows'][ $idx ]['message'] = 'Imported.';
+								$status_sync_updated = true;
+							}
+						}
+					}
+				}
+				if ( $status_sync_updated ) {
+					$this->save_bulk_job( $job_id, $job );
+				}
+			}
+
 			// FIXED: Compute pending_import_count from actual row states, not subtraction
 			$pending_import_count = 0;
 			if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
@@ -5694,116 +5839,9 @@ class SEOgen_Admin {
 			}
 		}
 		
-		// Sync row statuses from actual WordPress posts on every poll
-		// This fixes stale "pending" and "skipped" statuses for items that were actually imported
+		// (Status sync moved earlier in the flow — before pending_import_count)
 		$job_status = isset( $job['status'] ) ? (string) $job['status'] : '';
-		
-		// Run status sync on every poll for API mode jobs
-		// Only skip if ALL rows are already imported (not just when job status is 'complete')
-		$all_rows_imported = true;
-		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
-			foreach ( $job['rows'] as $chk_row ) {
-				$chk_import = isset( $chk_row['import_status'] ) ? (string) $chk_row['import_status'] : '';
-				$chk_status = isset( $chk_row['status'] ) ? (string) $chk_row['status'] : '';
-				if ( 'imported' !== $chk_import && 'success' !== $chk_status && 'skipped' !== $chk_status ) {
-					$all_rows_imported = false;
-					break;
-				}
-			}
-		}
 
-		if ( $is_api_mode && isset( $job['rows'] ) && is_array( $job['rows'] ) && ! $all_rows_imported ) {
-			$status_updated = false;
-			foreach ( $job['rows'] as $idx => $row ) {
-				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
-				$import_status = isset( $row['import_status'] ) ? (string) $row['import_status'] : 'pending';
-				
-				// Skip if already marked as imported
-				if ( 'imported' === $import_status ) {
-					continue;
-				}
-				
-				// Check all rows that aren't marked as imported yet (pending, failed, or any status)
-				// This catches cases where content generation succeeded but import status wasn't updated
-				$canonical_key = isset( $row['canonical_key'] ) ? $row['canonical_key'] : '';
-				
-				// Fallback: build canonical key from service/city/state/hub_key if not stored
-				if ( empty( $canonical_key ) && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
-					$hub_key = isset( $row['hub_key'] ) ? $row['hub_key'] : '';
-					$canonical_key = $this->compute_canonical_key( $row['service'], $row['city'], $row['state'], $hub_key );
-				}
-				
-				if ( '' !== $canonical_key ) {
-					$existing_id = $this->find_existing_post_id_by_key( $canonical_key );
-					
-					// If key lookup fails, try alternate key format (dash-separated)
-					if ( $existing_id === 0 && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
-						$alt_key = sanitize_title( $row['service'] . '-' . $row['city'] . '-' . $row['state'] );
-						$existing_id = $this->find_existing_post_id_by_key( $alt_key );
-					}
-					
-					// If still not found, check if post_id is stored in the row already
-					if ( $existing_id === 0 && isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
-						$stored_post_id = (int) $row['post_id'];
-						if ( $stored_post_id > 0 ) {
-							$existing_id = $stored_post_id;
-						}
-					}
-
-					// Last resort: search by service_page slug pattern
-					if ( $existing_id === 0 && isset( $row['service'] ) && isset( $row['city'] ) ) {
-						$slug_base = sanitize_title( $row['service'] . ' in ' . $row['city'] );
-						$slug_query = new WP_Query( array(
-							'post_type'      => 'service_page',
-							'post_status'    => array( 'publish', 'draft', 'pending', 'future', 'private' ),
-							'fields'         => 'ids',
-							'posts_per_page' => 1,
-							'post_name__in'  => array( $slug_base ),
-							'meta_key'       => '_hyper_local_managed',
-							'meta_value'     => '1',
-						) );
-						if ( ! empty( $slug_query->posts ) ) {
-							$existing_id = (int) $slug_query->posts[0];
-						}
-						// Try with state suffix
-						if ( $existing_id === 0 && isset( $row['state'] ) && '' !== $row['state'] ) {
-							$slug_with_state = sanitize_title( $row['service'] . ' in ' . $row['city'] . ' ' . $row['state'] );
-							$slug_query2 = new WP_Query( array(
-								'post_type'      => 'service_page',
-								'post_status'    => array( 'publish', 'draft', 'pending', 'future', 'private' ),
-								'fields'         => 'ids',
-								'posts_per_page' => 1,
-								'post_name__in'  => array( $slug_with_state ),
-								'meta_key'       => '_hyper_local_managed',
-								'meta_value'     => '1',
-							) );
-							if ( ! empty( $slug_query2->posts ) ) {
-								$existing_id = (int) $slug_query2->posts[0];
-							}
-						}
-					}
-
-					if ( $existing_id > 0 ) {
-						// Check if post was generated by this system (has the managed meta)
-						$is_managed = get_post_meta( $existing_id, '_hyper_local_managed', true );
-						if ( '1' === $is_managed ) {
-							// Post exists - update both status and import_status
-							$job['rows'][ $idx ]['status'] = 'success';
-							$job['rows'][ $idx ]['post_id'] = $existing_id;
-							$job['rows'][ $idx ]['locked'] = true;
-							$job['rows'][ $idx ]['import_status'] = 'imported';
-							$job['rows'][ $idx ]['imported_post_id'] = $existing_id;
-							$job['rows'][ $idx ]['message'] = 'Imported.';
-							$status_updated = true;
-						}
-					}
-				}
-			}
-			if ( $status_updated ) {
-				$this->save_bulk_job( $job_id, $job );
-			}
-		}
-		
 		// After service pages are complete, generate city hub content
 		if ( 'complete' === $job_status && ! isset( $job['city_hubs_generated'] ) && isset( $job['city_hub_map'] ) && ! empty( $job['city_hub_map'] ) ) {
 			file_put_contents( WP_CONTENT_DIR . '/seogen-debug.log', '[' . date('Y-m-d H:i:s') . '] Service pages complete, starting city hub content generation for ' . count( $job['city_hub_map'] ) . ' cities' . PHP_EOL, FILE_APPEND );
