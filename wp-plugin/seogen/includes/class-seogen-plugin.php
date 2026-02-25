@@ -861,12 +861,23 @@ class SEOgen_Plugin {
 			return $query_vars;
 		}
 
-		// Look up the path as a service_page
-		$post = get_page_by_path( $query_vars['service_page'], OBJECT, 'service_page' );
+		$slug = $query_vars['service_page'];
 
-		if ( ! $post ) {
-			// Not a service_page — remove our query var so WP handles it normally
+		// If a published WP page exists with this slug, always defer to it
+		$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
+		if ( $existing_page && 'publish' === $existing_page->post_status ) {
 			unset( $query_vars['service_page'] );
+			$query_vars['pagename'] = $slug;
+			return $query_vars;
+		}
+
+		// Only accept published service_page posts
+		$post = get_page_by_path( $slug, OBJECT, 'service_page' );
+		if ( ! $post || 'publish' !== $post->post_status ) {
+			unset( $query_vars['service_page'] );
+			// Restore pagename so WP can try normal page/post routing
+			$query_vars['pagename'] = $slug;
+			return $query_vars;
 		}
 
 		return $query_vars;
