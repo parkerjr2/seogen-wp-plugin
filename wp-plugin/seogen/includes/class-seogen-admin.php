@@ -2357,6 +2357,27 @@ class SEOgen_Admin {
 	}
 
 	/**
+	 * Sanitize HTTP 0 / cURL error messages from a row.
+	 * These are transient network blips that resolve via the push flow.
+	 *
+	 * @param string $status  Row status.
+	 * @param string $message Row message.
+	 * @return array { 'status' => string, 'message' => string }
+	 */
+	private function sanitize_row_message( $status, $message ) {
+		if ( is_string( $message ) && ( strpos( $message, 'HTTP 0' ) !== false || strpos( $message, 'cURL error' ) !== false ) ) {
+			if ( 'failed' === $status ) {
+				return array( 'status' => 'pending', 'message' => __( 'Waiting for content delivery...', 'seogen' ) );
+			} elseif ( 'pending' === $status || 'queued' === $status ) {
+				return array( 'status' => $status, 'message' => __( 'Queued for generation.', 'seogen' ) );
+			} elseif ( 'processing' === $status ) {
+				return array( 'status' => $status, 'message' => __( 'Processing...', 'seogen' ) );
+			}
+		}
+		return array( 'status' => $status, 'message' => $message );
+	}
+
+	/**
 	 * Prepare bulk job response data with edit URLs.
 	 * Centralizes response preparation for consistency.
 	 * Sanitizes HTTP 0 error messages from cached state.
@@ -2403,19 +2424,12 @@ class SEOgen_Admin {
 
 				// Sanitize HTTP 0 / cURL error messages for rows NOT yet imported —
 				// these are transient network blips that resolve via the push flow.
-				if ( isset( $row_copy['message'] ) && is_string( $row_copy['message'] ) ) {
-					if ( strpos( $row_copy['message'], 'HTTP 0' ) !== false || strpos( $row_copy['message'], 'cURL error' ) !== false ) {
-						$row_status = isset( $row_copy['status'] ) ? $row_copy['status'] : '';
-						if ( 'failed' === $row_status ) {
-							$row_copy['status'] = 'pending';
-							$row_copy['message'] = __( 'Waiting for content delivery...', 'seogen' );
-						} elseif ( 'pending' === $row_status || 'queued' === $row_status ) {
-							$row_copy['message'] = __( 'Queued for generation.', 'seogen' );
-						} elseif ( 'processing' === $row_status ) {
-							$row_copy['message'] = __( 'Processing...', 'seogen' );
-						}
-					}
-				}
+				$sanitized = $this->sanitize_row_message(
+					isset( $row_copy['status'] ) ? $row_copy['status'] : '',
+					isset( $row_copy['message'] ) ? $row_copy['message'] : ''
+				);
+				$row_copy['status']  = $sanitized['status'];
+				$row_copy['message'] = $sanitized['message'];
 				
 				$rows_with_urls[] = $row_copy;
 			}
@@ -4448,6 +4462,8 @@ class SEOgen_Admin {
 				});
 				
 				console.log('[SEOgen] Starting initial fetchStatus');
+				// Signal to heartbeat that foreground poller is active on bulk job page
+				window.seogenForegroundPollerActive = true;
 				fetchStatus().then(function(job){
 					console.log('[SEOgen] Initial fetch complete, job:', job);
 					if(job && (job.status === 'pending' || job.status === 'running')){
@@ -5763,42 +5779,37 @@ class SEOgen_Admin {
 		}
 		
 		$rows = array();
-		// For API mode, use API counters (source of truth from database)
-		// For non-API mode, count from local row statuses
-		if ( $is_api_mode && isset( $job['processed'] ) ) {
-			// Use API counters directly
-			$processed_count = isset( $job['processed'] ) ? (int) $job['processed'] : 0;
-			$success_count = isset( $job['success'] ) ? (int) $job['success'] : 0;
-			$failed_count = isset( $job['failed'] ) ? (int) $job['failed'] : 0;
-			$skipped_count = 0; // API doesn't track skipped separately
-		} else {
-			// Fallback: count from local row statuses for non-API mode
-			$success_count = 0;
-			$failed_count = 0;
-			$skipped_count = 0;
-			$processed_count = 0;
-		}
-		
+		$success_count = 0;
+		$failed_count = 0;
+		$skipped_count = 0;
+		$processed_count = 0;
+
 		if ( isset( $job['rows'] ) && is_array( $job['rows'] ) ) {
 			foreach ( $job['rows'] as $row ) {
-				$row_status = isset( $row['status'] ) ? (string) $row['status'] : '';
-				// Only count for non-API mode
-				if ( ! $is_api_mode ) {
-					if ( 'success' === $row_status ) {
-						$success_count++;
-						$processed_count++;
-					} elseif ( 'failed' === $row_status ) {
-						$failed_count++;
-						$processed_count++;
-					} elseif ( 'skipped' === $row_status ) {
-						$skipped_count++;
-						$processed_count++;
-					} elseif ( in_array( $row_status, array( 'processing', 'running' ), true ) ) {
-						$processed_count++;
-					} elseif ( 'pending' === $row_status && 'complete' === $job_status ) {
-						$processed_count++;
-					}
+				$row_status  = isset( $row['status'] ) ? (string) $row['status'] : '';
+				$row_message = isset( $row['message'] ) ? (string) $row['message'] : '';
+
+				// Sanitize HTTP 0 / cURL error messages before counting
+				$sanitized   = $this->sanitize_row_message( $row_status, $row_message );
+				$row_status  = $sanitized['status'];
+				$row_message = $sanitized['message'];
+
+				// Unified counting from actual row statuses (all modes)
+				if ( 'success' === $row_status ) {
+					$success_count++;
+					$processed_count++;
+				} elseif ( 'failed' === $row_status ) {
+					$failed_count++;
+					$processed_count++;
+				} elseif ( 'skipped' === $row_status ) {
+					$skipped_count++;
+					$processed_count++;
+				} elseif ( in_array( $row_status, array( 'processing', 'running' ), true ) ) {
+					$processed_count++;
+				} elseif ( 'pending' === $row_status && 'complete' === $job_status ) {
+					$processed_count++;
 				}
+
 				$edit_url = '';
 				if ( isset( $row['post_id'] ) && (int) $row['post_id'] > 0 ) {
 					$edit_url = get_edit_post_link( (int) $row['post_id'], 'raw' );
@@ -5809,7 +5820,7 @@ class SEOgen_Admin {
 					'city'      => isset( $row['city'] ) ? (string) $row['city'] : '',
 					'state'     => isset( $row['state'] ) ? (string) $row['state'] : '',
 					'status'    => $row_status,
-					'message'   => isset( $row['message'] ) ? (string) $row['message'] : '',
+					'message'   => $row_message,
 					'edit_url'  => $edit_url ? (string) $edit_url : '',
 				);
 			}

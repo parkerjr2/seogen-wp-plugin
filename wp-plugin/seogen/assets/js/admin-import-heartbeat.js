@@ -60,7 +60,13 @@
         if (isRunning) {
             return; // Don't overlap requests
         }
-        
+
+        // Skip heartbeat import when foreground poller is active on bulk job page
+        // to prevent duplicate post creation from concurrent import loops
+        if (window.seogenForegroundPollerActive) {
+            return;
+        }
+
         if (!window.seogenActiveJobs || window.seogenActiveJobs.length === 0) {
             stopHeartbeat();
             return;
