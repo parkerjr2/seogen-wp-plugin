@@ -2523,10 +2523,9 @@ class SEOgen_Admin {
 			return 0;
 		}
 
-		// Only consider posts that are published or scheduled
-		// Draft posts are ignored - they're not visible on the website and shouldn't block imports
-		// If a draft exists, we'll either update it or create a new post
-		$valid_statuses = array( 'publish', 'pending', 'future', 'private' );
+		// Consider all non-trash statuses so the status sync can find imported pages
+		// that haven't been scheduled yet (still draft) or are awaiting publication
+		$valid_statuses = array( 'publish', 'draft', 'pending', 'future', 'private' );
 
 		// FAST: Check new canonical key first (most likely to match)
 		$query = new WP_Query(
@@ -4290,56 +4289,21 @@ class SEOgen_Admin {
 				function esc(s){return String(s).replace(/[&<>\"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[c]);});}
 				function render(job){
 					if(!job){container.innerHTML = '<p><?php echo esc_js( __( 'Job not found.', 'seogen' ) ); ?></p>';return;}
-					var html = '';
-					
-					// Calculate progress percentages
 					var totalRows = job.total_rows || 0;
-					var processed = job.processed || 0;
-					var success = job.success || 0;
-					var failed = job.failed || 0;
-					var skipped = job.skipped || 0;
-					var imported = job.imported || 0;
-					var importPending = job.import_pending || 0;
-					var importFailed = job.import_failed || 0;
-					
-					var generationPercent = totalRows > 0 ? Math.round((processed / totalRows) * 100) : 0;
-					var importPercent = totalRows > 0 ? Math.round((imported / totalRows) * 100) : 0;
-					
+
 					// Status badge
 					var statusColor = job.status === 'complete' ? '#00a32a' : (job.status === 'running' ? '#2271b1' : '#666');
 					var statusText = job.status === 'complete' ? '✓ Complete' : (job.status === 'running' ? '⟳ Running' : job.status);
-					
-					// Progress indicator box
-					html += '<div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:20px;margin:20px 0;">';
-					html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">';
-					html += '<h3 style="margin:0;font-size:16px;">Job Progress</h3>';
-					html += '<span style="background:' + statusColor + ';color:#fff;padding:4px 12px;border-radius:3px;font-size:13px;font-weight:600;">' + esc(statusText) + '</span>';
-					html += '</div>';
-					
-					// Generation Progress Bar
-					html += '<div style="margin-bottom:20px;">';
-					html += '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">';
-					html += '<span style="font-size:13px;font-weight:600;">Content Generation</span>';
-					html += '<span style="font-size:13px;color:#666;">' + processed + ' / ' + totalRows + ' (' + generationPercent + '%)</span>';
-					html += '</div>';
-					html += '<div style="background:#f0f0f1;height:24px;border-radius:3px;overflow:hidden;">';
-					html += '<div style="background:#2271b1;height:100%;width:' + generationPercent + '%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;">';
-					if(generationPercent > 10) html += generationPercent + '%';
-					html += '</div></div>';
-					html += '<div style="margin-top:5px;font-size:12px;color:#666;">New: ' + success + ' | Failed: ' + failed + ' | Skipped: ' + skipped + '</div>';
-					html += '</div>';
-					
-					html += '</div>';
-					
-					// Detailed table
-					html += '<h3 style="margin-top:30px;">Detailed Status</h3>';
-					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Service Hub', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
+
+					// Step 1: Apply client-side row locks and build table rows
+					var success = 0, failed = 0, skipped = 0, processed = 0;
+					var tableHtml = '';
 				(job.rows||[]).forEach(function(r){
 					var key = getRowKey(r);
 					var incomingStatus = String(r.status||'');
 					var incomingMessage = String(r.message||'');
 					var incomingEditUrl = r.edit_url||'';
-					
+
 					// Lock row if it's successfully imported
 					if(incomingStatus === 'success' || incomingEditUrl || (r.post_id && r.post_id > 0)){
 						if(!clientRowLock[key] || !clientRowLock[key].locked){
@@ -4353,7 +4317,7 @@ class SEOgen_Admin {
 							console.log('[SEOgen] Locking row key=' + key + ' status=success');
 						}
 					}
-					
+
 					// Prevent downgrade if row is locked
 					if(clientRowLock[key] && clientRowLock[key].locked){
 						if(incomingStatus !== 'success'){
@@ -4363,21 +4327,53 @@ class SEOgen_Admin {
 							r.edit_url = clientRowLock[key].edit_url || incomingEditUrl;
 						}
 					}
-					
-					html += '<tr>';
-					html += '<td>' + esc(r.service||'') + '</td>';
-					html += '<td>' + esc(r.hub_label||'') + '</td>';
-					html += '<td>' + esc(r.city||'') + '</td>';
-					html += '<td>' + esc(r.state||'') + '</td>';
-					html += '<td>' + esc(r.status||'') + '</td>';
-					html += '<td>' + esc(r.message||'') + '</td>';
+
+					// Count from final row status (after row-lock corrections)
+					var st = String(r.status||'');
+					if(st === 'success'){ success++; processed++; }
+					else if(st === 'failed'){ failed++; processed++; }
+					else if(st === 'skipped'){ skipped++; processed++; }
+
+					tableHtml += '<tr>';
+					tableHtml += '<td>' + esc(r.service||'') + '</td>';
+					tableHtml += '<td>' + esc(r.hub_label||'') + '</td>';
+					tableHtml += '<td>' + esc(r.city||'') + '</td>';
+					tableHtml += '<td>' + esc(r.state||'') + '</td>';
+					tableHtml += '<td>' + esc(r.status||'') + '</td>';
+					tableHtml += '<td>' + esc(r.message||'') + '</td>';
 					if(r.edit_url){
-						html += '<td><a href="' + esc(r.edit_url) + '"><?php echo esc_js( __( 'Edit', 'seogen' ) ); ?></a></td>';
+						tableHtml += '<td><a href="' + esc(r.edit_url) + '"><?php echo esc_js( __( 'Edit', 'seogen' ) ); ?></a></td>';
 					}else{
-						html += '<td></td>';
+						tableHtml += '<td></td>';
 					}
-					html += '</tr>';
+					tableHtml += '</tr>';
 				});
+
+					// Step 2: Build progress bar from corrected counts
+					var generationPercent = totalRows > 0 ? Math.round((processed / totalRows) * 100) : 0;
+					var html = '';
+					html += '<div style="background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:20px;margin:20px 0;">';
+					html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">';
+					html += '<h3 style="margin:0;font-size:16px;">Job Progress</h3>';
+					html += '<span style="background:' + statusColor + ';color:#fff;padding:4px 12px;border-radius:3px;font-size:13px;font-weight:600;">' + esc(statusText) + '</span>';
+					html += '</div>';
+					html += '<div style="margin-bottom:20px;">';
+					html += '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">';
+					html += '<span style="font-size:13px;font-weight:600;">Content Generation</span>';
+					html += '<span style="font-size:13px;color:#666;">' + processed + ' / ' + totalRows + ' (' + generationPercent + '%)</span>';
+					html += '</div>';
+					html += '<div style="background:#f0f0f1;height:24px;border-radius:3px;overflow:hidden;">';
+					html += '<div style="background:#2271b1;height:100%;width:' + generationPercent + '%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600;">';
+					if(generationPercent > 10) html += generationPercent + '%';
+					html += '</div></div>';
+					html += '<div style="margin-top:5px;font-size:12px;color:#666;">New: ' + success + ' | Failed: ' + failed + ' | Skipped: ' + skipped + '</div>';
+					html += '</div>';
+					html += '</div>';
+
+					// Step 3: Append table
+					html += '<h3 style="margin-top:30px;">Detailed Status</h3>';
+					html += '<table class="widefat striped"><thead><tr><th><?php echo esc_js( __( 'Service', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Service Hub', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'City', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'State', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Status', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Message', 'seogen' ) ); ?></th><th><?php echo esc_js( __( 'Post', 'seogen' ) ); ?></th></tr></thead><tbody>';
+					html += tableHtml;
 				html += '</tbody></table>';
 				container.innerHTML = html;
 				}
@@ -5721,9 +5717,10 @@ class SEOgen_Admin {
 				// This catches cases where content generation succeeded but import status wasn't updated
 				$canonical_key = isset( $row['canonical_key'] ) ? $row['canonical_key'] : '';
 				
-				// Fallback: build canonical key from service/city/state if not stored
+				// Fallback: build canonical key from service/city/state/hub_key if not stored
 				if ( empty( $canonical_key ) && isset( $row['service'] ) && isset( $row['city'] ) && isset( $row['state'] ) ) {
-					$canonical_key = strtolower( $row['service'] . '|' . $row['city'] . '|' . $row['state'] );
+					$hub_key = isset( $row['hub_key'] ) ? $row['hub_key'] : '';
+					$canonical_key = $this->compute_canonical_key( $row['service'], $row['city'], $row['state'], $hub_key );
 				}
 				
 				if ( '' !== $canonical_key ) {
