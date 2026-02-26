@@ -857,27 +857,48 @@ class SEOgen_Plugin {
 	 * @return array
 	 */
 	public function resolve_service_page_request( $query_vars ) {
-		if ( ! isset( $query_vars['service_page'] ) || empty( $query_vars['service_page'] ) ) {
+		// Case 1: service_page query var is set (from our rewrite rule)
+		if ( isset( $query_vars['service_page'] ) && ! empty( $query_vars['service_page'] ) ) {
+			$slug = $query_vars['service_page'];
+
+			// If a published WP page exists with this slug, always defer to it
+			$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
+			if ( $existing_page && 'publish' === $existing_page->post_status ) {
+				unset( $query_vars['service_page'] );
+				$query_vars['pagename'] = $slug;
+				return $query_vars;
+			}
+
+			// Only accept published service_page posts
+			$post = get_page_by_path( $slug, OBJECT, 'service_page' );
+			if ( ! $post || 'publish' !== $post->post_status ) {
+				unset( $query_vars['service_page'] );
+				$query_vars['pagename'] = $slug;
+				return $query_vars;
+			}
+
 			return $query_vars;
 		}
 
-		$slug = $query_vars['service_page'];
+		// Case 2: pagename is set (WP's default catch-all matched first).
+		// Check if slug matches a published service_page — if so, rewrite to it.
+		if ( isset( $query_vars['pagename'] ) && ! empty( $query_vars['pagename'] ) ) {
+			$slug = $query_vars['pagename'];
 
-		// If a published WP page exists with this slug, always defer to it
-		$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
-		if ( $existing_page && 'publish' === $existing_page->post_status ) {
-			unset( $query_vars['service_page'] );
-			$query_vars['pagename'] = $slug;
-			return $query_vars;
-		}
+			// Only intervene if no real WP page exists with this slug
+			$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
+			if ( $existing_page && in_array( $existing_page->post_status, array( 'publish', 'draft', 'private' ), true ) ) {
+				return $query_vars;
+			}
 
-		// Only accept published service_page posts
-		$post = get_page_by_path( $slug, OBJECT, 'service_page' );
-		if ( ! $post || 'publish' !== $post->post_status ) {
-			unset( $query_vars['service_page'] );
-			// Restore pagename so WP can try normal page/post routing
-			$query_vars['pagename'] = $slug;
-			return $query_vars;
+			// Check for a published service_page with this slug
+			$post = get_page_by_path( $slug, OBJECT, 'service_page' );
+			if ( $post && 'publish' === $post->post_status ) {
+				unset( $query_vars['pagename'] );
+				$query_vars['service_page'] = $slug;
+				$query_vars['post_type']    = 'service_page';
+				return $query_vars;
+			}
 		}
 
 		return $query_vars;
