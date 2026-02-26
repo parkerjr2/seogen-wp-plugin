@@ -827,19 +827,14 @@ class SEOgen_Plugin {
 
 		register_post_type( 'service_page', $args );
 
-		// Add root-level rewrite rule at TOP priority so it matches before WP's
-		// default name/pagename rules. The request filter below validates every
-		// match: if the slug belongs to an existing WP page or post it falls back
-		// to normal routing; only published service_page posts are kept.
-		add_rewrite_rule(
-			'(.+?)(/[0-9]+)?/?$',
-			'index.php?service_page=$matches[1]&page=$matches[2]',
-			'top'
-		);
+		// Catch URLs that would otherwise 404 and check if they match a
+		// published service_page. This fires ONLY when WP is about to show
+		// a 404, so it never interferes with existing pages, posts, or CPTs.
+		add_filter( 'pre_handle_404', array( $this, 'maybe_resolve_service_page_404' ), 10, 2 );
 
-		// Validate every service_page match — defer to existing WP content,
-		// only keep published service_page posts, otherwise fall back to pagename.
-		add_filter( 'request', array( $this, 'resolve_service_page_request' ) );
+		// Use page.php template for service_page posts (not single.php which
+		// renders as a blog post in most themes).
+		add_filter( 'single_template', array( $this, 'service_page_use_page_template' ) );
 
 		// Ensure Yoast SEO includes this post type in sitemaps
 		add_filter( 'wpseo_sitemap_exclude_post_type', function( $excluded, $post_type ) {
@@ -851,51 +846,78 @@ class SEOgen_Plugin {
 	}
 
 	/**
-	 * Resolve service_page request — verify the matched slug is an actual service_page.
-	 * If not, remove the query var so WordPress falls through to normal routing.
+	 * Intercept 404s and check if the URL matches a published service_page.
 	 *
-	 * @param array $query_vars
-	 * @return array
+	 * This fires via the pre_handle_404 filter, which only runs when WordPress
+	 * is about to render a 404. Existing pages, posts, and other CPTs are
+	 * already resolved by the time this fires, so we cannot break them.
+	 *
+	 * @param bool     $preempt Whether to short-circuit the 404 handling.
+	 * @param WP_Query $query   The main WP_Query instance.
+	 * @return bool
 	 */
-	public function resolve_service_page_request( $query_vars ) {
-		if ( ! isset( $query_vars['service_page'] ) || empty( $query_vars['service_page'] ) ) {
-			return $query_vars;
+	public function maybe_resolve_service_page_404( $preempt, $query ) {
+		// Already handled by something else.
+		if ( $preempt ) {
+			return $preempt;
 		}
 
-		$slug = $query_vars['service_page'];
-
-		// If a published WP page exists with this slug, always defer to it
-		$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
-		if ( $existing_page && 'publish' === $existing_page->post_status ) {
-			unset( $query_vars['service_page'] );
-			$query_vars['pagename'] = $slug;
-			return $query_vars;
+		// Only act on the main query for the front-end.
+		if ( is_admin() || ! $query->is_main_query() ) {
+			return $preempt;
 		}
 
-		// If a regular post exists with this slug, defer to it
-		if ( ! str_contains( $slug, '/' ) ) {
-			global $wpdb;
-			$existing_post = $wpdb->get_var( $wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'post' AND post_status = 'publish' LIMIT 1",
-				sanitize_title_for_query( $slug )
-			) );
-			if ( $existing_post ) {
-				unset( $query_vars['service_page'] );
-				$query_vars['name'] = $slug;
-				return $query_vars;
-			}
+		// Build the slug from the request URI.
+		$request_path = trim( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ), '/' );
+		$home_path    = trim( parse_url( home_url(), PHP_URL_PATH ), '/' );
+		if ( $home_path && 0 === strpos( $request_path, $home_path . '/' ) ) {
+			$request_path = substr( $request_path, strlen( $home_path ) + 1 );
+		}
+		// Don't sanitize the full path — get_page_by_path() handles
+		// hierarchical slugs by splitting on '/'.
+		$slug = trim( $request_path, '/' );
+		if ( empty( $slug ) ) {
+			return $preempt;
 		}
 
-		// Only accept published service_page posts
+		// Check if a published service_page exists with this slug path.
 		$post = get_page_by_path( $slug, OBJECT, 'service_page' );
 		if ( ! $post || 'publish' !== $post->post_status ) {
-			unset( $query_vars['service_page'] );
-			// Restore pagename so WP can try normal page/post routing
-			$query_vars['pagename'] = $slug;
-			return $query_vars;
+			return $preempt; // Not a service_page — let WP show the 404.
 		}
 
-		return $query_vars;
+		// Re-run the main query targeting this specific service_page.
+		$query->query( array(
+			'post_type' => 'service_page',
+			'p'         => $post->ID,
+		) );
+		$query->is_404  = false;
+		$query->is_page = false;
+		$query->is_singular = true;
+
+		// Set global $post so the template renders correctly.
+		global $wp_query;
+		$wp_query = $query;
+
+		status_header( 200 );
+		return true; // Short-circuit — do not show 404.
+	}
+
+	/**
+	 * Use page.php template for service_page posts so they render as full
+	 * pages rather than blog posts (which is what single.php does).
+	 *
+	 * @param string $template The resolved template path.
+	 * @return string
+	 */
+	public function service_page_use_page_template( $template ) {
+		if ( 'service_page' === get_post_type() ) {
+			$page_template = locate_template( 'page.php' );
+			if ( $page_template ) {
+				return $page_template;
+			}
+		}
+		return $template;
 	}
 
 	/**
