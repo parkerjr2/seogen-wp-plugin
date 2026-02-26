@@ -847,6 +847,19 @@ class SEOgen_Plugin {
 			}
 			return $excluded;
 		}, 10, 2 );
+
+		// Render service_page posts using the theme's page.php template
+		// so they display as full pages instead of blog-style excerpts.
+		add_filter( 'single_template', function( $template ) {
+			global $post;
+			if ( $post && 'service_page' === $post->post_type ) {
+				$page_template = locate_template( 'page.php' );
+				if ( $page_template ) {
+					return $page_template;
+				}
+			}
+			return $template;
+		} );
 	}
 
 	/**
