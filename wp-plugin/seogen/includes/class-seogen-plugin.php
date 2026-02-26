@@ -880,21 +880,42 @@ class SEOgen_Plugin {
 			return $query_vars;
 		}
 
-		// Case 2: pagename is set (WP's default catch-all matched first).
-		// Check if slug matches a published service_page — if so, rewrite to it.
-		if ( isset( $query_vars['pagename'] ) && ! empty( $query_vars['pagename'] ) ) {
-			$slug = $query_vars['pagename'];
+		// Case 2: WP's default rewrite rules matched first — the slug lands in
+		// 'name' (single-segment, post name rule) or 'pagename' (multi-segment,
+		// page catch-all). Check both for a published service_page.
+		$slug     = '';
+		$slug_key = '';
 
-			// Only intervene if no real WP page exists with this slug
+		if ( isset( $query_vars['pagename'] ) && ! empty( $query_vars['pagename'] ) ) {
+			$slug     = $query_vars['pagename'];
+			$slug_key = 'pagename';
+		} elseif ( isset( $query_vars['name'] ) && ! empty( $query_vars['name'] ) ) {
+			$slug     = $query_vars['name'];
+			$slug_key = 'name';
+		}
+
+		if ( $slug && $slug_key ) {
+			// Don't intervene if a real WP page or post exists with this slug
 			$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
 			if ( $existing_page && in_array( $existing_page->post_status, array( 'publish', 'draft', 'private' ), true ) ) {
 				return $query_vars;
+			}
+			if ( 'name' === $slug_key ) {
+				// Also check for a regular post with this slug
+				global $wpdb;
+				$existing_post = $wpdb->get_var( $wpdb->prepare(
+					"SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'post' AND post_status IN ('publish','draft','private') LIMIT 1",
+					sanitize_title_for_query( $slug )
+				) );
+				if ( $existing_post ) {
+					return $query_vars;
+				}
 			}
 
 			// Check for a published service_page with this slug
 			$post = get_page_by_path( $slug, OBJECT, 'service_page' );
 			if ( $post && 'publish' === $post->post_status ) {
-				unset( $query_vars['pagename'] );
+				unset( $query_vars[ $slug_key ] );
 				$query_vars['service_page'] = $slug;
 				$query_vars['post_type']    = 'service_page';
 				return $query_vars;
