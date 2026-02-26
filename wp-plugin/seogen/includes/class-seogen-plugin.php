@@ -827,17 +827,18 @@ class SEOgen_Plugin {
 
 		register_post_type( 'service_page', $args );
 
-		// Add root-level rewrite rules at BOTTOM priority so existing posts/pages
-		// always take precedence. Only unmatched URLs fall through to these rules.
-		// Hierarchical: matches parent/child/grandchild paths.
+		// Add root-level rewrite rule at TOP priority so it matches before WP's
+		// default name/pagename rules. The request filter below validates every
+		// match: if the slug belongs to an existing WP page or post it falls back
+		// to normal routing; only published service_page posts are kept.
 		add_rewrite_rule(
 			'(.+?)(/[0-9]+)?/?$',
 			'index.php?service_page=$matches[1]&page=$matches[2]',
-			'bottom'
+			'top'
 		);
 
-		// Verify matched slugs belong to actual service_page posts — if not,
-		// clear the query var so WordPress continues normal routing (404 or page).
+		// Validate every service_page match — defer to existing WP content,
+		// only keep published service_page posts, otherwise fall back to pagename.
 		add_filter( 'request', array( $this, 'resolve_service_page_request' ) );
 
 		// Ensure Yoast SEO includes this post type in sitemaps
@@ -847,19 +848,6 @@ class SEOgen_Plugin {
 			}
 			return $excluded;
 		}, 10, 2 );
-
-		// Render service_page posts using the theme's page.php template
-		// so they display as full pages instead of blog-style excerpts.
-		add_filter( 'single_template', function( $template ) {
-			global $post;
-			if ( $post && 'service_page' === $post->post_type ) {
-				$page_template = locate_template( 'page.php' );
-				if ( $page_template ) {
-					return $page_template;
-				}
-			}
-			return $template;
-		} );
 	}
 
 	/**
@@ -870,69 +858,41 @@ class SEOgen_Plugin {
 	 * @return array
 	 */
 	public function resolve_service_page_request( $query_vars ) {
-		// Case 1: service_page query var is set (from our rewrite rule)
-		if ( isset( $query_vars['service_page'] ) && ! empty( $query_vars['service_page'] ) ) {
-			$slug = $query_vars['service_page'];
-
-			// If a published WP page exists with this slug, always defer to it
-			$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
-			if ( $existing_page && 'publish' === $existing_page->post_status ) {
-				unset( $query_vars['service_page'] );
-				$query_vars['pagename'] = $slug;
-				return $query_vars;
-			}
-
-			// Only accept published service_page posts
-			$post = get_page_by_path( $slug, OBJECT, 'service_page' );
-			if ( ! $post || 'publish' !== $post->post_status ) {
-				unset( $query_vars['service_page'] );
-				$query_vars['pagename'] = $slug;
-				return $query_vars;
-			}
-
+		if ( ! isset( $query_vars['service_page'] ) || empty( $query_vars['service_page'] ) ) {
 			return $query_vars;
 		}
 
-		// Case 2: WP's default rewrite rules matched first — the slug lands in
-		// 'name' (single-segment, post name rule) or 'pagename' (multi-segment,
-		// page catch-all). Check both for a published service_page.
-		$slug     = '';
-		$slug_key = '';
+		$slug = $query_vars['service_page'];
 
-		if ( isset( $query_vars['pagename'] ) && ! empty( $query_vars['pagename'] ) ) {
-			$slug     = $query_vars['pagename'];
-			$slug_key = 'pagename';
-		} elseif ( isset( $query_vars['name'] ) && ! empty( $query_vars['name'] ) ) {
-			$slug     = $query_vars['name'];
-			$slug_key = 'name';
+		// If a published WP page exists with this slug, always defer to it
+		$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
+		if ( $existing_page && 'publish' === $existing_page->post_status ) {
+			unset( $query_vars['service_page'] );
+			$query_vars['pagename'] = $slug;
+			return $query_vars;
 		}
 
-		if ( $slug && $slug_key ) {
-			// Don't intervene if a real WP page or post exists with this slug
-			$existing_page = get_page_by_path( $slug, OBJECT, 'page' );
-			if ( $existing_page && in_array( $existing_page->post_status, array( 'publish', 'draft', 'private' ), true ) ) {
+		// If a regular post exists with this slug, defer to it
+		if ( ! str_contains( $slug, '/' ) ) {
+			global $wpdb;
+			$existing_post = $wpdb->get_var( $wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'post' AND post_status = 'publish' LIMIT 1",
+				sanitize_title_for_query( $slug )
+			) );
+			if ( $existing_post ) {
+				unset( $query_vars['service_page'] );
+				$query_vars['name'] = $slug;
 				return $query_vars;
 			}
-			if ( 'name' === $slug_key ) {
-				// Also check for a regular post with this slug
-				global $wpdb;
-				$existing_post = $wpdb->get_var( $wpdb->prepare(
-					"SELECT ID FROM {$wpdb->posts} WHERE post_name = %s AND post_type = 'post' AND post_status IN ('publish','draft','private') LIMIT 1",
-					sanitize_title_for_query( $slug )
-				) );
-				if ( $existing_post ) {
-					return $query_vars;
-				}
-			}
+		}
 
-			// Check for a published service_page with this slug
-			$post = get_page_by_path( $slug, OBJECT, 'service_page' );
-			if ( $post && 'publish' === $post->post_status ) {
-				unset( $query_vars[ $slug_key ] );
-				$query_vars['service_page'] = $slug;
-				$query_vars['post_type']    = 'service_page';
-				return $query_vars;
-			}
+		// Only accept published service_page posts
+		$post = get_page_by_path( $slug, OBJECT, 'service_page' );
+		if ( ! $post || 'publish' !== $post->post_status ) {
+			unset( $query_vars['service_page'] );
+			// Restore pagename so WP can try normal page/post routing
+			$query_vars['pagename'] = $slug;
+			return $query_vars;
 		}
 
 		return $query_vars;
